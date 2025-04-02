@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { APP_NAME } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, UserIcon, NotebookPen } from "lucide-react";
+import { ShoppingCart, UserIcon } from "lucide-react";
 import ModeToggle from "./mode-toggle";
 // import Menu from './menu';
 // import CategoryDrawer from './category-drawer';
