@@ -4,7 +4,7 @@ import { CartItem } from "@/types";
 import { Button } from "@/components/ui/button";
 import { addItemToCat } from "@/lib/actions/cart.actions";
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
+// import { ToastAction } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Description } from "@radix-ui/react-toast";
@@ -28,7 +28,7 @@ const AddToCart = ({ item }: { item: CartItem }) => {
     //Handle success add to cart
     toast({
       title: "Success",
-      description: `${item.name} added to cart`,
+      description: res.message,
       action: (
         <Description className=" text-green-900 hover:text-green-700">
           View Cart
