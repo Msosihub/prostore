@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { APP_NAME } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
-import { ShoppingCart, UserIcon } from "lucide-react";
-import ModeToggle from "./mode-toggle";
-// import Menu from './menu';
+// import { Button } from "@/components/ui/button";
+// import { ShoppingCart, UserIcon } from "lucide-react";
+// import ModeToggle from "./mode-toggle";
+import Menu from "./menu";
 // import CategoryDrawer from './category-drawer';
 // import Search from './search';
 
@@ -27,25 +27,11 @@ const Header = () => {
             </span>
           </Link>
         </div>
-        <div className="space-x-2">
-          <ModeToggle />
-          <Button asChild variant="ghost">
-            <Link href="/cart">
-              <ShoppingCart /> Cart
-            </Link>
-          </Button>
 
-          <Button asChild>
-            <Link href="/sign-in">
-              <UserIcon /> Sign In
-            </Link>
-          </Button>
-        </div>
-
-        {/* <div className='hidden md:block'> */}
-        {/* <Search /> */}
-        {/* </div> */}
-        {/* <Menu /> */}
+        {/* <div className="hidden md:block">
+          <Search />
+        </div> */}
+        <Menu />
       </div>
     </header>
   );
