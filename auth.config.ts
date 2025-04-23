@@ -6,27 +6,41 @@ export const authConfig = {
   providers: [], // Required by NextAuthConfig type
   callbacks: {
     authorized({ request, auth }: any) {
-      //check for the sessionCartId in the cookies
-      const sessionCartId = request.cookies.get("sessionCartId")?.value;
-      if (!sessionCartId) {
-        // If the sessionCartId is not found, set it to a new value
-        const newSessionCartId = crypto.randomUUID();
+      // Array of regex patterns of paths we want to protect
+      const protectedPaths = [
+        /\/shipping-address/,
+        /\/payment-method/,
+        /\/place-order/,
+        /\/profile/,
+        /\/user\/(.*)/,
+        /\/order\/(.*)/,
+        /\/admin/,
+      ];
 
-        //put the sessionCartId in the cookies header
-        //1: Clone Headers
-        const newRequestHeaders = new Headers(request.headers);
-        //2: Create a new response and add new Header
+      // Get pathname from the req URL object
+      const { pathname } = request.nextUrl;
+      // Check if user is not authenticated and accessing a protected path
+      if (!auth && protectedPaths.some((p) => p.test(pathname))) return false;
+
+      // Check for session cart cookie
+      if (!request.cookies.get("sessionCartId")) {
+        // Generate new session cart id cookie
+        const sessionCartId = crypto.randomUUID();
+
+        // Create new response and add the new headers
         const response = NextResponse.next({
           request: {
-            headers: newRequestHeaders,
+            headers: new Headers(request.headers),
           },
         });
-        //3: set new generated sessionCartId to the cookies
-        response.cookies.set("sessionCartId", newSessionCartId);
+
+        // Set newly generated sessionCartId in the response cookies
+        response.cookies.set("sessionCartId", sessionCartId);
+
         return response;
-      } else {
-        return true;
       }
+
+      return true;
     },
   },
 } satisfies NextAuthConfig;

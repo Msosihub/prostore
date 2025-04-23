@@ -2,7 +2,7 @@
 
 import { Cart, CartItem } from "@/types";
 import { Button } from "@/components/ui/button";
-import { addItemToCat, removeItemFromCart } from "@/lib/actions/cart.actions";
+import { addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
 import { useToast } from "@/hooks/use-toast";
 // import { ToastAction } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
@@ -17,7 +17,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
 
   const handleAddToCart = async () => {
     startTransition(async () => {
-      const res = await addItemToCat(item);
+      const res = await addItemToCart(item);
       //Check if the item is already in the cart
 
       if (!res.success) {
