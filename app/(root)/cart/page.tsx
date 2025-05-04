@@ -6,17 +6,21 @@ export const metadata = {
 };
 
 const CartPage = async () => {
-  const cart = await getMyCart();
+  const cartData = await getMyCart();
 
-  const cartData = {
-    ...cart,
-    itemsPrice: cart?.itemsPrice.toString(),
-  };
+  const safeCartData = cartData
+    ? {
+        ...cartData,
+        itemsPrice: cartData.itemsPrice.toString(),
+        totalPrice: cartData.totalPrice.toString(),
+        shippingPrice: cartData.shippingPrice.toString(),
+        taxPrice: cartData.taxPrice.toString(),
+      }
+    : undefined;
 
   return (
     <>
-      {/* @ts-ignore */}
-      <CartTable cart={cartData} />
+      <CartTable cart={safeCartData} />
     </>
   );
 };
