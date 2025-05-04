@@ -22,7 +22,17 @@ const ProductDetailsPage = async (props: {
   const session = await auth();
   const userId = session?.user?.id;
 
-  const cart = await getMyCart();
+  const cartData = await getMyCart();
+
+  const safeCartData = cartData
+    ? {
+        ...cartData,
+        itemsPrice: cartData.itemsPrice.toString(),
+        totalPrice: cartData.totalPrice.toString(),
+        shippingPrice: cartData.shippingPrice.toString(),
+        taxPrice: cartData.taxPrice.toString(),
+      }
+    : undefined;
 
   return (
     <>
@@ -75,7 +85,7 @@ const ProductDetailsPage = async (props: {
                 {product.stock > 0 && (
                   <div className="flex-center">
                     <AddToCart
-                      cart={cart}
+                      cart={safeCartData}
                       item={{
                         productId: product.id,
                         name: product.name,
