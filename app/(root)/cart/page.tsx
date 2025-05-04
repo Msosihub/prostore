@@ -8,9 +8,15 @@ export const metadata = {
 const CartPage = async () => {
   const cart = await getMyCart();
 
+  const cartData = {
+    ...cart,
+    itemsPrice: cart?.itemsPrice.toString(),
+  };
+
   return (
     <>
-      <CartTable cart={cart} />
+      {/* @ts-ignore */}
+      <CartTable cart={cartData} />
     </>
   );
 };
