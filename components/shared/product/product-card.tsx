@@ -16,14 +16,15 @@ const ProductCard = ({ product }: { product: Product }) => {
               alt={product.name}
               height={300}
               width={300}
+              className="w-full object-cover"
               priority={true}
             />
           </Link>
         </CardHeader>
-        <CardContent className="p-4 grid gap-4">
+        <CardContent className="p-4 grid gap-4 overflow-hidden break-words">
           <div className="text-xs">{product.brand}</div>
           <Link href={`/product/${product.slug}`}>
-            <h2 className="text-sm font-medium">{product.name}</h2>
+            <h2 className="text-sm font-medium line-clamp-2">{product.name}</h2>
           </Link>
           <div className="flex-between gap-4">
             <Rating value={Number(product.rating)} />
