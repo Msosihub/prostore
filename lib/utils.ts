@@ -109,3 +109,21 @@ export const formatDateTime = (dateString: Date) => {
     timeOnly: formattedTime,
   };
 };
+
+// lib/errors.ts
+export function isRedirectError(
+  error: unknown
+): error is Error & { digest: string } {
+  return (
+    error instanceof Error &&
+    typeof (error as unknown as { digest?: unknown }).digest === "string" &&
+    (error as unknown as { digest: string }).digest === "NEXT_REDIRECT"
+  );
+}
+
+// Shorten UUID
+export function formatId(id: string) {
+  return `..${id.substring(id.length - 6)}`;
+}
+
+// Format date and times

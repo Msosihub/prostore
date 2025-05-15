@@ -1,10 +1,8 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
 import { useTransition } from "react";
-import { addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
-import { ArrowRight, Loader, Minus, Plus } from "lucide-react";
-import { Cart, CartItem } from "@/types";
+import { ArrowRight, Loader } from "lucide-react";
+import { Cart } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -18,69 +16,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+import { AddButton, RemoveButton } from "@/components/shared/cart/cart-buttons";
 
 // NOTE: The code here has changed from the original course code so that the
 // Buttons no longer share the same state and show the loader independently from
 // other items in the cart
-function AddButton({ item }: { item: CartItem }) {
-  const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
-  return (
-    <Button
-      disabled={isPending}
-      variant="outline"
-      type="button"
-      onClick={() =>
-        startTransition(async () => {
-          const res = await addItemToCart(item);
-
-          if (!res.success) {
-            toast({
-              variant: "destructive",
-              description: res.message,
-            });
-          }
-        })
-      }
-    >
-      {isPending ? (
-        <Loader className="w-4 h-4 animate-spin" />
-      ) : (
-        <Plus className="w-4 h-4" />
-      )}
-    </Button>
-  );
-}
-
-function RemoveButton({ item }: { item: CartItem }) {
-  const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
-  return (
-    <Button
-      disabled={isPending}
-      variant="outline"
-      type="button"
-      onClick={() =>
-        startTransition(async () => {
-          const res = await removeItemFromCart(item.productId);
-
-          if (!res.success) {
-            toast({
-              variant: "destructive",
-              description: res.message,
-            });
-          }
-        })
-      }
-    >
-      {isPending ? (
-        <Loader className="w-4 h-4 animate-spin" />
-      ) : (
-        <Minus className="w-4 h-4" />
-      )}
-    </Button>
-  );
-}
 
 const CartTable = ({ cart }: { cart?: Cart }) => {
   const router = useRouter();
