@@ -7,11 +7,11 @@ import { getUserById } from "./user.actions";
 import { insertOrderSchema } from "../validators";
 import { prisma } from "@/db/prisma";
 import { CartItem } from "@/types";
-// import { paypal } from "../paypal";
 import { revalidatePath } from "next/cache";
 import { PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
 import { paypal } from "../paypal";
+import { PaymentResult } from "@/types";
 // import { sendPurchaseReceipt } from "@/email";
 
 // Create order and create the order items
@@ -260,13 +260,13 @@ export async function updateOrderToPaid({
 
   if (!updatedOrder) throw new Error("Order not found");
 
-  sendPurchaseReceipt({
-    order: {
-      ...updatedOrder,
-      shippingAddress: updatedOrder.shippingAddress as ShippingAddress,
-      paymentResult: updatedOrder.paymentResult as PaymentResult,
-    },
-  });
+  // sendPurchaseReceipt({
+  //   order: {
+  //     ...updatedOrder,
+  //     shippingAddress: updatedOrder.shippingAddress as ShippingAddress,
+  //     paymentResult: updatedOrder.paymentResult as PaymentResult,
+  //   },
+  // });
 }
 
 // Get user's orders
@@ -400,17 +400,17 @@ export async function deleteOrder(id: string) {
 }
 
 // Update COD order to paid
-// export async function updateOrderToPaidCOD(orderId: string) {
-//   try {
-//     await updateOrderToPaid({ orderId });
+export async function updateOrderToPaidCOD(orderId: string) {
+  try {
+    await updateOrderToPaid({ orderId });
 
-//     revalidatePath(`/order/${orderId}`);
+    revalidatePath(`/order/${orderId}`);
 
-//     return { success: true, message: "Order marked as paid" };
-//   } catch (error) {
-//     return { success: false, message: formatError(error) };
-//   }
-// }
+    return { success: true, message: "Order marked as paid" };
+  } catch (error) {
+    return { success: false, message: formatError(error) };
+  }
+}
 
 // Update COD order to delivered
 export async function deliverOrder(orderId: string) {
