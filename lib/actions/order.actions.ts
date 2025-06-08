@@ -399,7 +399,7 @@ export async function deleteOrder(id: string) {
   }
 }
 
-// Update COD order to paid
+// Update COD order to paid - CashOnDeliver
 export async function updateOrderToPaidCOD(orderId: string) {
   try {
     await updateOrderToPaid({ orderId });
