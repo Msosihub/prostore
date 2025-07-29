@@ -12,6 +12,7 @@ import { PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
 import { paypal } from "../paypal";
 import { PaymentResult } from "@/types";
+import { ShippingAddress } from "@/types";
 import { sendPurchaseReceipt } from "@/email";
 
 // Create order and create the order items
