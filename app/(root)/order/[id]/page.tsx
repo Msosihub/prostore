@@ -12,12 +12,8 @@ export const metadata: Metadata = {
   title: "Order Details",
 };
 
-const OrderDetailsPage = async (props: {
-  params: Promise<{
-    id: string;
-  }>;
-}) => {
-  const { id } = await props.params;
+const OrderDetailsPage = async ({ params }: { params: { id: string } }) => {
+  const { id } = params;
 
   const order = await getOrderById(id);
   if (!order) notFound();
