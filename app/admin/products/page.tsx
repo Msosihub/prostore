@@ -31,6 +31,7 @@ const AdminProductsPage = async (props: {
 
   const products = await getAllProducts({
     query: searchText,
+    limit: 10,
     page,
     category,
   });

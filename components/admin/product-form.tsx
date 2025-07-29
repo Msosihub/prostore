@@ -38,11 +38,12 @@ const ProductForm = ({
   const router = useRouter();
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof insertProductSchema>>({
-    resolver:
-      type === "Update"
-        ? zodResolver(updateProductSchema)
-        : zodResolver(insertProductSchema),
+  const form = useForm<
+    z.infer<typeof insertProductSchema> | z.infer<typeof updateProductSchema>
+  >({
+    resolver: zodResolver(
+      type === "Update" ? updateProductSchema : insertProductSchema
+    ),
     defaultValues:
       product && type === "Update" ? product : productDefaultValues,
   });
