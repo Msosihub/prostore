@@ -55,7 +55,7 @@ PurchaseReceiptEmail.PreviewProps = {
       id: "123",
       status: "succeeded",
       pricePaid: "100",
-      email_address: "test@test.com",
+      email_address: "regmrema@gmail.com",
     },
   },
 } satisfies OrderInformationProps;
