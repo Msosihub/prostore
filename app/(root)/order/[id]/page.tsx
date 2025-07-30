@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   title: "Order Details",
 };
 
+// @ts-expect error: The params are a Promise, so we need to await it to get the actual id
+//The params are a Promise, so we need to await it to get the actual id
 const OrderDetailsPage = async (props: {
   params: Promise<{
     id: string;
