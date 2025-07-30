@@ -65,7 +65,7 @@
     "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.21",
     "bufferutil": "^4.0.9",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.6.1",
     "eslint": "^9",
     "eslint-config-next": "15.2.2",
     "jest": "^29.7.0",
