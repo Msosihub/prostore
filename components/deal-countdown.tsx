@@ -62,30 +62,32 @@ const DealCountdown = () => {
     time.minutes === 0 &&
     time.seconds === 0
   ) {
-    return (
-      <section className="grid grid-cols-1 md:grid-cols-2 my-20">
-        <div className="flex flex-col gap-2 justify-center">
-          <h3 className="text-3xl font-bold">Deal Has Ended</h3>
-          <p>
-            This deal is no longer available. Check out our latest promotions!
-          </p>
+    return;
+    // return
+    //(
+    //   <section className="grid grid-cols-1 md:grid-cols-2 my-20">
+    //     <div className="flex flex-col gap-2 justify-center">
+    //       <h3 className="text-3xl font-bold">Deal Has Ended</h3>
+    //       <p>
+    //         This deal is no longer available. Check out our latest promotions!
+    //       </p>
 
-          <div className="text-center">
-            <Button asChild>
-              <Link href="/search">View Products</Link>
-            </Button>
-          </div>
-        </div>
-        <div className="flex justify-center">
-          <Image
-            src="/images/promo.jpg"
-            alt="promotion"
-            width={300}
-            height={200}
-          />
-        </div>
-      </section>
-    );
+    //       <div className="text-center">
+    //         <Button asChild>
+    //           <Link href="/search">View Products</Link>
+    //         </Button>
+    //       </div>
+    //     </div>
+    //     <div className="flex justify-center">
+    //       <Image
+    //         src="/images/promo.jpg"
+    //         alt="promotion"
+    //         width={300}
+    //         height={200}
+    //       />
+    //     </div>
+    //   </section>
+    // );
   }
 
   return (

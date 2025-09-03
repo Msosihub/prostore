@@ -1,23 +1,39 @@
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
+import { Decimal } from "@prisma/client/runtime/library";
+
+type ProductPriceProps = {
+  value: Decimal | number;
+  original?: Decimal | number; // Optional: strike-through anchor price
+  label?: string; // Optional: e.g. "5+ pcs"
+  className?: string; // Optional: for layout control
+};
 
 const ProductPrice = ({
   value,
+  original,
+  label,
   className,
-}: {
-  value: number;
-  className?: string;
-}) => {
-  // Ensure two decimal places
-  const stringValue = value.toFixed(2);
-  // Get the int/float
-  const [intValue, floatValue] = stringValue.split('.');
+}: ProductPriceProps) => {
+  const format = (val: Decimal | number) =>
+    `TSh ${val.toLocaleString("en-TZ", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
 
   return (
-    <p className={cn('text-2xl', className)}>
-      <span className='text-xs align-super'>$</span>
-      {intValue}
-      <span className='text-xs align-super'>.{floatValue}</span>
-    </p>
+    <div className={cn("flex flex-wrap items-center gap-1", className)}>
+      {original && (
+        <span className="text-xs sm:text-sm md:text-base line-through text-gray-400">
+          {format(original)}
+        </span>
+      )}
+      <span className="text-sm sm:text-base md:text-lg font-semibold text-green-700">
+        {format(value)}
+      </span>
+      {label && (
+        <span className="text-xs text-muted-foreground">({label})</span>
+      )}
+    </div>
   );
 };
 

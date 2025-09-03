@@ -86,23 +86,28 @@ export async function createUpdateReview(
 
 // Get all reviews for a product
 export async function getReviews({ productId }: { productId: string }) {
-  const data = await prisma.review.findMany({
-    where: {
-      productId: productId,
-    },
-    include: {
-      user: {
-        select: {
-          name: true,
+  try {
+    const data = await prisma.review.findMany({
+      where: {
+        productId: productId,
+      },
+      include: {
+        user: {
+          select: {
+            name: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-  return { data };
+    return { data };
+  } catch (error) {
+    console.log("Error fetching Reviews", error);
+    return null;
+  }
 }
 
 // Get a review written by the current user

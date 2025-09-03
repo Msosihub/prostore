@@ -24,6 +24,7 @@ const ProfileForm = () => {
     defaultValues: {
       name: session?.user?.name ?? "",
       email: session?.user?.email ?? "",
+      phone: session?.user?.phone ?? "",
     },
   });
 
@@ -44,6 +45,7 @@ const ProfileForm = () => {
       user: {
         ...session?.user,
         name: values.name,
+        phone: values.phone,
       },
     };
 
@@ -70,6 +72,23 @@ const ProfileForm = () => {
                   <Input
                     disabled
                     placeholder="Email"
+                    className="input-field"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem className="w-full">
+                <FormControl>
+                  <Input
+                    disabled
+                    placeholder="Number ya simu"
                     className="input-field"
                     {...field}
                   />

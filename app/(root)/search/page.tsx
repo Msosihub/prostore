@@ -1,9 +1,10 @@
+import Pagination from "@/components/shared/pagination4";
+import CategoryFilter from "@/components/shared/product/category-filter";
 import ProductCard from "@/components/shared/product/product-card";
+import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import { Button } from "@/components/ui/button";
 import { getAllProducts } from "@/lib/actions/product.actions";
 import Link from "next/link";
-import CartTable from "../cart/cart-table";
-import { getMyCart } from "@/lib/actions/cart.actions";
 
 const sortOrders = ["newest", "lowest", "highest", "rating"];
 
@@ -30,11 +31,10 @@ export async function generateMetadata(props: {
 
   if (isQuerySet || isCategorySet || isPriceSet || isRatingSet) {
     return {
-      title: `
-      Search ${isQuerySet ? q : ""} 
-      ${isCategorySet ? `: Category ${category}` : ""}
-      ${isPriceSet ? `: Price ${price}` : ""}
-      ${isRatingSet ? `: Rating ${rating}` : ""}`,
+      title: `Search ${isQuerySet ? q : ""} 
+        ${isCategorySet ? `: Category ${category}` : ""}
+        ${isPriceSet ? `: Price ${price}` : ""}
+        ${isRatingSet ? `: Rating ${rating}` : ""}`,
     };
   } else {
     return {
@@ -62,7 +62,12 @@ const SearchPage = async (props: {
     page = "1",
   } = await props.searchParams;
 
-  // Construct filter url
+  if (page && isNaN(Number(page))) {
+    //page = "1";
+  }
+
+  // const locale: "en" | "sw" = "en"; // TODO: make dynamic later
+
   const getFilterUrl = ({
     c,
     p,
@@ -76,7 +81,7 @@ const SearchPage = async (props: {
     r?: string;
     pg?: string;
   }) => {
-    const params = { q, category, price, rating, sort, page };
+    const params = { q, category, price, rating, sort, page: "1" };
 
     if (c) params.category = c;
     if (p) params.price = p;
@@ -96,48 +101,34 @@ const SearchPage = async (props: {
     page: Number(page),
   });
 
-  ///const categories = await getAllCategories();
-
-  //for cart
-  const cartData = await getMyCart();
-  const safeCartData = cartData
-    ? {
-        ...cartData,
-        itemsPrice: cartData.itemsPrice.toString(),
-        totalPrice: cartData.totalPrice.toString(),
-        shippingPrice: cartData.shippingPrice.toString(),
-        taxPrice: cartData.taxPrice.toString(),
-      }
-    : undefined;
-
   return (
-    <div className="grid md:grid-cols-5 md:gap-5">
-      <div className="filter-links">
-        <CartTable cart={safeCartData} />
-      </div>
-      <div className=" md:col-span-4 space-y-4">
+    <div className="grid md:grid-cols-4 md:gap-5">
+      <div className="md:col-span-4 space-y-4">
+        <CategoryFilter />
         <div className="flex-between flex-col md:flex-row my-4">
-          <div className="flex items-center">
-            {q !== "all" && q !== "" && "Query: " + q}
-            {category !== "all" && category !== "" && "Category: " + category}
-            {price !== "all" && " Price: " + price}
-            {rating !== "all" && " Rating: " + rating + " stars & up"}
-            &nbsp;
+          <div className="flex items-center flex-wrap gap-2 text-sm">
+            {q !== "all" && q !== "" && <span>Query: {q}</span>}
+            {category !== "all" && category !== "" && (
+              <span>Category: {category}</span>
+            )}
+            {price !== "all" && <span>Price: {price}</span>}
+            {rating !== "all" && <span>Rating: {rating} stars & up</span>}
             {(q !== "all" && q !== "") ||
             (category !== "all" && category !== "") ||
             rating !== "all" ||
             price !== "all" ? (
-              <Button variant={"link"} asChild>
+              <Button variant="link" asChild>
                 <Link href="/search">Clear</Link>
               </Button>
             ) : null}
           </div>
-          <div>
+
+          <div className="text-sm">
             Sort by{" "}
             {sortOrders.map((s) => (
               <Link
                 key={s}
-                className={`mx-2 ${sort == s && "font-bold"}`}
+                className={`mx-2 ${sort === s ? "font-bold underline" : ""}`}
                 href={getFilterUrl({ s })}
               >
                 {s}
@@ -145,12 +136,41 @@ const SearchPage = async (props: {
             ))}
           </div>
         </div>
+
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {products.data.length === 0 && <div>No products found</div>}
-          {products.data.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {products.data.length === 0 ? (
+            <>
+              {[...Array(6)].map((_, i) => (
+                <SkeletonProduct key={i} />
+              ))}
+            </>
+          ) : (
+            products.data.map((product) => (
+              <ProductCard
+                key={product.id}
+                id={product.id}
+                slug={product.slug}
+                name={product.name}
+                brand={product.brand?.name ?? ""}
+                category={product.category?.name_en ?? ""}
+                subcategory={product.subcategory?.name_en ?? ""}
+                supplier={product.supplier?.companyName ?? ""}
+                images={product.images}
+                price={Number(product.price)}
+                stock={product.stock}
+                pricingTiers={product.pricingTiers}
+              />
+            ))
+          )}
         </div>
+        {/* <Pagination
+          currentPage={!page || isNaN(Number(page)) ? 1 : Number(page)}
+          totalPages={products.totalPages}
+        /> */}
+        <Pagination
+          currentPage={Number(page)}
+          totalPages={products.totalPages}
+        />
       </div>
     </div>
   );

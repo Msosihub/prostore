@@ -5,7 +5,7 @@ const ViewAllProductsButton = () => {
   return (
     <div className="flex justify-center items-center my-8">
       <Button asChild className="px-8 py-4 text-lg font-semibold">
-        <Link href="/search">View All Products</Link>
+        <Link href="/search">Tazama Bidhaa Zote</Link>
       </Button>
     </div>
   );

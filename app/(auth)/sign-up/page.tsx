@@ -1,3 +1,14 @@
+// "use client";
+// import SignUpForm from "@/components/auth/SignUpForm2";
+
+// export default function Page() {
+//   return (
+//     <div className="min-h-screen flex justify-center items-center bg-muted">
+//       <SignUpForm />
+//     </div>
+//   );
+// }
+
 import {
   Card,
   CardContent,
@@ -11,7 +22,8 @@ import Image from "next/image";
 import { APP_NAME } from "@/lib/constants";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import SignUpForm from "./sign-up-form";
+import SignUpForm from "@/components/auth/SignUpForm2";
+// import SignUpForm from "./sign-up-form";
 
 export const metadata: Metadata = {
   title: "Sign Up",
@@ -43,9 +55,9 @@ const SignUpPage = async (props: {
               priority={true}
             />
           </Link>
-          <CardTitle className="text-center">Create Account</CardTitle>
+          <CardTitle className="text-center">Tengeneza Akaunti</CardTitle>
           <CardDescription className="text-center">
-            Enter your information below to sign up
+            Ingiza taarifa zako hapa chini kujisajili
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

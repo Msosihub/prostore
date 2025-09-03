@@ -1,14 +1,17 @@
 "use client";
 
+//embeded in app/(root)/sign-in/page.tsx
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signInDefaultValues } from "@/lib/constants";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { signInWithCredentials } from "@/lib/actions/user.actions";
 import { useSearchParams } from "next/navigation";
+import { toast } from "@/hooks/use-toast";
+import router from "next/router";
 
 const CredentialsSignInForm = () => {
   const [data, action] = useActionState(signInWithCredentials, {
@@ -18,6 +21,23 @@ const CredentialsSignInForm = () => {
 
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const showToast = searchParams.get("showToastFlag") === "true";
+  console.log("Callback URL:", callbackUrl);
+  console.log("Show Toast:", showToast);
+  console.log("searchParams:", searchParams);
+
+  useEffect(() => {
+    if (data && data.success) {
+      router.push(callbackUrl);
+    }
+
+    if (showToast) {
+      toast({
+        title: "Jisajili 👍",
+        description: "Jisajili ili uwasiliane na muuzaji ✅",
+      });
+    }
+  }, [data, callbackUrl, showToast]);
 
   const SignInButton = () => {
     const { pending } = useFormStatus();

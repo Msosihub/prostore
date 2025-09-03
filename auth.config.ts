@@ -1,3 +1,5 @@
+//auth.config.ts
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { NextAuthConfig } from "next-auth";
 import { NextResponse } from "next/server";
@@ -15,6 +17,8 @@ export const authConfig = {
         /\/user\/(.*)/,
         /\/order\/(.*)/,
         /\/admin/,
+        /\/supplier/,
+        /\/buyer/,
       ];
 
       // Get pathname from the req URL object

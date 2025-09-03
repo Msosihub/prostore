@@ -119,30 +119,35 @@ export async function addItemToCart(data: CartItem) {
 }
 
 export async function getMyCart() {
-  const sessionCartId = (await cookies()).get("sessionCartId")?.value;
-  if (!sessionCartId) throw new Error("Cart item not found");
-  //get Session and user Id
-  const session = await auth();
-  const userId = session?.user?.id ? (session.user.id as string) : undefined;
+  try {
+    const sessionCartId = (await cookies()).get("sessionCartId")?.value;
+    if (!sessionCartId) throw new Error("Cart item not found");
+    //get Session and user Id
+    const session = await auth();
+    const userId = session?.user?.id ? (session.user.id as string) : undefined;
 
-  //get cart cookie
-  //pull the item from database
+    //get cart cookie
+    //pull the item from database
 
-  const cart = await prisma.cart.findFirst({
-    where: userId ? { userId: userId } : { sessionCartId: sessionCartId },
-  });
+    const cart = await prisma.cart.findFirst({
+      where: userId ? { userId: userId } : { sessionCartId: sessionCartId },
+    });
 
-  if (!cart) return undefined;
+    if (!cart) return undefined;
 
-  //convert to decimal
-  return convertToPlainObject({
-    ...cart,
-    items: cart.items as CartItem[],
-    itemsPrice: cart.itemsPrice,
-    totalPrice: cart.totalPrice,
-    shippingPrice: cart.shippingPrice,
-    taxPrice: cart.taxPrice,
-  });
+    //convert to decimal
+    return convertToPlainObject({
+      ...cart,
+      items: cart.items as CartItem[],
+      itemsPrice: cart.itemsPrice,
+      totalPrice: cart.totalPrice,
+      shippingPrice: cart.shippingPrice,
+      taxPrice: cart.taxPrice,
+    });
+  } catch (error) {
+    console.error("❌ DB error in getMyCart:", error);
+    return undefined; // fallback
+  }
 }
 
 export async function removeItemFromCart(productId: string) {

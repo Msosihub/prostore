@@ -1,81 +1,106 @@
 import { Badge } from "@/components/ui/badge";
+// import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getProductBySlug } from "@/lib/actions/product.actions";
 import { notFound } from "next/navigation";
-import ProductPrice from "@/components/shared/product/product-price";
+// import ProductPrice from "@/components/shared/product/product-price";
 import ProductImages from "@/components/shared/product/product-images";
 import AddToCart from "@/components/shared/product/add-to-cart";
 import { getMyCart } from "@/lib/actions/cart.actions";
 import ReviewList from "./review-list";
 import { auth } from "@/auth";
 import Rating from "@/components/shared/product/rating";
-// import Rating from "@/components/shared/product/rating";
+import RelatedProducts from "@/components/shared/product/related-products";
+import ProductDescription from "@/components/shared/product/product-description";
+import PricingTable from "@/components/shared/product/pricing-table";
+import SupplierProfileCard from "@/components/shared/supplier/supplier-profile-card";
+import ProductClientActions from "@/components/product-action";
+import NoInternet from "@/components/shared/general/no-internet";
+import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import SkeletonProduct from "@/components/shared/product/skeleton-product";
+import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-description";
 
-const ProductDetailsPage = async (props: {
-  params: Promise<{ slug: string }>;
+// Re-generate product pages every 60 seconds (fro ISR)
+export const revalidate = 60;
+
+const ProductDetailsPagez = async (props: {
+  params: Promise<{ id: string }>;
 }) => {
-  const { slug } = await props.params;
+  console.log("IN PAGE DETAILS PAGE");
+  const { id } = await props.params;
+  const product = await getProductBySlug(id);
 
-  const product = await getProductBySlug(slug);
-  if (!product) notFound();
+  const safeCartData = await getMyCart();
+
+  if (!product) return notFound(); //product Not Found
+  if (product === null) return <NoInternet />; // DB/server/network issue
 
   const session = await auth();
   const userId = session?.user?.id;
 
-  const cartData = await getMyCart();
-
-  const safeCartData = cartData
-    ? {
-        ...cartData,
-        itemsPrice: cartData.itemsPrice.toString(),
-        totalPrice: cartData.totalPrice.toString(),
-        shippingPrice: cartData.shippingPrice.toString(),
-        taxPrice: cartData.taxPrice.toString(),
-      }
-    : undefined;
-
   return (
     <>
-      <section>
-        <div className="grid grid-cols-1 md:grid-cols-5">
+      {/* Product Section */}
+      <section className="px-4 py-6 sm:px-6 lg:px-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-8 lg:gap-4">
           {/* Images Column */}
-          <div className="col-span-2">
+          <div className="lg:col-span-3">
             <ProductImages images={product.images} />
           </div>
+
           {/* Details Column */}
-          <div className="col-span-2 p-5">
-            <div className="flex flex-col gap-6">
-              <p>
-                {product.brand} {product.category}
+          <div className="lg:col-span-3 flex flex-col gap-6">
+            <div className="space-y-2">
+              <p className="text-sm text-gray-500 truncate">
+                {product.brand?.name ?? ""} · {product.category?.name_en ?? ""}
               </p>
-              <h1 className="h3-bold">{product.name}</h1>
-              {/* <p>{Number(product.rating)}</p> */}
-              <Rating value={Number(product.rating)} />
-              <p>{product.numReviews} reviews</p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <ProductPrice
-                  value={Number(product.price)}
-                  className="w-24 rounded-full bg-green-100 text-green-700 px-5 py-2"
-                />
+              <h1
+                className="text-2xl sm:text-3xl font-bold text-gray-800"
+                title={product.name}
+              >
+                {product.name}
+              </h1>
+              <div className="flex flex-row gap-2 items-center">
+                <Rating value={Number(product.rating)} />
+                <p className="text-sm text-zinc-600">
+                  {Number(product?.rating)}/5
+                </p>
+                <p className="text-sm text-gray-600">
+                  (maoni {product?.numReviews})
+                </p>
               </div>
             </div>
-            <div className="mt-10">
-              <p className="font-semibold">Description</p>
-              <p>{product.description}</p>
-            </div>
+
+            <PricingTable
+              tiers={product.pricingTiers}
+              fallbackPrice={product.price}
+            />
+
+            <ProductDescription description={product.description} />
+
+            {/* //Share & Save
+      <div className="flex gap-3 pt-4">
+        <Button variant="outline" size="sm" onClick={() => {}}>
+          Share
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => {}}>
+          Save
+        </Button>
+      </div>*/}
           </div>
+
           {/* Action Column */}
-          <div>
-            <Card>
-              <CardContent className="p-4">
-                <div className="mb-2 flex justify-between">
-                  <div>Price</div>
-                  <div>
-                    <ProductPrice value={Number(product.price)} />
-                  </div>
-                </div>
-                <div className="mb-2 flex justify-between">
-                  <div>Status</div>
+          <div className="w-full lg:col-span-2">
+            <Card className="shadow-md min-w-[180px]">
+              <CardContent className="p-2 space-y-4">
+                <PricingTable
+                  tiers={product.pricingTiers}
+                  fallbackPrice={product.price}
+                />
+
+                <div className="flex justify-between items-center text-sm text-gray-700">
+                  <span className="truncate">Status</span>
                   {product.stock > 0 ? (
                     <Badge variant="outline">In Stock</Badge>
                   ) : (
@@ -83,7 +108,7 @@ const ProductDetailsPage = async (props: {
                   )}
                 </div>
                 {product.stock > 0 && (
-                  <div className="flex-center">
+                  <div className="pt-2 space-y-2">
                     <AddToCart
                       cart={safeCartData}
                       item={{
@@ -95,6 +120,16 @@ const ProductDetailsPage = async (props: {
                         image: product.images![0],
                       }}
                     />
+                    {/* <Button
+                variant="default"
+                className="w-full"
+                // onClick={() => {
+                //   // TODO: configure direct checkout logic
+                //   console.log("Buy Now clicked");
+                // }}
+              >
+                Buy Now
+              </Button> */}
                   </div>
                 )}
               </CardContent>
@@ -102,16 +137,59 @@ const ProductDetailsPage = async (props: {
           </div>
         </div>
       </section>
-      <section className="mt-10">
-        <h2 className="h2-bold mb-5">Customer Reviews</h2>
-        <ReviewList
-          userId={userId || ""}
-          productId={product.id}
-          productSlug={product.slug}
-        />
+
+      {/* Reviews Section */}
+      <section className="px-4 py-6 sm:px-6 lg:px-12">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+          Customer Reviews
+        </h2>
+        <Suspense fallback={<Skeleton className="h-32 w-full" />}>
+          <ReviewList
+            userId={userId || ""}
+            productId={product.id}
+            productSlug={product.slug}
+          />
+        </Suspense>
       </section>
+
+      <SupplierProfileCard
+        supplier={{
+          ...product.supplier,
+          logo: product.supplier.logo ?? undefined,
+          rating: Number(product.supplier.rating),
+        }}
+      />
+
+      {/* Related Products */}
+      <section className="px-4 py-6 sm:px-6 lg:px-12">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+          Zaidi katika {product.category?.name_en ?? ""}
+        </h2>
+        <Suspense fallback={<SkeletonProduct />}>
+          <RelatedProducts
+            categoryId={product.categoryId}
+            excludeSlug={product.slug}
+          />
+        </Suspense>
+      </section>
+
+      <ProductClientActions
+        buyerId={session?.user?.id || ""}
+        supplierId={product?.supplierId || ""}
+        supplierUserId={product?.supplier?.userId || ""}
+        productId={product.id}
+        slug={product.id}
+      />
     </>
   );
 };
 
-export default ProductDetailsPage;
+export default function ProductDetailsPage(props: {
+  params: Promise<{ id: string }>;
+}) {
+  return (
+    <Suspense fallback={<ProductDescriptionSkeleton />}>
+      <ProductDetailsPagez {...props} />
+    </Suspense>
+  );
+}

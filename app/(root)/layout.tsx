@@ -1,3 +1,4 @@
+import BottomNav from "@/components/customComponents/bottom-nav-main";
 import Footer from "@/components/footer";
 import Header from "@/components/shared/header";
 
@@ -10,8 +11,9 @@ export default function RootLayout({
     <div className="flex h-screen flex-col">
       <Header />
 
-      <main className="flex-1 wrapper">{children}</main>
-      <Footer />
+      <main className="flex-1 w-full max-w-7xl p-0 ">{children}</main>
+      {/* <Footer /> */}
+      <BottomNav />
     </div>
   );
 }

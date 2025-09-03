@@ -1,3 +1,5 @@
+//auth.ts in root
+
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/db/prisma";
@@ -7,6 +9,7 @@ import type { NextAuthConfig } from "next-auth";
 // import { NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
 import { cookies } from "next/headers";
+import GoogleProvider from "next-auth/providers/google";
 
 export const config = {
   pages: {
@@ -19,41 +22,45 @@ export const config = {
   },
   adapter: PrismaAdapter(prisma),
   providers: [
+    // Credentials: phone OR email
     CredentialProvider({
+      id: "credentials",
+      name: "Credentials",
       credentials: {
-        email: { type: "email" },
-        password: { type: "password" },
+        identifier: { label: "Phone or Email", type: "text" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (credentials == null) return null;
+        const identifier = credentials?.identifier;
+        const password = credentials?.password;
+        if (!identifier || !password) return null;
 
-        // Find user in database
         const user = await prisma.user.findFirst({
-          where: {
-            email: credentials.email as string,
-          },
+          where: { OR: [{ phone: identifier }, { email: identifier }] },
         });
 
-        // Check if user exists and if the password matches
-        if (user && user.password) {
-          const isMatch = compareSync(
-            credentials.password as string,
-            user.password
-          );
+        if (!user || !user.password) return null;
 
-          // If password is correct, return user
-          if (isMatch) {
-            return {
-              id: user.id,
-              name: user.name,
-              email: user.email,
-              role: user.role,
-            };
-          }
-        }
-        // If user does not exist or password does not match return null
-        return null;
+        // Only allow login if verified
+        if (!user.isVerified) return null;
+
+        const isMatch = compareSync(password, user.password);
+        if (!isMatch) return null;
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+        };
       },
+    }),
+
+    // Google login
+    GoogleProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
   callbacks: {
@@ -63,12 +70,13 @@ export const config = {
       session.user.id = token.sub;
       session.user.role = token.role;
       session.user.name = token.name;
+      session.user.phone = token?.phone;
 
       // If there is an update, set the user name
       if (trigger === "update") {
         session.user.name = user.name;
       }
-
+      //console.log("Session user:", session.user);
       return session;
     },
     async jwt({ token, user, trigger, session }: any) {
@@ -76,7 +84,19 @@ export const config = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.phone = user.phone;
 
+        if (!user.phone) {
+          // fetch full user from DB
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+          });
+          token.phone = dbUser?.phone ?? null;
+        } else {
+          token.phone = user.phone;
+        }
+        token.name = user.name;
+        // console.log("User in JWT callback:", user);
         // If user has no name then use the email
         if (user.name === "NO_NAME") {
           token.name = user.email!.split("@")[0];
@@ -117,6 +137,8 @@ export const config = {
       if (session?.user.name && trigger === "update") {
         token.name = session.user.name;
       }
+
+      // console.log("JWT token:", token);
 
       return token;
     },

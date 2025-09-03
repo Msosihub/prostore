@@ -18,13 +18,14 @@ const UserButton = async () => {
     return (
       <Button asChild>
         <Link href="/sign-in">
-          <UserIcon /> Sign In
+          <UserIcon /> Ingia
         </Link>
       </Button>
     );
   }
 
   const firstInitial = session.user?.name?.charAt(0).toUpperCase() ?? "U";
+  // const role = session.user?.role ?? "BUYER";
 
   return (
     <div className="flex gap-2 items-center">
@@ -53,19 +54,24 @@ const UserButton = async () => {
 
           <DropdownMenuItem>
             <Link href="/user/profile" className="w-full">
-              User Profile
+              Mtumiaji
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Link href="/buyer/chat" className="w-full">
+              Messages
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Link href="/user/orders" className="w-full">
-              Order History
+              Historia ya manunuzi
             </Link>
           </DropdownMenuItem>
 
-          {session?.user?.role === "admin" && (
+          {session?.user?.role === "SUPPLIER" && (
             <DropdownMenuItem>
-              <Link href="/admin/overview" className="w-full">
-                Admin
+              <Link href="/supplier/overview" className="w-full">
+                Supplier Dashboardi
               </Link>
             </DropdownMenuItem>
           )}
@@ -76,7 +82,7 @@ const UserButton = async () => {
                 className="w-full py-4 px-2 h-4 justify-start"
                 variant="ghost"
               >
-                Sign Out
+                Toka
               </Button>
             </form>
           </DropdownMenuItem>

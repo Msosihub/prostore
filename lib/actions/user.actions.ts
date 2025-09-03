@@ -9,7 +9,7 @@ import {
 } from "../validators";
 import { auth, signIn, signOut } from "@/auth";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
-import { hash } from "./encrypt";
+
 import { prisma } from "@/db/prisma";
 import { formatError } from "../utils";
 import { ShippingAddress } from "@/types";
@@ -18,6 +18,7 @@ import { PAGE_SIZE } from "../constants";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { getMyCart } from "./cart.actions";
+import { hashSync } from "bcrypt-ts-edge";
 
 // Sign in the user with credentials
 export async function signInWithCredentials(
@@ -40,7 +41,32 @@ export async function signInWithCredentials(
     return { success: false, message: "Invalid email or password" };
   }
 }
+// Sign in the user with credentials
+// export async function signInWithCredentials2(
+//   prevState: unknown,
+//   formData: FormData
+// ) {
+//   try {
+//     const user = signInFormSchema.parse({
+//       identifier: formData.get("identifier"),
+//       password: formData.get("password"),
+//     });
+//     const res = await signIn("credentials", {
+//       redirect: false,
+//       email: user.identifier,
+//       password: user.password,
+//     });
 
+//     await signIn("credentials", user);
+
+//     return { success: true, message: "Signed in successfully" };
+//   } catch (error) {
+//     if (isRedirectError(error)) {
+//       throw error;
+//     }
+//     return { success: false, message: "Invalid email or password" };
+//   }
+// }
 // Sign user out
 export async function signOutUser() {
   // get current users cart and delete it so it does not persist to next user
@@ -56,29 +82,83 @@ export async function signOutUser() {
 
 // Sign up user
 export async function signUpUser(prevState: unknown, formData: FormData) {
+  console.log("In SignUp Action - formData:", formData);
+  console.log(
+    "In SignUp Action - formData email:",
+    formData.get("phoneNormalized")
+  );
+  console.log("In SignUp Action - formData email:", formData.get("role"));
+  console.log("In SignUp Action - formData email:", formData.get("email"));
   try {
     const user = signUpFormSchema.parse({
       name: formData.get("name"),
-      email: formData.get("email"),
+      email: formData.get("email") || "",
+      phone: formData.get("phoneNormalized"),
+      country: formData.get("country"),
       password: formData.get("password"),
       confirmPassword: formData.get("confirmPassword"),
+      role: formData.get("role"),
     });
 
     const plainPassword = user.password;
+    if (user.password !== user.confirmPassword) {
+      return { success: false, message: "Passwords do not match." };
+    }
 
-    user.password = await hash(user.password);
+    console.log("Entered Password:", user.password);
+    const hashedPassword = await hashSync(user.password, 10);
+    console.log("Hashed Password:", hashedPassword);
+    user.password = hashedPassword;
 
-    await prisma.user.create({
-      data: {
-        name: user.name,
-        email: user.email,
-        password: user.password,
-      },
+    const phoneNormalized =
+      (formData.get("phoneNormalized") as string | null) ?? user.phone;
+    console.log("In SignUp Action");
+    console.log("Normalized Phone:", phoneNormalized);
+    console.log("hashedPasswword:", hashedPassword);
+    console.log(" all user data: ", user);
+    await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name: user.name,
+          email: user.email,
+          phone: phoneNormalized,
+          location: user.country || "Tanzania",
+          // country: user.country || "Tanzania",
+          password: hashedPassword,
+          role: user.role,
+          isVerified: true, // OTP already verified on client
+        },
+      });
+
+      //if a supplier is created, create a supplier profile as well
+      if (newUser.role === "SUPPLIER") {
+        await tx.supplier.create({
+          data: {
+            userId: newUser.id,
+            name: newUser.name,
+            email: newUser.email || "",
+            companyName: "New Supplier Co.",
+            location: "Dar es Salaam",
+            // nation: newUser.country || "Tanzania",
+            yearsActive: 1,
+            isVerified: false,
+            rating: 0,
+            deliveryRate: 0,
+          },
+        });
+      }
     });
 
+    // await signIn("credentials", {
+    //   email: user.email,
+    //   password: plainPassword,
+    // });
+
+    // Auto-login (your credentials provider expects "identifier")
     await signIn("credentials", {
-      email: user.email,
+      identifier: user.email || phoneNormalized,
       password: plainPassword,
+      redirect: true, // let client do the redirect using callbackUrl
     });
 
     return { success: true, message: "User registered successfully" };
@@ -155,7 +235,11 @@ export async function updateUserPaymentMethod(
 }
 
 // Update the user profile
-export async function updateProfile(user: { name: string; email: string }) {
+export async function updateProfile(user: {
+  name: string;
+  email?: string;
+  phone?: string;
+}) {
   try {
     const session = await auth();
 
@@ -239,6 +323,12 @@ export async function deleteUser(id: string) {
       message: formatError(error),
     };
   }
+}
+
+enum UserRole {
+  BUYER,
+  SUPPLIER,
+  ADMIN,
 }
 
 // Update a user

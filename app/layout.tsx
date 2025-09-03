@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { SessionProvider } from "next-auth/react";
 import "@/assets/styles/globals.css";
 import {
   APP_DESCRIPTION,
@@ -34,7 +35,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <div className="max-w-screen-xl mx-auto px-2 sm:px-1  lg:px-8">
+            <SessionProvider>{children}</SessionProvider>
+            <Toaster /> {/* ✅ required for toast */}
+          </div>
           <Toaster />
         </ThemeProvider>
       </body>

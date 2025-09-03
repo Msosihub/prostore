@@ -54,18 +54,19 @@ export function round2(value: number | string) {
   }
 }
 
-const CURRENCY_FORMATTER = new Intl.NumberFormat("en-US", {
-  currency: "USD",
+const CURRENCY_FORMATTER = new Intl.NumberFormat("en-TZ", {
   style: "currency",
-  minimumFractionDigits: 2,
+  currency: "TZS",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 
 // Format currency using the formatter above
 export function formatCurrency(amount: number | string | null) {
   if (typeof amount === "number") {
-    return CURRENCY_FORMATTER.format(amount);
+    return CURRENCY_FORMATTER.format(amount).replace("TZS", "");
   } else if (typeof amount === "string") {
-    return CURRENCY_FORMATTER.format(Number(amount));
+    return CURRENCY_FORMATTER.format(Number(amount)).replace("TZS", "");
   } else {
     return "NaN";
   }
@@ -116,6 +117,12 @@ export const formatDateTime = (dateString: Date) => {
     dateOnly: formattedDate,
     timeOnly: formattedTime,
   };
+};
+
+export const formatDate2 = (dateString: Date) => {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-GB");
+  // en-GB gives DD/MM/YYYY automatically
 };
 
 // lib/errors.ts

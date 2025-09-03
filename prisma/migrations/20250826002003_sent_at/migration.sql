@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "public"."Message" ADD COLUMN     "sentAt" TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP;

@@ -7,8 +7,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-
-
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -65,8 +63,6 @@
   }
 }
 
-
-
 @layer base {
   * {
     @apply border-border;
@@ -74,4 +70,17 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Hide the Scrollbar (Optional)
+
+Add a small utility for nice UX (Tailwind plugin or custom class): */
+
+/* globals.css */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }

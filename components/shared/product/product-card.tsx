@@ -2,55 +2,104 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
 import ProductPrice from "./product-price";
-import { Product } from "@/types";
+import StockBadge from "./stock-badge";
 import Rating from "./rating";
+import { Decimal } from "@prisma/client/runtime/library";
 
-const ProductCard = ({ product }: { product: Product }) => {
+type ProductCardProps = {
+  id: string;
+  slug: string;
+  name: string;
+  brand: string;
+  category: string;
+  subcategory: string;
+  supplier: string;
+  images: string[];
+  price: number;
+  stock: number;
+  pricingTiers?:
+    | {
+        minQty: number;
+        price: Decimal;
+      }[]
+    | undefined;
+};
+
+const ProductCard = ({
+  id,
+  slug,
+  name,
+  brand,
+  category,
+  subcategory,
+  supplier,
+  images,
+  price,
+  stock,
+  pricingTiers,
+}: ProductCardProps) => {
+  const middleTier =
+    pricingTiers && pricingTiers.length >= 2
+      ? pricingTiers[Math.floor(pricingTiers.length / 2)]
+      : null;
+
+  // const displayPrice = middleTier?.price ?? price;
+  // const moqLabel = middleTier ? `${middleTier.minQty}+ pcs` : null;
+
   return (
-    <>
-      <Card className="w-full max-w-sm overflow-hidden">
-        <CardHeader className="p-0 items-center">
-          <Link href={`/product/${product.slug}`}>
-            <Image
-              src={product.images[0]}
-              alt={product.name}
-              height={300}
-              width={300}
-              priority
-              className="w-full object-cover"
-            />
-          </Link>
-        </CardHeader>
-        <CardContent className="p-3 sm:p-4 grid gap-1 sm:gap-2 text-xs sm:text-sm">
-          <div className="text-[10px] sm:text-xs text-muted-foreground">
-            {product.brand}
-          </div>
+    <Card className="w-full max-w-sm overflow-hidden group transition-shadow hover:shadow-lg border border-transparent hover:border-gray-200">
+      <CardHeader className="p-0 items-center">
+        <Link href={`/product/${id}`}>
+          <Image
+            src={images?.[0] || "/images/sample-products/p3-1.jpg"}
+            alt={name}
+            height={300}
+            width={300}
+            priority
+            className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </Link>
+      </CardHeader>
 
-          <Link href={`/product/${product.slug}`}>
-            <h2 className="font-medium text-sm sm:text-base line-clamp-2">
-              {product.name}
-            </h2>
-          </Link>
+      <CardContent className="p-1 sm:p-4 grid gap-1 sm:gap-2 text-xs sm:text-sm">
+        <div className="text-[11px] sm:text-xs md:text-sm text-muted-foreground">
+          {brand} • {category} • {subcategory}
+        </div>
 
-          <div className="flex flex-col gap-1 sm:gap-2">
-            <div className="flex items-center space-x-2 text-[10px] sm:text-xs">
-              <div className="scale-90 sm:scale-100">
-                <Rating value={Number(product.rating)} />
-              </div>
-              {/* You may need to pass size if Rating supports it */}
-            </div>
+        <Link href={`/product/${slug}`}>
+          <h2 className="font-medium text-sm sm:text-base md:text-lg line-clamp-2">
+            {name}
+          </h2>
+        </Link>
 
-            <div className="text-sm sm:text-base font-semibold">
-              {product.stock > 0 ? (
-                <ProductPrice value={Number(product.price)} />
-              ) : (
-                <p className="text-destructive">Out of Stock</p>
-              )}
+        <div className="text-[11px] sm:text-xs text-muted-foreground">
+          Supplied by: <span className="font-medium">{supplier}</span>
+        </div>
+
+        <div className="flex flex-col gap-1 sm:gap-2 mt-1">
+          <div className="flex items-center space-x-2 text-[11px] sm:text-xs md:text-sm">
+            <div className="scale-90 sm:scale-100">
+              <Rating value={4.5} />
+              {/** Replace with actual rating */}
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </>
+
+          <div className="text-sm sm:text-base md:text-lg font-semibold">
+            {stock > 0 ? (
+              <ProductPrice
+                value={middleTier ? Number(middleTier.price) : price}
+                original={middleTier ? price : undefined}
+                label={middleTier ? `${middleTier.minQty}+ pcs` : undefined}
+              />
+            ) : (
+              <p className="text-destructive">Zimeisha</p>
+            )}
+          </div>
+
+          {stock > 0 && <StockBadge stock={stock} />}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

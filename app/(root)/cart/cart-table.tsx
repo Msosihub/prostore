@@ -1,7 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
+import { format } from "date-fns";
 import { ArrowRight, Loader } from "lucide-react";
+
 import { Cart } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
@@ -16,7 +18,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
-import { AddButton, RemoveButton } from "@/components/shared/cart/cart-buttons";
+//import { AddButton, RemoveButton } from "@/components/shared/cart/cart-buttons";
+import {
+  DecrementButton,
+  IncrementButton,
+} from "@/components/shared/cart/cart-buttons2";
 
 // NOTE: The code here has changed from the original course code so that the
 // Buttons no longer share the same state and show the loader independently from
@@ -26,16 +32,28 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const estimatedDelivery = format(
+    new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+    "EEEE, MMMM d"
+  );
+
   return (
     <>
-      <h1 className="py-4 h2-bold">Shopping Cart</h1>
+      <h1 className="py-4 px-4 sm:px-6 lg:px-12 text-2xl font-bold text-gray-800">
+        Shopping Cart
+      </h1>
+
       {!cart || cart.items.length === 0 ? (
-        <div>
-          Cart is empty. <Link href="/">Go Shopping</Link>
+        <div className="px-4 sm:px-6 lg:px-12 text-gray-600">
+          Cart is empty.{" "}
+          <Link href="/" className="text-blue-600 underline">
+            Go Shopping
+          </Link>
         </div>
       ) : (
-        <div className="grid md:grid-cols-4 md:gap-5">
-          <div className="overflow-x-auto md:col-span-3">
+        <section className="px-4 py-6 sm:px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-4 gap-6 relative">
+          {/* Cart Items */}
+          <div className="lg:col-span-3 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -50,54 +68,75 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                     <TableCell>
                       <Link
                         href={`/product/${item.slug}`}
-                        className="flex items-center"
+                        className="flex items-center gap-3"
                       >
                         <Image
                           src={item.image}
                           alt={item.name}
                           width={50}
                           height={50}
+                          className="hidden sm:block  rounded-md object-cover"
                         />
-                        <span className="px-2">{item.name}</span>
+                        <span className="text-sm sm:text-base text-gray-700">
+                          {item.name}
+                        </span>
                       </Link>
                     </TableCell>
-                    <TableCell className="flex-center gap-2">
-                      <RemoveButton item={item} />
-                      <span>{item.qty}</span>
-                      <AddButton item={item} />
+                    <TableCell className="flex justify-center items-center">
+                      <div className="flex flex-col items-center gap-1 sm:flex-row sm:gap-2">
+                        <IncrementButton item={item} />
+                        <span className="text-sm font-medium text-gray-700">
+                          {item.qty}
+                        </span>
+                        <DecrementButton item={item} />
+                      </div>
                     </TableCell>
-                    <TableCell className="text-right">${item.price}</TableCell>
+
+                    <TableCell className="text-right text-sm font-medium text-gray-800">
+                      {item.price}/=
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
 
-          <Card>
-            <CardContent className="p-4 gap-4">
-              <div className="pb-3 text-xl">
-                Subtotal ({cart.items.reduce((a, c) => a + c.qty, 0)}):
-                <span className="font-bold">
-                  {formatCurrency(cart.itemsPrice)}
-                </span>
-              </div>
-              <Button
-                className="w-full"
-                disabled={isPending}
-                onClick={() =>
-                  startTransition(() => router.push("/shipping-address"))
-                }
-              >
-                {isPending ? (
-                  <Loader className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ArrowRight className="w-4 h-4" />
-                )}{" "}
-                Proceed to Checkout
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Sticky Summary Card */}
+          <div className="lg:col-span-1 lg:static lg:top-auto lg:z-auto sticky bottom-0 z-10 bg-white shadow-md rounded-md">
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div className="text-lg font-semibold text-gray-700">
+                  Subtotal ({cart.items.reduce((a, c) => a + c.qty, 0)}):{" "}
+                  <span className="font-bold text-green-700">
+                    {formatCurrency(cart.itemsPrice)}
+                  </span>
+                </div>
+
+                <div className="text-sm text-gray-500">
+                  Estimated delivery:{" "}
+                  <span className="font-medium text-gray-700">
+                    {estimatedDelivery}
+                  </span>
+                </div>
+
+                <Button
+                  className="w-full py-3 text-base font-semibold"
+                  disabled={isPending}
+                  onClick={() =>
+                    startTransition(() => router.push("/shipping-address"))
+                  }
+                >
+                  {isPending ? (
+                    <Loader className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-5 h-5" />
+                  )}{" "}
+                  Proceed to Checkout
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
       )}
     </>
   );

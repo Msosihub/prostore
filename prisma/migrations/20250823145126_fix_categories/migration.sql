@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE "Brand" ADD COLUMN     "createdAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "description" TEXT,
+ADD COLUMN     "image" TEXT;
+
+-- AlterTable
+ALTER TABLE "Category" ADD COLUMN     "createdAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "description" TEXT;
+
+-- AlterTable
+ALTER TABLE "Subcategory" ADD COLUMN     "createdAt" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "description" TEXT;

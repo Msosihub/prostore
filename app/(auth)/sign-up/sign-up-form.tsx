@@ -1,14 +1,18 @@
 "use client";
 
+//embeded in app/(root)/sign-up/page.tsx
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUpDefaultValues } from "@/lib/constants";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { signUpUser } from "@/lib/actions/user.actions";
 import { useSearchParams } from "next/navigation";
+import router from "next/router";
+import { toast } from "@/hooks/use-toast";
 
 const SignUpForm = () => {
   const [data, action] = useActionState(signUpUser, {
@@ -18,6 +22,20 @@ const SignUpForm = () => {
 
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const showToast = searchParams.get("showToastFlag") === "true";
+
+  useEffect(() => {
+    if (data && data.success) {
+      router.push(callbackUrl);
+    }
+
+    if (showToast) {
+      toast({
+        title: "Jisajili 👍",
+        description: "Jisajili ili uwasiliane na muuzaji",
+      });
+    }
+  }, [data, callbackUrl, showToast]);
 
   const SignUpButton = () => {
     const { pending } = useFormStatus();
@@ -75,6 +93,21 @@ const SignUpForm = () => {
             defaultValue={signUpDefaultValues.confirmPassword}
           />
         </div>
+        <div>
+          <Label htmlFor="role">Role</Label>
+          <select
+            id="role"
+            name="role"
+            defaultValue="buyer"
+            className="w-full border rounded px-3 py-2"
+            required
+          >
+            <option value="BUYER">BUYER</option>
+            <option value="SUPPLIER">SUPPLIER</option>
+            <option value="ADMIN">ADMIN</option>
+          </select>
+        </div>
+
         <div>
           <SignUpButton />
         </div>

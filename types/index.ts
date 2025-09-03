@@ -4,19 +4,95 @@ import {
   insertCartSchema,
   insertOrderItemSchema,
   insertOrderSchema,
-  insertProductSchema,
+  // insertProductSchema,
   insertReviewSchema,
   paymentResultSchema,
   shippingAddressSchema,
 } from "@/lib/validators";
+import { Decimal } from "@prisma/client/runtime/library";
 
-export type Product = z.infer<typeof insertProductSchema> & {
+// export type Product = z.infer<typeof insertProductSchema> & {
+//   id: string;
+//   rating: string;
+
+//   subCategory: string[];
+//   supplier: string[];
+//   numReviews: number;
+//   createdAt: Date;
+// };
+
+export type Certifications = {
   id: string;
-  rating: string;
-  numReviews: number;
+  supplierId: string;
+  label: string;
+  image?: string | "";
+  certNumber?: string;
+  validUntil?: string;
+  verified: boolean;
+};
+
+export type Supplier = {
+  id: string;
+  logo?: string;
+  companyName?: string | null;
+  isVerified: boolean;
+  yearsActive: number;
+  nation?: string | null;
+  rating: number;
+  deliveryRate: number;
+  responseTime: string | null;
+  certifications?: {
+    id: string;
+    label: string;
+    image?: string;
+    certNumber?: string;
+    validUntil?: Date;
+  }[];
+};
+
+export type Category = {
+  id: string;
+  name_en: string;
+  description?: string | "";
+  image?: string;
   createdAt: Date;
 };
 
+export type Product = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  stock: number;
+  images: string[];
+  isFeatured: boolean;
+  banner?: string | null;
+  price: string;
+
+  rating: string;
+  numReviews: number;
+  createdAt: Date;
+  pricingTiers?:
+    | {
+        minQty: number;
+        price: Decimal;
+      }[]
+    | undefined;
+
+  // Relations
+  brand?: { name: string };
+  category?: {
+    name_en: string;
+  };
+  subcategory?: {
+    name_en: string;
+  };
+  supplier?: {
+    companyName: string | null;
+  };
+};
+
+// export type ProductListProps = z.infer<typeof >;
 export type Cart = z.infer<typeof insertCartSchema>;
 export type PaymentResult = z.infer<typeof paymentResultSchema>;
 export type CartItem = z.infer<typeof cartItemSchema>;
