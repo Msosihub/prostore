@@ -27,7 +27,6 @@ export const revalidate = 60;
 const ProductDetailsPagez = async (props: {
   params: Promise<{ id: string }>;
 }) => {
-  console.log("IN PAGE DETAILS PAGE");
   const { id } = await props.params;
   const product = await getProductBySlug(id);
 
@@ -172,13 +171,12 @@ const ProductDetailsPagez = async (props: {
           />
         </Suspense>
       </section>
-
+      {console.log("ProductId Passed to Buttons", product.id)}
       <ProductClientActions
         buyerId={session?.user?.id || ""}
         supplierId={product?.supplierId || ""}
         supplierUserId={product?.supplier?.userId || ""}
         productId={product.id}
-        slug={product.id}
       />
     </>
   );

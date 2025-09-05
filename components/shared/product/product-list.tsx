@@ -44,9 +44,9 @@ const ProductList = ({
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {limitedData.map((product) => (
               <ProductCard
-                key={product.slug}
+                key={product.id}
                 id={product.id}
-                slug={product.slug}
+                slug={product.id}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}

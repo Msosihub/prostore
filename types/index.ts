@@ -114,3 +114,38 @@ export type Order = z.infer<typeof insertOrderSchema> & {
   user: { name: string; email: string };
   paymentResult?: PaymentResult;
 };
+
+export type MessageLite = {
+  id: string;
+  senderId: string;
+  content: string;
+  sentAt: string; // ISO
+  isRead: boolean;
+  // sender?: { id: string; name: string }; // 👈 added
+
+  // 🔗 Optional extras
+  attachments?: Array<{ name?: string; url: string }> | null;
+
+  replyTo?: MessageLite; // nested reply
+
+  product?: {
+    id: string;
+    name: string;
+    slug: string;
+    price: number;
+    images: Array<{ url: string }>;
+  } | null;
+
+  sender?: {
+    id: string;
+    name: string;
+    role: "BUYER" | "SUPPLIER" | "ADMIN";
+  };
+  inquiry?: {
+    id: string;
+    quantity?: number;
+    unit?: string;
+  };
+
+  moderated?: boolean;
+};

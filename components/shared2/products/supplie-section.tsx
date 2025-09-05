@@ -97,7 +97,7 @@ export default function SupplierSection({
             >
               <ProductCard
                 id={product.id}
-                slug={product.slug}
+                slug={product.id}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}

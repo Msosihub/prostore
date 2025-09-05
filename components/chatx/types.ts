@@ -38,6 +38,7 @@ export type MessageLite = {
   moderated?: boolean;
   // If your backend sometimes injects product mention:
   product?: ProductLite | null;
+  inquiry?: InquiryLite;
 };
 
 export type ConversationLite = {

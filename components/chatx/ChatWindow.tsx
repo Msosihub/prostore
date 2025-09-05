@@ -12,58 +12,64 @@ import type { ConversationLite, MessageLite, ProductLite } from "./types";
 type Props = {
   meId: string;
   conversation: ConversationLite; // server-fetched
+  headerProduct: ProductLite | null;
   peerTimezone?: string; // optional future enhancement
 };
 
 export default function ChatWindow({
   meId,
   conversation,
+  headerProduct,
   peerTimezone,
 }: Props) {
-  const {
-    id: conversationId,
-    buyer,
-    supplier,
-    product,
-    inquiry,
-    messages,
-  } = conversation;
+  const { id: conversationId, buyer, supplier, messages } = conversation;
 
   const [activeProduct, setActiveProduct] = useState<ProductLite | null>(
-    product || null
+    headerProduct || null
   );
   const [peerTyping, setPeerTyping] = useState(false);
   const [replyTo, setReplyTo] = useState<MessageLite | null>(null);
 
-  return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col border rounded-lg overflow-hidden bg-background">
-      <ChatHeader
-        meId={meId}
-        buyer={buyer}
-        supplier={supplier}
-        product={activeProduct}
-        onRemoveProduct={() => setActiveProduct(null)}
-        peerTyping={peerTyping}
-        peerTimezone={peerTimezone}
-      />
+  const latestInquiry = conversation.messages
+    .filter((m) => m.inquiry)
+    .slice(-1)[0]?.inquiry;
 
+  return (
+    <div className="flex flex-col h-screen border rounded-lg bg-background">
+      {/* Header - fixed height */}
+      <div className="flex-none">
+        <ChatHeader
+          meId={meId}
+          buyer={buyer}
+          supplier={supplier}
+          product={activeProduct}
+          onRemoveProduct={() => setActiveProduct(null)}
+          peerTyping={peerTyping}
+          peerTimezone={peerTimezone}
+        />
+      </div>
+
+      {/* Message list - scrollable */}
       <div className="flex-1 overflow-y-auto">
-        {inquiry && <ChatInquirySummary inquiry={inquiry} />}
         <MessageList
           meId={meId}
           conversationId={conversationId}
           initialMessages={messages}
+          pinnedInquiry={latestInquiry}
           onReply={(m) => setReplyTo(m)}
           onPeerTypingChange={setPeerTyping}
         />
       </div>
 
-      <Composer
-        conversationId={conversationId}
-        product={activeProduct}
-        replyTo={replyTo}
-        onClearReply={() => setReplyTo(null)}
-      />
+      {/* Composer - fixed height */}
+      <div className="flex-none">
+        <Composer
+          conversationId={conversationId}
+          product={activeProduct}
+          replyTo={replyTo}
+          onClearReply={() => setReplyTo(null)}
+        />
+      </div>
     </div>
   );
 }

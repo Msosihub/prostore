@@ -9,22 +9,36 @@ export async function getConversation(conversationId: string) {
     include: {
       buyer: true,
       supplier: true,
-      product: {
-        select: { id: true, name: true, slug: true, images: true, price: true },
-      },
-      inquiry: true,
+      Inquiry: true,
       messages: {
         orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          senderId: true,
-          content: true,
-          sentAt: true,
-          seen: true,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              role: true,
+            },
+          },
+          replyTo: {
+            include: {
+              inquiry: true, // so we can render 📩 summary
+              sender: { select: { id: true, name: true } },
+            },
+          },
+          // ✅ include product
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              images: true,
+              price: true,
+            },
+          },
+
           attachments: true,
-          moderated: true,
-          moderatedBy: true,
-          moderatedAt: true,
+          inquiry: true,
         },
       },
     },

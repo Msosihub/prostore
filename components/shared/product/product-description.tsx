@@ -15,7 +15,6 @@ const ProductDescription = ({ description }: { description: string }) => {
   //     img: ["src", "alt", "width", "height"],
   //   },
   // });
-  console.log("Raw description HTML:", description);
 
   const isLongDescription = description.length > MAX_DESCRIPTION_LENGTH;
 
@@ -56,7 +55,6 @@ const ProductDescription = ({ description }: { description: string }) => {
   //   ],
   //   ALLOWED_ATTR: [],
   // });
-  console.log("Baptized html: ", sanitizedDescription);
   return (
     <>
       <div className="mt-2 space-y-2">

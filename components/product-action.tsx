@@ -8,7 +8,6 @@ type Props = {
   buyerId: string;
   supplierId: string;
   productId: string;
-  slug: string;
   supplierUserId: string;
 };
 
@@ -17,9 +16,10 @@ export default function ProductClientActions({
   supplierId,
   productId,
   supplierUserId,
-  slug,
 }: Props) {
   const [open, setOpen] = useState(false);
+
+  // console.log("ProductId Received to Buttons", productId);
 
   return (
     <>
@@ -39,7 +39,6 @@ export default function ProductClientActions({
         supplierId={supplierId}
         userId={buyerId}
         supplierUserId={supplierUserId}
-        slug={slug}
         openInquiryClick={() => setOpen(true)} // optional button trigger
       />
     </>

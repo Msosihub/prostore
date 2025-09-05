@@ -307,43 +307,48 @@ model Certification {
 }
 
 model Conversation {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  buyerId    String    @db.Uuid
-  supplierId String    @db.Uuid
-  productId  String?   @db.Uuid
-  createdAt  DateTime  @default(now()) @db.Timestamp(6)
-  updatedAt  DateTime  @updatedAt @db.Timestamp(6)
-  buyer      User      @relation("BuyerConversations", fields: [buyerId], references: [id])
-  product    Product?  @relation(fields: [productId], references: [id])
-  supplier   User      @relation("SupplierConversations", fields: [supplierId], references: [id])
-  inquiry    Inquiry?
-  messages   Message[]
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerId    String @db.Uuid
+  supplierId String @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
+  buyer     User     @relation("BuyerConversations", fields: [buyerId], references: [id])
+
+  supplier User @relation("SupplierConversations", fields: [supplierId], references: [id])
+
+  messages  Message[]
+  Product   Product?  @relation(fields: [productId], references: [id])
+  productId String?   @db.Uuid
+  Inquiry   Inquiry[]
 
   @@unique([buyerId, supplierId])
 }
 
 model Inquiry {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String        @unique @db.Uuid
-  //add default value to messageId
-  messageId      String        @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String @db.Uuid
+
   // Example fields (you can expand)
-  subject        String?
-  details        String?
-  quantity       Int?
-  unit           String?
-  variant        String?
-  targetPrice    Decimal?      @db.Decimal(12, 2)
-  customization  Boolean?
-  shippingTerm   String?
-  needSamples    Boolean?      @default(false)
-  notes          String?
-  status         InquiryStatus @default(PENDING)
-  createdAt      DateTime      @default(now()) @db.Timestamp(6)
-  updatedAt      DateTime      @updatedAt @db.Timestamp(6)
-  conversation   Conversation  @relation(fields: [conversationId], references: [id])
-  Quote          Quote[]
-  Message        Message[]
+  productId String?
+
+  buyerId       String?
+  quantity      Decimal?      @db.Decimal(12, 2)
+  subject       String?
+  details       String?
+  unit          String?
+  variant       String?
+  targetPrice   Decimal?      @db.Decimal(12, 2)
+  customization Boolean?
+  shippingTerm  String?
+  needSamples   Boolean?      @default(false)
+  notes         String?
+  status        InquiryStatus @default(PENDING)
+  createdAt     DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime      @updatedAt @db.Timestamp(6)
+  conversation  Conversation  @relation(fields: [conversationId], references: [id])
+  Quote         Quote[]
+  Message       Message[]
 }
 
 model Quote {
@@ -352,8 +357,11 @@ model Quote {
   supplierId   String   @db.Uuid
   pricePerUnit Decimal  @db.Decimal(12, 2)
   moq          Int
-  leadTime     String
-  validity     String
+  productId    String?
+  buyerId      String?
+  quantity     Decimal? @db.Decimal(12, 2)
+  leadTime     String?
+  validity     String?
   notes        String?
   attachments  Json?
   createdAt    DateTime @default(now()) @db.Timestamp(6)

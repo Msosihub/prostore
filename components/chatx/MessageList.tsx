@@ -5,12 +5,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { pusherClient } from "@/lib/pusher/client";
 import MessageBubble from "./MessageBubble";
-import type { MessageLite } from "./types";
+import type { InquiryLite, MessageLite } from "./types";
+import ChatInquirySummary from "./ChatInquirySummary";
 
 type Props = {
   meId: string;
   conversationId: string;
   initialMessages: MessageLite[];
+  pinnedInquiry?: InquiryLite;
   onReply?: (m: MessageLite) => void;
   onPeerTypingChange?: (isTyping: boolean) => void;
 };
@@ -19,6 +21,7 @@ export default function MessageList({
   meId,
   conversationId,
   initialMessages,
+  pinnedInquiry,
   onReply,
   onPeerTypingChange,
 }: Props) {
@@ -88,7 +91,11 @@ export default function MessageList({
   }, [messages, meId, conversationId]);
 
   return (
-    <div className="px-3 py-3 space-y-3">
+    <div className="px-3 py-3 space-y-3  overflow-x-hidden">
+      {/* Inquiry pinned at top */}
+      {/* {pinnedInquiry && <ChatInquirySummary inquiry={pinnedInquiry} />} */}
+
+      {/* Actual messages */}
       {messages.map((m) => (
         <MessageBubble key={m.id} meId={meId} message={m} onReply={onReply} />
       ))}

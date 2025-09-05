@@ -8,6 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { Loader } from "lucide-react";
 
 export function InquiryFormModal({
   open,
@@ -27,12 +29,13 @@ export function InquiryFormModal({
   const [quantity, setQuantity] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    const res = await fetch("/api/inquiries", {
+    const res = await fetch("/api/conversations/inquiry", {
       method: "POST",
       body: JSON.stringify({
         buyerId,
@@ -44,27 +47,35 @@ export function InquiryFormModal({
       }),
     });
 
-    setLoading(false);
     if (res.ok) {
-      onOpenChange(false); // close modal
       setQuantity("");
       setNotes("");
+      const { inquiry, conversation, message } = await res.json();
+      router.push(`/api/chat/${conversation.id}`);
+      setLoading(false);
+      onOpenChange(false); // close modal
     }
+    setLoading(false);
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Send Inquiry</DialogTitle>
+          <DialogTitle>Tuma Ulizo</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium">Quantity</label>
+            <label className="block text-sm font-medium">
+              {" "}
+              Idadi unayotaka
+            </label>
             <input
               type="number"
               value={quantity}
+              disabled={loading}
+              title="Ingiza namba ya idadi unahitaji"
               onChange={(e) => setQuantity(e.target.value)}
               className="w-full border rounded p-2"
               required
@@ -72,17 +83,21 @@ export function InquiryFormModal({
           </div>
           <div>
             <label className="block text-sm font-medium">
-              Notes (optional)
+              Maelezo (si lazima)
             </label>
             <textarea
               value={notes}
+              disabled={loading}
+              title="Ingiza maelezo ya ziada kwenda kwa Muuzaji"
               onChange={(e) => setNotes(e.target.value)}
               className="w-full border rounded p-2"
+              placeholder="Mfano: Nataka mzigo uje Ruvuma, Inawezekana? na Gharama zake zimekaaje pamoja na usafiri? - Nitapokea baada ya muda gani?"
             />
           </div>
 
           <Button type="submit" disabled={loading} className="w-full">
-            {loading ? "Sending..." : "Send Inquiry"}
+            {loading && <Loader className="w-4 h-4 animate-spin" />}
+            {loading ? "Inatuma..." : "Tuma Ulizo"}
           </Button>
         </form>
       </DialogContent>

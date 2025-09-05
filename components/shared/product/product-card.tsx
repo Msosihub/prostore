@@ -66,7 +66,7 @@ const ProductCard = ({
           {brand} • {category} • {subcategory}
         </div>
 
-        <Link href={`/product/${slug}`}>
+        <Link href={`/product/${id}`}>
           <h2 className="font-medium text-sm sm:text-base md:text-lg line-clamp-2">
             {name}
           </h2>
