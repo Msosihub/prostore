@@ -24,7 +24,12 @@ export default function ChatWindow({
 }: Props) {
   const { id: conversationId, buyer, supplier, messages } = conversation;
 
+  //always visible in header
   const [activeProduct, setActiveProduct] = useState<ProductLite | null>(
+    headerProduct || null
+  );
+  // Only used once by Composer
+  const [composerProduct, setComposerProduct] = useState<ProductLite | null>(
     headerProduct || null
   );
   const [peerTyping, setPeerTyping] = useState(false);
@@ -65,9 +70,16 @@ export default function ChatWindow({
       <div className="flex-none">
         <Composer
           conversationId={conversationId}
-          product={activeProduct}
+          product={composerProduct}
           replyTo={replyTo}
           onClearReply={() => setReplyTo(null)}
+          // new prop to clear composer product after first use
+          onProductUsed={() => {
+            console.log("fx called: ", composerProduct);
+
+            setComposerProduct(null);
+            console.log("set to null: ", composerProduct);
+          }}
         />
       </div>
     </div>

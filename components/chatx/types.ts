@@ -27,6 +27,14 @@ export type InquiryLite = {
 
 export type AttachmentLite = { name?: string; url: string };
 
+export type ReplyLite = {
+  id: string;
+  content: string;
+  senderId: string;
+  inquiry?: InquiryLite; // 👈 allow inquiries
+  product?: ProductLite | null;
+};
+
 export type MessageLite = {
   id: string;
   senderId: string;
@@ -34,11 +42,12 @@ export type MessageLite = {
   sentAt: string; // ISO date string
   isRead: boolean;
   attachments?: AttachmentLite[] | null;
-  replyTo?: Pick<MessageLite, "id" | "content" | "senderId"> | null;
+  replyTo?: ReplyLite | null;
   moderated?: boolean;
   // If your backend sometimes injects product mention:
   product?: ProductLite | null;
   inquiry?: InquiryLite;
+  replySourceId?: string;
 };
 
 export type ConversationLite = {

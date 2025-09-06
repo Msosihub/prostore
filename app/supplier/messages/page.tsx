@@ -11,7 +11,6 @@ export default async function SupplierMessagesPage() {
     where: { supplierId },
     include: {
       buyer: true,
-      product: true,
       messages: {
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -33,9 +32,6 @@ export default async function SupplierMessagesPage() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-medium">{c.buyer.name}</p>
-                <p className="text-sm text-gray-600">
-                  {c.product?.name ?? "General Inquiry"}
-                </p>
               </div>
               <span className="text-xs text-gray-400">
                 {c.messages[0]?.createdAt.toLocaleDateString()}

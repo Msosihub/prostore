@@ -14,12 +14,19 @@ export default async function BuyerChat() {
   const conversations = await prisma.conversation.findMany({
     where: { buyerId: meId },
     include: {
-      product: { select: { name: true } },
-      messages: {
-        where: { seen: false, NOT: { senderId: meId } },
-        select: { id: true },
-      },
       supplier: { select: { name: true } },
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true, content: true, createdAt: true, senderId: true },
+      },
+      _count: {
+        select: {
+          messages: {
+            where: { seen: false, NOT: { senderId: meId } },
+          },
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -27,8 +34,8 @@ export default async function BuyerChat() {
   const initial = conversations.map((c) => ({
     id: c.id,
     otherPartyName: c.supplier.name,
-    product: c.product ? { name: c.product.name } : null,
-    unreadCount: c.messages.length,
+    lastMessage: c?.messages[0]?.content || "New conversation",
+    unreadCount: c._count.messages,
   }));
 
   return (

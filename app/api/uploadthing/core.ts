@@ -21,8 +21,9 @@ export const ourFileRouter = {
   // ✅ New quote attachment uploader (PDFs, docs, etc.)
   quoteAttachment: f({
     pdf: { maxFileSize: "4MB" },
+    image: { maxFileSize: "4MB" }, // jpg, png, webp…
     // Optional: allow other formats like .docx or .xlsx
-    // text: { maxFileSize: '2MB' },
+    text: { maxFileSize: "2MB" },
   })
     .middleware(async () => {
       const session = await auth();
@@ -30,7 +31,7 @@ export const ourFileRouter = {
       return { userId: session.user.id };
     })
     .onUploadComplete(async ({ metadata, file }) => {
-      console.log(`📎 File uploaded by ${metadata.userId}: ${file.name}`);
+      //console.log(`📎 File uploaded by ${metadata.userId}: ${file.name}`);
       return { uploadedBy: metadata.userId, fileUrl: file.url };
     }),
 } satisfies FileRouter;

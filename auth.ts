@@ -33,11 +33,13 @@ export const config = {
       async authorize(credentials) {
         const identifier = credentials?.identifier;
         const password = credentials?.password;
+        console.log("👉 Credentials received:", identifier, password);
         if (!identifier || !password) return null;
 
         const user = await prisma.user.findFirst({
           where: { OR: [{ phone: identifier }, { email: identifier }] },
         });
+        console.log("👉 User from DB:", user);
 
         if (!user || !user.password) return null;
 
@@ -45,6 +47,7 @@ export const config = {
         if (!user.isVerified) return null;
 
         const isMatch = compareSync(password, user.password);
+        console.log("👉 Password match:", isMatch);
         if (!isMatch) return null;
 
         return {

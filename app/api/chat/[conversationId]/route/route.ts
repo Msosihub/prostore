@@ -131,6 +131,14 @@ export async function POST(
     attachments, // expect [{ url, name? }]
   } = await req.json();
 
+  console.log("Data Received API: ", {
+    content,
+    replyToId,
+    inquiryData,
+    productId,
+    attachments,
+  });
+
   // Ensure the sender is part of this conversation
   const conv = await prisma.conversation.findUnique({
     where: { id: conversationId },
@@ -140,6 +148,7 @@ export async function POST(
     !conv ||
     (session.user.id !== conv.buyerId && session.user.id !== conv.supplierId)
   ) {
+    console.log("eturning Forbiden: ");
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -159,9 +168,9 @@ export async function POST(
   }
 
   // Run moderation
-  const safeContent = await moderateMessage(content || "");
+  // const safeContent = await moderateMessage(content || "");
   // Detect moderation
-  const wasModerated = safeContent.trim() !== (content || "").trim();
+  // const wasModerated = safeContent.trim() !== (content || "").trim();
 
   // Sanitize attachments (JSON column) == neeed change
   const cleanAttachments = Array.isArray(attachments)
@@ -220,11 +229,11 @@ export async function POST(
   // Create message
   const message = await prisma.message.create({
     data: {
-      content: safeContent,
+      content: content,
       senderId: session.user.id,
       conversationId,
       replyToId: replyToId ?? null,
-      moderated: wasModerated,
+      // moderated: wasModerated,
       moderationNote: (content || "").trim(),
       productId: attachProductId, // ✅ attach only when needed
       attachments:

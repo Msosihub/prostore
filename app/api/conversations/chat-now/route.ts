@@ -27,16 +27,41 @@ export async function POST(req: Request) {
       });
     }
 
+    let productMessage = null;
+
     // 2. If productId exists → create a product "marker" message
     if (productId) {
-      await prisma.message.create({
+      productMessage = await prisma.message.create({
         data: {
           conversationId: conversation.id,
           senderId: buyerId,
-          content: "", // no text, just product
+          content: "", // no text, just product marker
           productId,
         },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              images: true,
+              price: true,
+            },
+          },
+          attachments: true,
+          sender: { select: { id: true, name: true, role: true } },
+          replyTo: {
+            select: { id: true, content: true, senderId: true },
+          },
+        },
       });
+
+      // 🔥 Push real message object to both peers
+      await pusherServer.trigger(
+        `private-conv-${conversation.id}`,
+        "message:new",
+        { message: productMessage, conversationId: conversation.id }
+      );
     }
 
     // 3. Fetch conversation with full details & messages
@@ -45,7 +70,7 @@ export async function POST(req: Request) {
       include: {
         buyer: true,
         supplier: true,
-        inquiry: true,
+        Inquiry: true,
         messages: {
           orderBy: { createdAt: "asc" },
           include: {
@@ -70,17 +95,10 @@ export async function POST(req: Request) {
       },
     });
 
-    // Push this product marker to both peers
-    await pusherServer.trigger(
-      `private-conv-${conversation.id}`,
-      "message:new",
-      {
-        message: "",
-        conversationId: conversation.id,
-      }
-    );
-
-    return NextResponse.json({ conversation: fullConversation });
+    return NextResponse.json({
+      conversation: fullConversation,
+      newMessage: productMessage, // optional: send it back if client wants it immediately
+    });
   } catch (err: any) {
     console.error(err);
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -13,12 +13,13 @@ type ConversationItem = {
   product?: { name: string } | null;
   otherPartyName: string; // computed server-side
   unreadCount: number;
+  lastMessage: string;
+  typing?: boolean;
 };
 
 export default function ConversationList({
   meId,
   initial,
-  role, // "BUYER" | "SUPPLIER"
 }: {
   meId: string;
   role: "BUYER" | "SUPPLIER";
@@ -29,13 +30,56 @@ export default function ConversationList({
   useEffect(() => {
     if (!pusherClient) return;
     const channel = pusherClient.subscribe(`private-user-${meId}`);
+
     channel.bind("conv:new", ({ conversation }: any) => {
-      // You might fetch a normalized item from API; here’s a naive append
       setItems((prev) => [
-        { id: conversation.id, otherPartyName: "", unreadCount: 1 },
+        {
+          id: conversation.id,
+          otherPartyName: conversation.otherPartyName,
+          product: conversation.product,
+          lastMessage: conversation.lastMessage || "New conversation",
+          unreadCount: 1,
+        },
         ...prev,
       ]);
     });
+
+    channel.bind("msg:new", ({ conversationId, message }: any) => {
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                unreadCount: c.unreadCount + 1,
+                lastMessage: message.content,
+              }
+            : c
+        )
+      );
+    });
+
+    channel.bind("msg:read", ({ conversationId }: any) => {
+      setItems((prev) =>
+        prev.map((c) =>
+          c.id === conversationId ? { ...c, unreadCount: 0 } : c
+        )
+      );
+    });
+
+    // 🔥 typing indicator
+    channel.bind("msg:typing", ({ conversationId }: any) => {
+      setItems((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, typing: true } : c))
+      );
+      setTimeout(() => {
+        setItems((prev) =>
+          prev.map((c) =>
+            c.id === conversationId ? { ...c, typing: false } : c
+          )
+        );
+      }, 3000);
+    });
+
     return () => {
       channel.unbind_all();
       channel.unsubscribe();
@@ -43,23 +87,26 @@ export default function ConversationList({
   }, [meId]);
 
   return (
-    <div className="space-y-1">
+    <div className="divide-y divide-muted rounded-lg border">
       {items.map((c) => (
         <Link
           key={c.id}
           href={`/api/chat/${c.id}`}
-          className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted"
+          className="flex items-center justify-between p-4 hover:bg-muted transition-colors"
         >
-          <div className="truncate">
-            <div className="font-medium">{c.otherPartyName}</div>
-            {c.product?.name && (
+          <div className="flex-1 min-w-0">
+            <div className="truncate">
+              <div className="font-medium">{c.otherPartyName}</div>
               <div className="text-xs text-muted-foreground truncate">
-                Product: {c.product.name}
+                {c.typing ? "Typing…" : c.lastMessage}
               </div>
-            )}
+            </div>
           </div>
+
           {c.unreadCount > 0 && (
-            <Badge variant="secondary">{c.unreadCount}</Badge>
+            <Badge className="ml-2 bg-orange-500 text-white">
+              {c.unreadCount}
+            </Badge>
           )}
         </Link>
       ))}

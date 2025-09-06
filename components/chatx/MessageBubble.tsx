@@ -22,7 +22,7 @@ export default function MessageBubble({ meId, message, onReply }: Props) {
       year: "numeric",
     });
     return (
-      <div className="space-y-2">
+      <div id={`msg-${message.id}`} className="space-y-2">
         {/* Divider */}
         <div className="flex items-center justify-center my-4">
           <div className="h-px flex-1 bg-muted" />

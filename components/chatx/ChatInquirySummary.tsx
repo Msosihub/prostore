@@ -97,7 +97,15 @@ export default function ChatInquirySummary({
       {onReply && (
         <div className="mt-3 flex justify-end ">
           <button
-            onClick={() => onReply({ content: "", inquiry })}
+            onClick={() => {
+              if (message) {
+                onReply({
+                  ...message,
+                  inquiry, // 👈 include inquiry here
+                  replySourceId: message!.id, // 👈 extra explicit for scroll back
+                });
+              }
+            }}
             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
           >
             <CornerUpLeft className="h-3 w-3" />

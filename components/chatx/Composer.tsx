@@ -7,12 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { UploadButton } from "@/lib/uploadthing";
 import type { ProductLite, MessageLite } from "./types";
 import { Paperclip, Send } from "lucide-react";
-import styles from "./Upload.module.css";
 type Props = {
   conversationId: string;
   product: ProductLite | null;
   replyTo?: MessageLite | null;
   onClearReply?: () => void;
+  onProductUsed?: () => void;
 };
 
 type Att = { url: string; name?: string };
@@ -22,6 +22,7 @@ export default function Composer({
   product,
   replyTo,
   onClearReply,
+  onProductUsed,
 }: Props) {
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -61,18 +62,25 @@ export default function Composer({
 
   const send = async () => {
     const text = value.trim();
+    console.log("SMS ENTERED: ", text);
     if (!text && attachments.length === 0) return;
 
     const payload: any = { content: text };
     if (attachments.length) payload.attachments = attachments;
     if (replyTo?.id) payload.replyToId = replyTo.id;
     if (replyTo?.inquiry?.id) payload.replyToInquiryId = replyTo.inquiry.id;
-    if (product) payload.productId = product.id;
+    if (product) {
+      payload.productId = product.id;
+      console.log("Creating Payload: ", product.id);
+      onProductUsed?.(); // 👈 clear it after first use
+    }
 
     // Clear UI optimistically; Pusher will append the message
     setValue("");
     setAttachments([]);
     onClearReply?.();
+
+    console.log("Conversation Id: ", conversationId);
 
     await fetch(`/api/chat/${conversationId}/route`, {
       method: "POST",
@@ -125,16 +133,20 @@ export default function Composer({
       {replyTo && (
         <div className="border-l-4 border-orange-500 bg-muted/30 p-2 text-sm relative rounded">
           <div className="font-medium text-[10px]">Replying to</div>
-          <div className="line-clamp-1 text-muted-foreground">
-            {replyTo?.inquiry && (
-              <div className="text-xs text-muted-foreground">
-                {replyTo.inquiry.variant
-                  ? `Variant: ${replyTo.inquiry.variant}`
-                  : ""}
-                {replyTo.inquiry.targetPrice
-                  ? ` • Target: $${replyTo.inquiry.targetPrice}`
-                  : ""}
-              </div>
+          <div className="line-clamp-1 text-muted-foreground text-xs">
+            {replyTo.inquiry ? (
+              <>
+                {replyTo.inquiry.variant &&
+                  `Variant: ${replyTo.inquiry.variant}`}
+                {replyTo.inquiry.targetPrice &&
+                  ` • Target: $${replyTo.inquiry.targetPrice}`}
+                {replyTo.inquiry.notes &&
+                  ` • Notes: $${replyTo.inquiry.notes.slice(0, 20)}`}
+              </>
+            ) : replyTo.product ? (
+              <>🛒 {replyTo.product.name}</>
+            ) : (
+              <>{replyTo.content}</> // 👈 fall back to message text
             )}
           </div>
           <button
