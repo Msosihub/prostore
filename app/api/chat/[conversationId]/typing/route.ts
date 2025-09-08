@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 
 export async function POST(
   req: Request,
-  context: { params: { conversationId: string } }
+  context: { params: Promise<{ conversationId: string }> }
 ) {
   const { params } = context;
   // now this line is safe

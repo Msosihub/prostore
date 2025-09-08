@@ -65,7 +65,7 @@ interface urlResponse {
 // --- GET: Fetch conversation + messages ---
 export async function GET(
   req: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const session = await auth();
   const { conversationId } = await params;
@@ -121,7 +121,7 @@ export async function GET(
 // --- POST: Send message ---
 export async function POST(
   req: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const session = await auth();
 
@@ -287,7 +287,7 @@ export async function POST(
 // --- PATCH: Mark messages as read ---
 export async function PATCH(
   req: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   const session = await auth();
   const { conversationId } = await params;
