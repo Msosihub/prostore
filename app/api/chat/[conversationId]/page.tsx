@@ -6,7 +6,7 @@ import ChatPageClient from "./ChatPageClient";
 export default async function Page({
   params,
 }: {
-  params: { conversationId: string };
+  params: Promise<{ conversationId: string }>;
 }) {
   const session = await auth();
   const meId = session!.user.id;
