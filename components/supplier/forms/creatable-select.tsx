@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ControllerRenderProps } from "react-hook-form";
+import { ControllerRenderProps, FieldPath, FieldValues } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,10 +29,22 @@ import { cn } from "@/lib/utils";
 
 type Option = { id: string; label: string };
 
-type Props = {
+// type Props = {
+//   label: string;
+//   placeholder?: string;
+//   field: ControllerRenderProps<any, any>;
+//   options: Option[];
+//   setOptions: React.Dispatch<React.SetStateAction<Option[]>>;
+//   onCreate: (name: string) => Promise<{ id: string; label: string } | null>;
+// };
+
+type Props<
+  TFieldValues extends FieldValues,
+  TName extends FieldPath<TFieldValues>,
+> = {
   label: string;
   placeholder?: string;
-  field: ControllerRenderProps<any, any>;
+  field: ControllerRenderProps<TFieldValues, TName>;
   options: Option[];
   setOptions: React.Dispatch<React.SetStateAction<Option[]>>;
   onCreate: (name: string) => Promise<{ id: string; label: string } | null>;

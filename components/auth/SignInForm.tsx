@@ -67,8 +67,8 @@ const CredentialsSignInForm = () => {
       } else {
         setData({ success: true, message: "Umefanikiwa kuingia" });
       }
-    } catch (err: any) {
-      if (err.errors) {
+    } catch (err: unknown) {
+      if (err instanceof z.ZodError) {
         setError(err.errors[0].message);
       } else {
         setError("Invalid login credentials");

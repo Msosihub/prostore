@@ -2,12 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import SectionSkeleton from "@/components/skeletons/skeleton-section";
-import { Button } from "@/components/ui/button";
 import SupplierSection from "./supplie-section";
-import { useToast } from "@/hooks/use-toast";
+import { Product, Supplier } from "@/types";
 
-type Product = any;
-type SupplierBlock = { supplier: any; products: Product[] };
+type SupplierBlock = { supplier: Supplier; products: Product[] };
 
 const BATCH_SIZE = 3; // how many suppliers per request
 
@@ -28,45 +26,42 @@ export default function InfiniteSuppliers() {
   const fetchingRef = useRef(false);
   // const { toast } = useToast();
 
-  const loadMore = useCallback(
-    async (manualRetry = false) => {
-      if (fetchingRef.current) return;
-      fetchingRef.current = true;
-      setLoading(true);
+  const loadMore = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+    setLoading(true);
 
-      try {
-        const excludeIds = blocks.map((b) => b.supplier.id);
-        const payload = await fetchSupplierBatch(excludeIds, BATCH_SIZE);
-        const incoming: SupplierBlock[] = payload.suppliers ?? [];
+    try {
+      const excludeIds = blocks.map((b) => b.supplier.id);
+      const payload = await fetchSupplierBatch(excludeIds, BATCH_SIZE);
+      const incoming: SupplierBlock[] = payload.suppliers ?? [];
 
-        const existing = new Set(blocks.map((b) => b.supplier.id));
-        const filtered = incoming.filter((b) => !existing.has(b.supplier.id));
+      const existing = new Set(blocks.map((b) => b.supplier.id));
+      const filtered = incoming.filter((b) => !existing.has(b.supplier.id));
 
-        if (filtered.length === 0) {
-          setHasMore(false);
-        } else {
-          setBlocks((prev) => [...prev, ...filtered]);
-        }
-      } catch (err) {
-        console.error("Error loading suppliers", err);
-
-        // toast({
-        //   variant: "destructive",
-        //   title: "Failed to load suppliers",
-        //   description: "Check your connection and try again.",
-        //   action: (
-        //     <Button variant="outline" size="sm" onClick={() => loadMore(true)}>
-        //       Retry
-        //     </Button>
-        //   ),
-        // });
-      } finally {
-        fetchingRef.current = false;
-        setLoading(false);
+      if (filtered.length === 0) {
+        setHasMore(false);
+      } else {
+        setBlocks((prev) => [...prev, ...filtered]);
       }
-    },
-    [blocks]
-  );
+    } catch (err) {
+      console.error("Error loading suppliers", err);
+
+      // toast({
+      //   variant: "destructive",
+      //   title: "Failed to load suppliers",
+      //   description: "Check your connection and try again.",
+      //   action: (
+      //     <Button variant="outline" size="sm" onClick={() => loadMore(true)}>
+      //       Retry
+      //     </Button>
+      //   ),
+      // });
+    } finally {
+      fetchingRef.current = false;
+      setLoading(false);
+    }
+  }, [blocks]);
 
   // initial load
   useEffect(() => {

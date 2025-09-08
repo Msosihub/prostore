@@ -17,8 +17,8 @@ export async function GET(
     }
 
     return NextResponse.json({ conversation });
-  } catch (err: any) {
+  } catch (err) {
     console.error("API chat fetch error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err }, { status: 500 });
   }
 }

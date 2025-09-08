@@ -10,6 +10,7 @@ import {
   shippingAddressSchema,
 } from "@/lib/validators";
 import { Decimal } from "@prisma/client/runtime/library";
+import { Conversation, Message, Quote } from "@prisma/client";
 
 // export type Product = z.infer<typeof insertProductSchema> & {
 //   id: string;
@@ -90,6 +91,28 @@ export type Product = {
   supplier?: {
     companyName: string | null;
   };
+};
+
+export type Inquiry = {
+  id: string;
+  conversationId: string;
+  productId: string;
+  buyerId: string;
+  quantity: number;
+  subject: string;
+  details: string;
+  unit: number;
+  variant: string;
+  targetPrice: Decimal;
+  customization: string;
+  shippingTerm: string;
+  needSamples: boolean;
+  notes: string;
+  status: string;
+
+  conversation: Conversation;
+  Quote: Quote;
+  Message: Message;
 };
 
 // export type ProductListProps = z.infer<typeof >;

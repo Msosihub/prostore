@@ -15,7 +15,9 @@ type Category = {
   id: string;
   name_en: string;
   name_sw: string;
-  _count: any;
+  _count: {
+    products: number;
+  };
 };
 
 const fetcher = async (url: string): Promise<Category[]> => {

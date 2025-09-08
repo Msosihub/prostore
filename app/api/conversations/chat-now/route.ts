@@ -99,8 +99,8 @@ export async function POST(req: Request) {
       conversation: fullConversation,
       newMessage: productMessage, // optional: send it back if client wants it immediately
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err }, { status: 500 });
   }
 }

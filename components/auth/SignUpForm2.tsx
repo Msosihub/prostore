@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { UserRole } from "@prisma/client";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -104,7 +104,7 @@ export default function SignUpForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
-  const showToast = searchParams.get("showToastFlag") === "true";
+  // const showToast = searchParams.get("showToastFlag") === "true";
 
   // preferred identifier to verify (prefer phone; else email)
   const identifierToVerify = useMemo(() => {
@@ -171,6 +171,7 @@ export default function SignUpForm() {
           : `Tumetuma msimbo kwa ${identifierToVerify}`,
       });
     } catch (err) {
+      console.log(err);
       setError("Imeshindikana kutuma OTP, jaribu tena");
     } finally {
       setSubmitting(false);
@@ -268,6 +269,7 @@ export default function SignUpForm() {
         //the user is automatically signed in after sign up
       }
     } catch (err) {
+      console.log(err);
       setError("Imeshindikana kuhakiki OTP");
       setSubmitting(false);
     }
@@ -394,7 +396,7 @@ export default function SignUpForm() {
         <Select
           name="role"
           value={role}
-          onValueChange={(v) => setRole(v as any)}
+          onValueChange={(v) => setRole(v as UserRole)}
           disabled={true}
           required
         >

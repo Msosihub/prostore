@@ -14,7 +14,6 @@ import RandomProducts from "@/components/shared2/products/random-products";
 import NoInternet from "@/components/shared/general/no-internet";
 import { notFound } from "next/navigation";
 import InfiniteSuppliers from "@/components/shared2/products/infinit-suppliers";
-import BottomNav from "@/components/customComponents/bottom-nav-main";
 
 export const metadata = {
   title: "Home",

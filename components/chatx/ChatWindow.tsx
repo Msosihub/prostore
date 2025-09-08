@@ -4,7 +4,6 @@
 
 import { useState } from "react";
 import ChatHeader from "./ChatHeader";
-import ChatInquirySummary from "./ChatInquirySummary";
 import MessageList from "./MessageList";
 import Composer from "./Composer";
 import type { ConversationLite, MessageLite, ProductLite } from "./types";

@@ -7,14 +7,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import ProductCard from "@/components/shared/product/product-card";
-
-type Product = any;
+import { Product, Supplier } from "@/types";
 
 export default function SupplierSection({
   supplier,
   products,
 }: {
-  supplier: any;
+  supplier: Supplier;
   products: Product[];
 }) {
   const scrollLeft = () => {
@@ -90,14 +89,13 @@ export default function SupplierSection({
           id={`supplier-scroll-${supplier.id}`}
           className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-smooth"
         >
-          {products.map((product: any) => (
+          {products.map((product: Product) => (
             <div
               key={product.slug || product.id}
               className="flex-shrink-0 w-[40%] sm:w-[33%] md:w-[29%] lg:w-[25%]"
             >
               <ProductCard
                 id={product.id}
-                slug={product.id}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}

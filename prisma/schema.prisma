@@ -327,7 +327,7 @@ model Conversation {
 
 model Inquiry {
   id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String @db.Uuid
+  conversationId String @unique @db.Uuid
 
   // Example fields (you can expand)
   productId String?

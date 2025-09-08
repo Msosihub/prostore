@@ -1,10 +1,16 @@
-//send message
-
+// send message
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 import { sendMessageSchema } from "@/lib/validators/chat";
 import { auth } from "@/auth";
 import { pusherServer } from "@/lib/pusher/server";
+
+interface ParsedAttachment {
+  url: string;
+  name?: string;
+  size?: number;
+  type?: string;
+}
 
 export async function POST(
   req: Request,
@@ -32,15 +38,30 @@ export async function POST(
 
     const isMember =
       session.user.id === conv.buyerId || session.user.id === conv.supplierId;
+    if (!session.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!isMember)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+    // ✅ Fix attachments: wrap in { create: [...] }
     const message = await prisma.message.create({
       data: {
         conversationId,
         senderId: session.user.id,
-        body: parsed.body,
-        attachments: parsed.attachments ?? null,
+        content: parsed.body,
+        attachments: parsed.attachments?.length
+          ? {
+              create: parsed.attachments.map((att: ParsedAttachment) => ({
+                url: att.url,
+                name: att.name,
+              })),
+            }
+          : undefined, // don't use null
+      },
+      include: {
+        attachments: true, // return them in response
       },
     });
 
@@ -55,7 +76,8 @@ export async function POST(
     );
 
     return NextResponse.json({ message });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message ?? "Error" }, { status: 400 });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: e ?? "Error" }, { status: 400 });
   }
 }

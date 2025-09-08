@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { pusherClient } from "@/lib/pusher/client";
+import { MessageLite } from "@/types";
 
 type ConversationItem = {
   id: string;
@@ -31,54 +32,74 @@ export default function ConversationList({
     if (!pusherClient) return;
     const channel = pusherClient.subscribe(`private-user-${meId}`);
 
-    channel.bind("conv:new", ({ conversation }: any) => {
-      setItems((prev) => [
-        {
-          id: conversation.id,
-          otherPartyName: conversation.otherPartyName,
-          product: conversation.product,
-          lastMessage: conversation.lastMessage || "New conversation",
-          unreadCount: 1,
-        },
-        ...prev,
-      ]);
-    });
+    channel.bind(
+      "conv:new",
+      ({ conversation }: { conversation: ConversationItem }) => {
+        setItems((prev) => [
+          {
+            id: conversation.id,
+            otherPartyName: conversation.otherPartyName,
+            product: conversation.product,
+            lastMessage: conversation.lastMessage || "New conversation",
+            unreadCount: 1,
+          },
+          ...prev,
+        ]);
+      }
+    );
 
-    channel.bind("msg:new", ({ conversationId, message }: any) => {
-      setItems((prev) =>
-        prev.map((c) =>
-          c.id === conversationId
-            ? {
-                ...c,
-                unreadCount: c.unreadCount + 1,
-                lastMessage: message.content,
-              }
-            : c
-        )
-      );
-    });
-
-    channel.bind("msg:read", ({ conversationId }: any) => {
-      setItems((prev) =>
-        prev.map((c) =>
-          c.id === conversationId ? { ...c, unreadCount: 0 } : c
-        )
-      );
-    });
-
-    // 🔥 typing indicator
-    channel.bind("msg:typing", ({ conversationId }: any) => {
-      setItems((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, typing: true } : c))
-      );
-      setTimeout(() => {
+    channel.bind(
+      "msg:new",
+      ({
+        conversationId,
+        message,
+      }: {
+        conversationId: string;
+        message: MessageLite;
+      }) => {
         setItems((prev) =>
           prev.map((c) =>
-            c.id === conversationId ? { ...c, typing: false } : c
+            c.id === conversationId
+              ? {
+                  ...c,
+                  unreadCount: c.unreadCount + 1,
+                  lastMessage: message.content,
+                }
+              : c
           )
         );
-      }, 3000);
-    });
+      }
+    );
+
+    channel.bind(
+      "msg:read",
+      ({ conversationId }: { conversationId: string }) => {
+        setItems((prev) =>
+          prev.map((c) =>
+            c.id === conversationId ? { ...c, unreadCount: 0 } : c
+          )
+        );
+      }
+    );
+
+    // 🔥 typing indicator
+    channel.bind(
+      "msg:typing",
+      ({ conversationId }: { conversationId: string }) => {
+        setItems((prev) =>
+          prev.map((c) =>
+            c.id === conversationId ? { ...c, typing: true } : c
+          )
+        );
+        setTimeout(() => {
+          setItems((prev) =>
+            prev.map((c) =>
+              c.id === conversationId ? { ...c, typing: false } : c
+            )
+          );
+        }, 3000);
+      }
+    );
 
     return () => {
       channel.unbind_all();

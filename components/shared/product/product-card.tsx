@@ -8,7 +8,6 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 type ProductCardProps = {
   id: string;
-  slug: string;
   name: string;
   brand: string;
   category: string;
@@ -27,7 +26,6 @@ type ProductCardProps = {
 
 const ProductCard = ({
   id,
-  slug,
   name,
   brand,
   category,

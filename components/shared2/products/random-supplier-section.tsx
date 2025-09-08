@@ -7,13 +7,13 @@ import Link from "next/link";
 import useSWR from "swr";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Product } from "@/types";
+import { Product, Supplier } from "@/types";
 import ProductCard from "@/components/shared/product/product-card";
 import SectionSkeleton from "@/components/skeletons/skeleton-section";
 
 type ProductsResponse = {
   products: Product[];
-  supplier: any;
+  supplier: Supplier;
 };
 
 // generic fetcher that always returns JSON
@@ -133,7 +133,6 @@ export default function RandomSupplierSection() {
             >
               <ProductCard
                 id={product.id}
-                slug={product.slug}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}

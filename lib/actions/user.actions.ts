@@ -325,11 +325,11 @@ export async function deleteUser(id: string) {
   }
 }
 
-enum UserRole {
-  BUYER,
-  SUPPLIER,
-  ADMIN,
-}
+// enum UserRole {
+//   BUYER,
+//   SUPPLIER,
+//   ADMIN,
+// }
 
 // Update a user
 export async function updateUser(user: z.infer<typeof updateUserSchema>) {

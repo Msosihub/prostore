@@ -16,7 +16,6 @@ const ProductList = ({
   data,
   title,
   limit,
-  locale,
   variant = "grid",
 }: ProductListProps) => {
   const limitedData = limit ? data.slice(0, limit) : data;
@@ -46,7 +45,6 @@ const ProductList = ({
               <ProductCard
                 key={product.id}
                 id={product.id}
-                slug={product.id}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}
@@ -80,7 +78,6 @@ const ProductList = ({
                 >
                   <ProductCard
                     id={product.id}
-                    slug={product.slug}
                     name={product.name}
                     brand={product?.brand?.name || ""}
                     category={product.category?.name_en ?? ""}

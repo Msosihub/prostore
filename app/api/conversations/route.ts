@@ -26,12 +26,13 @@ export async function POST(req: Request) {
     }
 
     const conversation = await getOrCreateConversation(parsed);
+    const convoId = await conversation.id;
 
     // If inquiry payload provided and no Inquiry yet, create one
     if (
       parsed.inquiry &&
       !(await prisma.inquiry.findUnique({
-        where: { conversationId: conversation.id },
+        where: { conversationId: convoId },
       }))
     ) {
       await prisma.inquiry.create({
@@ -50,8 +51,8 @@ export async function POST(req: Request) {
     );
 
     return NextResponse.json({ conversation });
-  } catch (e: any) {
+  } catch (e) {
     console.log("CONVO", e);
-    return NextResponse.json({ error: e.message ?? "Error" }, { status: 400 });
+    return NextResponse.json({ error: e ?? "Error" }, { status: 400 });
   }
 }

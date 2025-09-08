@@ -1,5 +1,4 @@
 import BottomNav from "@/components/customComponents/bottom-nav-main";
-import Footer from "@/components/footer";
 import Header from "@/components/shared/header";
 
 export default function RootLayout({

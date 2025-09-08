@@ -2,59 +2,65 @@ import { NextResponse } from "next/server";
 // import { authOptions } from "@/auth"; // adjust path
 import { prisma } from "@/db/prisma";
 import { pusherServer } from "@/lib/pusher/server";
-import OpenAI from "openai";
+// import OpenAI from "openai";
 import { auth } from "@/auth";
+import { Prisma } from "@prisma/client";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
-  defaultHeaders: {
-    "HTTP-Referer": "http://localhost:3000", // replace with your real site domain
-    "X-Title": "prostore",
-  },
-});
+interface urlResponse {
+  url: string;
+  name: string;
+}
+
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENROUTER_API_KEY,
+//   baseURL: "https://openrouter.ai/api/v1",
+//   defaultHeaders: {
+//     "HTTP-Referer": "http://localhost:3000", // replace with your real site domain
+//     "X-Title": "prostore",
+//   },
+// });
 
 // --- Utility: Run moderation (PII + abusive words + Swahili polite rewrite) ---
-async function moderateMessage(content: string): Promise<string> {
-  try {
-    // Step 1: Check for PII (basic regexes)
-    const piiRegex =
-      /\b\d{7,}|\b\w+@\w+\.\w+|\b(?:\+?\d{2,3})?[\s-]?\d{6,}\b/gi;
-    if (piiRegex.test(content)) {
-      return "⚠️ Kwa usalama wako, tafadhali tumia chat ya mfumo pekee bila kushiriki mawasiliano binafsi.";
-    }
+// async function moderateMessage(content: string): Promise<string> {
+//   try {
+//     // Step 1: Check for PII (basic regexes)
+//     const piiRegex =
+//       /\b\d{7,}|\b\w+@\w+\.\w+|\b(?:\+?\d{2,3})?[\s-]?\d{6,}\b/gi;
+//     if (piiRegex.test(content)) {
+//       return "⚠️ Kwa usalama wako, tafadhali tumia chat ya mfumo pekee bila kushiriki mawasiliano binafsi.";
+//     }
 
-    // Step 2: AI moderation + polite rewrite
-    // const completion = await openai.chat.completions.create({
-    //   model: "",
-    //   messages: [
-    //     {
-    //       role: "system",
-    //       content:
-    //         "You are a passive content moderator and rewriter only when necessary 100% for a business chat app in Kiswahili. \
-    //         - Do not allow any abusive, offensive, or hateful words, especially at high intensity. \
-    //          use human professional in Kiswahili. \
-    //         - If the language score is above 3.8/5, moderate the message. Otherwise, leave it as is. dont concern yourself\
-    //         with typos, jokes or nothing than abusive language.(on scale of 1-5, you act at 4) and when you see such content,\
-    //         dont argue back, just modify it to sound in a polite, professional manner, shot, simple human swahili language and let it be.\
-    //         dont start arguing and modeling, dont engage in debates, dont interveen, let the chat flow. remember the messages are not for you\
-    //         so i expect 90% or more of times you to just return the exatly same message without changes.",
-    //     },
-    //     { role: "user", content },
-    //   ],
-    // });
-    // console.log(
-    //   "Raw moderation output:",
-    //   completion.choices[0]?.message?.content
-    // );
+//     // Step 2: AI moderation + polite rewrite
+//     // const completion = await openai.chat.completions.create({
+//     //   model: "",
+//     //   messages: [
+//     //     {
+//     //       role: "system",
+//     //       content:
+//     //         "You are a passive content moderator and rewriter only when necessary 100% for a business chat app in Kiswahili. \
+//     //         - Do not allow any abusive, offensive, or hateful words, especially at high intensity. \
+//     //          use human professional in Kiswahili. \
+//     //         - If the language score is above 3.8/5, moderate the message. Otherwise, leave it as is. dont concern yourself\
+//     //         with typos, jokes or nothing than abusive language.(on scale of 1-5, you act at 4) and when you see such content,\
+//     //         dont argue back, just modify it to sound in a polite, professional manner, shot, simple human swahili language and let it be.\
+//     //         dont start arguing and modeling, dont engage in debates, dont interveen, let the chat flow. remember the messages are not for you\
+//     //         so i expect 90% or more of times you to just return the exatly same message without changes.",
+//     //     },
+//     //     { role: "user", content },
+//     //   ],
+//     // });
+//     // console.log(
+//     //   "Raw moderation output:",
+//     //   completion.choices[0]?.message?.content
+//     // );
 
-    // return completion.choices[0]?.message?.content ?? content;
-    return content; // temporary bypass
-  } catch (err) {
-    console.error("Moderation error", err);
-    return content; // fallback to raw content
-  }
-}
+//     // return completion.choices[0]?.message?.content ?? content;
+//     return content; // temporary bypass
+//   } catch (err) {
+//     console.error("Moderation error", err);
+//     return content; // fallback to raw content
+//   }
+// }
 
 // --- GET: Fetch conversation + messages ---
 export async function GET(
@@ -92,9 +98,9 @@ export async function GET(
             },
           },
         },
-        product: true,
-        inquiry: true,
-        quotes: true,
+        Product: true,
+        Inquiry: true,
+        // quotes: true,
       },
     });
 
@@ -175,8 +181,10 @@ export async function POST(
   // Sanitize attachments (JSON column) == neeed change
   const cleanAttachments = Array.isArray(attachments)
     ? attachments
-        .filter((a: any) => a && typeof a.url === "string" && a.url.length)
-        .map((a: any) => ({
+        .filter(
+          (a: urlResponse) => a && typeof a.url === "string" && a.url.length
+        )
+        .map((a: urlResponse) => ({
           url: a.url,
           name: typeof a.name === "string" ? a.name : undefined,
         }))
@@ -204,7 +212,7 @@ export async function POST(
         "status",
       ] as const;
 
-      const dataToUpdate: Record<string, any> = {};
+      const dataToUpdate: Partial<Prisma.InquiryUpdateInput> = {};
       for (const k of updatableKeys) {
         if (k in inquiryData && inquiryData[k] !== undefined) {
           dataToUpdate[k] = inquiryData[k];

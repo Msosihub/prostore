@@ -39,7 +39,7 @@ export default function RichTextEditor({
     onUpdate({ editor }) {
       onChange(editor.getHTML());
     },
-    onBlur: ({ event }) => {
+    onBlur: ({}) => {
       onBlur?.();
     },
     immediatelyRender: false,

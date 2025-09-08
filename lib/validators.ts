@@ -1,12 +1,18 @@
 import { z } from "zod";
 import { formatNumberWithDecimal } from "./utils";
 import { PAYMENT_METHODS } from "./constants";
-import { UserRole } from "@prisma/client";
+// import { UserRole } from "@prisma/client";
 // import Decimal from "decimal.js";
 
 // East Africa phone regex (basic example: starts with +254, +255, +256, +257, +211, +250)
 // You can refine later for stricter formats
 const phoneRegex = /^\+?(254|255|256|257|211|250)\d{6,12}$/;
+
+export enum UserRole {
+  BUYER = "BUYER",
+  SUPPLIER = "SUPPLIER",
+  ADMIN = "ADMIN",
+}
 
 const currency = z
   .string()
@@ -169,7 +175,10 @@ export const updateProfileSchema = z.object({
 // Schema to update users
 export const updateUserSchema = updateProfileSchema.extend({
   id: z.string().min(1, "ID inahitajika"),
-  role: z.string().min(1, "Role inahitajika"),
+  role: z.nativeEnum(UserRole, {
+    required_error: "Role is required",
+    invalid_type_error: "Invalid role",
+  }),
 });
 
 // Schema for the PayPal paymentResult

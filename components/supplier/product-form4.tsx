@@ -6,6 +6,7 @@ import { insertProductSchema, updateProductSchema } from "@/lib/validators";
 import { Product, Category } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 import { useRouter } from "next/navigation";
 import {
@@ -58,7 +59,7 @@ const ProductForm = ({
   const router = useRouter();
   const { toast } = useToast();
   // const [previewImages, setPreviewImages] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [uploading] = useState(false);
   // console.log("Here are the BEFORE values:", product);
 
   const form = useForm<z.infer<typeof insertProductSchema>>({
@@ -79,10 +80,10 @@ const ProductForm = ({
     name: "pricingTiers",
   });
 
-  const addTier = () => {
-    if (fields.length < 3) append({ minQty: 1, price: 0 });
-  };
-  const removeTier = (index: number) => remove(index);
+  // const addTier = () => {
+  //   if (fields.length < 3) append({ minQty: 1, price: 0 });
+  // };
+  // const removeTier = (index: number) => remove(index);
 
   // //KEEP WATCH
   // const handleFiles = (files: FileList | null) => {
@@ -553,7 +554,7 @@ const ProductForm = ({
                         key={idx}
                         className="relative w-24 h-24 rounded-md overflow-hidden border"
                       >
-                        <img
+                        <Image
                           src={src}
                           alt={`preview-${idx}`}
                           className="w-full h-full object-cover"

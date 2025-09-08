@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Category } from "@/types";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -35,7 +36,7 @@ export default function CategoriesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {categories?.map((cat: any) => (
+          {categories?.map((cat: Category) => (
             <Link href={`/categories/${cat.id}`} key={cat.id}>
               <Card className="rounded-xl shadow-sm hover:shadow-md transition">
                 <div className="relative h-24 w-full overflow-hidden rounded-t-xl">

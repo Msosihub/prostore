@@ -65,19 +65,23 @@ export const getProductsByCategory = async (
       },
       take: 8, // limit results
       select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        stock: true,
+        images: true,
+        isFeatured: true,
+        banner: true,
+        price: true,
+        rating: true,
+        numReviews: true,
+        createdAt: true,
+        pricingTiers: true,
         brand: true,
         category: true,
         subcategory: true,
         supplier: true,
-        stock: true,
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        images: true,
-        rating: true,
-        numReviews: true,
-        pricingTiers: true,
       },
     });
 
@@ -338,11 +342,9 @@ export async function createProduct(data: z.infer<typeof insertProductSchema>) {
       slug,
       description,
       images,
-      banner,
       price,
       stock,
-      color,
-      size,
+
       brandId,
       categoryId,
       subcategoryId,
@@ -356,7 +358,6 @@ export async function createProduct(data: z.infer<typeof insertProductSchema>) {
         slug,
         description,
         images,
-        banner,
         price,
         color: "",
         size: "",
@@ -479,8 +480,8 @@ export async function createBrandAction(name: string) {
       select: { id: true, name: true },
     });
     return { success: true, data: brand, message: "Brand created" };
-  } catch (e: any) {
-    return { success: false, message: e?.message ?? "Failed to create brand" };
+  } catch (e) {
+    return { success: false, message: e ?? "Failed to create brand" };
   }
 }
 export async function companyLatestProducts(supplierId: string) {
@@ -493,16 +494,17 @@ export async function companyLatestProducts(supplierId: string) {
 }
 //category create
 export async function createCategoryAction(name_en: string) {
+  const name_sw = name_en;
   try {
     const category = await prisma.category.create({
-      data: { name_en },
+      data: { name_en, name_sw },
       select: { id: true, name_en: true },
     });
     return { success: true, data: category, message: "Category created" };
-  } catch (e: any) {
+  } catch (e) {
     return {
       success: false,
-      message: e?.message ?? "Failed to create category",
+      message: e ?? "Failed to create category",
     };
   }
 }

@@ -7,7 +7,7 @@ import ProductList from "@/components/shared/product/product-list";
 
 type Props = {
   locale: "en" | "sw";
-  supplierId: any;
+  supplierId: string;
 };
 
 export default function RandomOneSection({ locale, supplierId }: Props) {

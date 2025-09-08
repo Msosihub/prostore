@@ -50,7 +50,7 @@ export function InquiryFormModal({
     if (res.ok) {
       setQuantity("");
       setNotes("");
-      const { inquiry, conversation, message } = await res.json();
+      const { conversation } = await res.json();
       router.push(`/api/chat/${conversation.id}`);
       setLoading(false);
       onOpenChange(false); // close modal

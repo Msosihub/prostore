@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { pusherClient } from "@/lib/pusher/client";
 import MessageBubble from "./MessageBubble";
 import type { InquiryLite, MessageLite } from "./types";
-import ChatInquirySummary from "./ChatInquirySummary";
 
 type Props = {
   meId: string;
@@ -21,7 +20,6 @@ export default function MessageList({
   meId,
   conversationId,
   initialMessages,
-  pinnedInquiry,
   onReply,
   onPeerTypingChange,
 }: Props) {

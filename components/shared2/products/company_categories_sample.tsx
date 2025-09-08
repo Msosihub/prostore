@@ -6,13 +6,16 @@ import ProductList from "@/components/shared/product/product-list";
 import SectionSkeleton from "@/components/skeletons/skeleton-section";
 
 type Section = {
+  id: string;
+  name_en: string;
+  name_sw: string;
   category: { id: string; name_en: string; name_sw: string };
   products: Product[];
 };
 
 type Props = {
   locale: "en" | "sw";
-  supplierId: any;
+  supplierId: string;
 };
 
 export default function CompanyCategoriesProducts({
@@ -35,7 +38,7 @@ export default function CompanyCategoriesProducts({
   // Load once on mount
   useEffect(() => {
     fetchSections();
-  }, [supplierId]);
+  }, []);
 
   return (
     <div>

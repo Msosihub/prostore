@@ -5,7 +5,7 @@ import { getProductsByCategory } from "@/lib/actions/product.actions";
 import ProductCard from "./product-card2";
 import { Skeleton } from "@/components/ui/skeleton";
 // import { convertToPlainObject } from "@/lib/utils";
-// import { Product } from "@/types";
+import { Product } from "@/types";
 
 const RelatedProducts = ({
   categoryId,
@@ -14,7 +14,7 @@ const RelatedProducts = ({
   categoryId: string;
   excludeSlug: string;
 }) => {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

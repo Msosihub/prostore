@@ -29,6 +29,14 @@ export default function Composer({
   const [uploadingCount, setUploadingCount] = useState(0);
   const [attachments, setAttachments] = useState<Att[]>([]);
 
+  type ComposerPayload = {
+    content: string;
+    attachments?: Att[];
+    replyToId?: string;
+    replyToInquiryId?: string;
+    productId?: string;
+  };
+
   // Typing indicator (throttled)
   useEffect(() => {
     const sendTyping = (state: boolean) =>
@@ -65,7 +73,7 @@ export default function Composer({
     console.log("SMS ENTERED: ", text);
     if (!text && attachments.length === 0) return;
 
-    const payload: any = { content: text };
+    const payload: ComposerPayload = { content: text };
     if (attachments.length) payload.attachments = attachments;
     if (replyTo?.id) payload.replyToId = replyTo.id;
     if (replyTo?.inquiry?.id) payload.replyToInquiryId = replyTo.inquiry.id;
@@ -187,10 +195,12 @@ export default function Composer({
                   setUploadingCount((c) => Math.max(0, c - 1))
                 }
                 onClientUploadComplete={(res) => {
-                  const files: Att[] = res.map((r: any) => ({
-                    url: r.url as string,
-                    name: r.name as string | undefined,
-                  }));
+                  const files: Att[] = res.map(
+                    (r: { url: string; name: string }) => ({
+                      url: r.url as string,
+                      name: r.name as string | undefined,
+                    })
+                  );
                   setAttachments((prev) => [...prev, ...files]);
                   setUploadingCount((c) => Math.max(0, c - 1));
                 }}

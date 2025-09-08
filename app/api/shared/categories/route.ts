@@ -3,7 +3,7 @@ import { getAllCategories } from "@/lib/actions/product.actions";
 
 export const revalidate = 10; // ISR: refresh every 10s
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const res = await getAllCategories();
     if (!res) return undefined;

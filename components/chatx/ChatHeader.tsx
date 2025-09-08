@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Phone, Settings, Store, X } from "lucide-react";
 import type { ProductLite, UserLite } from "./types";
+import { Settings, Store, X } from "lucide-react";
 
 type Props = {
   meId: string;

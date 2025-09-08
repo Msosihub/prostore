@@ -2,7 +2,7 @@
 //1 category, displayed horizontally, with heading
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { Product } from "@/types";
+import { Category, Product } from "@/types";
 import SectionSkeleton from "@/components/skeletons/skeleton-section";
 import ProductCard from "@/components/shared/product/product-card";
 import useSWR from "swr";
@@ -13,7 +13,7 @@ type Props = {
 
 type RandomOneResponse = {
   products: Product[];
-  category: any;
+  category: Category;
 };
 
 // generic fetcher that always returns JSON
@@ -23,7 +23,7 @@ const fetcher = async (url: string): Promise<RandomOneResponse> => {
   return res.json();
 };
 
-export default function RandomOneSectionHeading({ locale }: Props) {
+export default function RandomOneSectionHeading({}: Props) {
   const { data, error, isLoading } = useSWR(
     "/api/products/random_one",
     fetcher,
@@ -40,9 +40,8 @@ export default function RandomOneSectionHeading({ locale }: Props) {
   const products = data?.products;
   const cat = data?.category;
 
-  const title = locale === "en" ? cat.name_en : cat.name_sw;
-  const subtitle = locale === "en" ? cat.description_en : cat.description_sw;
-
+  const title = cat.name_en;
+  const subtitle = cat.description;
   return (
     <div className="my-10 space-y-3">
       {/* Header Row */}
@@ -69,7 +68,6 @@ export default function RandomOneSectionHeading({ locale }: Props) {
             <div key={product.slug} className="min-w-[200px] flex-shrink-0">
               <ProductCard
                 id={product.id}
-                slug={product.slug}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}

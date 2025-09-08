@@ -6,6 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import React from "react";
 import ProductCard from "@/components/shared/product/product-card";
+import { Product } from "@/types";
+
+interface ProductsResponse {
+  products: Product[];
+  hasMore: boolean;
+  totalCount: number;
+}
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -18,7 +25,7 @@ export default function CategoryProductsPage({
   const paramsx = React.use(params);
   const id = paramsx.id;
 
-  const getKey = (pageIndex: number, previousPageData: any) => {
+  const getKey = (pageIndex: number, previousPageData: ProductsResponse) => {
     if (previousPageData && !previousPageData.hasMore) return null; // ✅ stop if no more
     return `/api/shared/categories/${id}/products?page=${pageIndex + 1}&limit=${PAGE_SIZE}`;
   };
@@ -28,7 +35,7 @@ export default function CategoryProductsPage({
     fetcher
   );
 
-  const products = data ? data.flatMap((page: any) => page.products) : [];
+  const products = data ? data.flatMap((page) => page.products) : [];
 
   const isLoadingInitial = !data && !error;
   const isLoadingMore =
