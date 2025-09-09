@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     // If inquiry payload provided and no Inquiry yet, create one
     if (
       parsed.inquiry &&
-      !(await prisma.inquiry.findUnique({
+      !(await prisma.inquiry.findFirst({
         where: { conversationId: convoId },
       }))
     ) {

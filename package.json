@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
+    "seed": "ts-node db/seed.ts",
     "tree": "npx tree-cli -l 2 -i \"node_modules,.next,.git\""
   },
   "dependencies": {
@@ -101,6 +102,6 @@
     "typescript": "^5.9.2"
   },
   "prisma": {
-    "seed": "ts-node ./db/seed_new.ts"
+    "seed": "ts-node ./db/seed.ts"
   }
 }

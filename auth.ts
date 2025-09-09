@@ -32,7 +32,7 @@ export const config = {
       },
       async authorize(credentials) {
         const identifier = credentials?.identifier;
-        const password = credentials?.password;
+        const password = credentials?.password as string;
         console.log("👉 Credentials received:", identifier, password);
         if (!identifier || !password) return null;
 

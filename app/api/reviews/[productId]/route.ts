@@ -6,10 +6,11 @@ export const revalidate = 10; // ISR: refresh every 10s
 
 export async function GET(
   req: Request,
-  { params }: { params: { productId: string } }
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   const paramsx = await params;
   const { productId } = paramsx;
   const res = await getReviews({ productId });
+  if (!res) return undefined;
   return NextResponse.json(res.data);
 }

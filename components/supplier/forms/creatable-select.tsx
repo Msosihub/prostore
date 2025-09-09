@@ -50,14 +50,17 @@ type Props<
   onCreate: (name: string) => Promise<{ id: string; label: string } | null>;
 };
 
-export default function CreatableSelect({
+export default function CreatableSelect<
+  TFieldValues extends FieldValues,
+  TName extends FieldPath<TFieldValues>,
+>({
   label,
   placeholder,
   field,
   options,
   setOptions,
   onCreate,
-}: Props) {
+}: Props<TFieldValues, TName>) {
   const [open, setOpen] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
   const [createValue, setCreateValue] = React.useState("");

@@ -193,7 +193,7 @@ export async function POST(
   // Handle Inquiry: connect existing by conversation or create one
   let inquiryId: string | null = null;
   if (inquiryData) {
-    const existing = await prisma.inquiry.findUnique({
+    const existing = await prisma.inquiry.findFirst({
       where: { conversationId },
       select: { id: true },
     });

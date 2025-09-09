@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getUserById } from "@/lib/actions/user.actions";
 import UpdateUserForm from "./update-user-form";
 import { requireSupplier } from "@/lib/auth-guard";
+import { UserRole } from "@/lib/validators";
 
 export const metadata: Metadata = {
   title: "Update User",
@@ -21,6 +22,8 @@ const SupplierUserUpdatePage = async (props: {
   const user = {
     ...user_fetched,
     email: user_fetched.email ?? "<no email>",
+    role: user_fetched.role as unknown as UserRole,
+    phone: user_fetched.phone ?? undefined,
   };
 
   if (!user) notFound();

@@ -22,6 +22,15 @@ const OrderDetailsPage = async (props: {
   const order = await getOrderById(id);
   if (!order) notFound();
 
+  // Force non-null fallback for email
+  const safeOrder = {
+    ...order,
+    user: {
+      ...order.user,
+      email: order.user.email ?? "",
+    },
+  };
+
   const session = await auth();
 
   // Redirect the user if they don't own the order
@@ -47,7 +56,7 @@ const OrderDetailsPage = async (props: {
   return (
     <OrderDetailsTable
       order={{
-        ...order,
+        ...safeOrder,
         shippingAddress: order.shippingAddress as ShippingAddress,
       }}
       // stripeClientSecret={client_secret}

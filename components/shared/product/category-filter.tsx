@@ -5,17 +5,24 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getAllCategories } from "@/lib/actions/product.actions";
 
+export type CategoryLite = {
+  id: string;
+  name_en: string;
+  name_sw: string;
+  _count: { products: number };
+};
+
 const CategoryFilter = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [categories, setCategories] = useState<{ name_en: string }[]>([]);
+  const [categories, setCategories] = useState<CategoryLite[]>([]);
 
   const activeCategory = searchParams.get("category") || "all";
 
   useEffect(() => {
     const fetchCategories = async () => {
       const result = await getAllCategories(); // Should return array of { name_en }
-      setCategories(result);
+      if (result) setCategories(result);
     };
     fetchCategories();
   }, []);

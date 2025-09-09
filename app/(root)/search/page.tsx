@@ -149,7 +149,6 @@ const SearchPage = async (props: {
               <ProductCard
                 key={product.id}
                 id={product.id}
-                slug={product.slug}
                 name={product.name}
                 brand={product.brand?.name ?? ""}
                 category={product.category?.name_en ?? ""}

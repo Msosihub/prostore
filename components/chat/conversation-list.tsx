@@ -14,7 +14,7 @@ type ConversationItem = {
   product?: { name: string } | null;
   otherPartyName: string; // computed server-side
   unreadCount: number;
-  lastMessage: string;
+  lastMessage?: string;
   typing?: boolean;
 };
 
@@ -22,7 +22,7 @@ export default function ConversationList({
   meId,
   initial,
 }: {
-  meId: string;
+  meId: string | undefined;
   role: "BUYER" | "SUPPLIER";
   initial: ConversationItem[];
 }) {

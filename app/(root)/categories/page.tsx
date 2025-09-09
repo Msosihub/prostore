@@ -51,7 +51,7 @@ export default function CategoriesPage() {
                 <CardContent className="p-2 text-center">
                   <p className="text-sm font-medium truncate">{cat.name_en}</p>
                   <p className="text-xs text-gray-500">
-                    {cat._count.products ?? 0} products
+                    {cat._count?.products ?? 0} products
                   </p>
                 </CardContent>
               </Card>

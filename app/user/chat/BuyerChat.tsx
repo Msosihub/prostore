@@ -13,7 +13,6 @@ const BuyerChat = async () => {
   const conversations = await prisma.conversation.findMany({
     where: { buyerId: meId },
     include: {
-      product: { select: { name: true } },
       messages: {
         where: { seen: false, NOT: { senderId: meId } },
         select: { id: true },
@@ -26,7 +25,6 @@ const BuyerChat = async () => {
   const initial = conversations.map((c) => ({
     id: c.id,
     otherPartyName: c.supplier.name,
-    product: c.product ? { name: c.product.name } : null,
     unreadCount: c.messages.length,
   }));
 

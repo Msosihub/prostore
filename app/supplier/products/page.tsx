@@ -95,13 +95,13 @@ const SupplierProductsPage = async (props: {
               <TableCell>{product.stock}</TableCell>
               <TableCell
                 className={cn(
-                  product.rating <= 2.9
+                  Number(product.rating) <= 2.9
                     ? "text-red-600 font-semibold"
-                    : product.rating <= 3.9
+                    : Number(product.rating) <= 3.9
                       ? ""
-                      : product.rating <= 4.5
+                      : Number(product.rating) <= 4.5
                         ? "text-green-600 font-semibold"
-                        : product.rating <= 5
+                        : Number(product.rating) <= 5
                           ? "text-yellow-500 font-bold"
                           : ""
                 )}

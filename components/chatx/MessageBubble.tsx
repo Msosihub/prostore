@@ -9,7 +9,12 @@ import { FileText } from "lucide-react";
 type Props = {
   meId: string;
   message: MessageLite;
-  onReply?: (m: MessageLite) => void;
+  onReply?: (
+    m: MessageLite & {
+      inquiry?: MessageLite["inquiry"];
+      replySourceId?: string;
+    }
+  ) => void;
 };
 
 export default function MessageBubble({ meId, message, onReply }: Props) {
@@ -74,7 +79,7 @@ export default function MessageBubble({ meId, message, onReply }: Props) {
             <span className="font-semibold">
               {message.replyTo.senderId === meId
                 ? "You"
-                : message.replyTo.sender?.name || "User"}
+                : message.replyTo.senderId || "User"}
             </span>
             :{" "}
             {message.replyTo.inquiry ? (

@@ -160,7 +160,7 @@ model Category {
   name_sw       String
   image         String?
   createdAt     DateTime      @default(now()) @db.Timestamp(6)
-  description   String?
+  description   String        @default("")
   products      Product[]
   subcategories Subcategory[]
 }
@@ -327,7 +327,7 @@ model Conversation {
 
 model Inquiry {
   id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String @unique @db.Uuid
+  conversationId String @db.Uuid
 
   // Example fields (you can expand)
   productId String?
@@ -349,6 +349,8 @@ model Inquiry {
   conversation  Conversation  @relation(fields: [conversationId], references: [id])
   Quote         Quote[]
   Message       Message[]
+
+  @@unique([conversationId, productId])
 }
 
 model Quote {

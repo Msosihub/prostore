@@ -54,9 +54,13 @@ export type Supplier = {
 export type Category = {
   id: string;
   name_en: string;
+  name_sw?: string;
   description?: string | "";
   image?: string;
   createdAt: Date;
+  _count?: {
+    products?: number;
+  };
 };
 
 export type Product = {

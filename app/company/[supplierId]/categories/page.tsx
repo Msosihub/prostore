@@ -11,7 +11,7 @@ export const metadata = {
 export default async function Home({
   params,
 }: {
-  params: { supplierId: string };
+  params: Promise<{ supplierId: string }>;
 }) {
   const locale: "en" | "sw" = "sw"; // You can make this dynamic later
   const paramsx = await params;

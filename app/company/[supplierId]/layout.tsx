@@ -11,7 +11,7 @@ export default async function SupplierLayout({
   params,
 }: Readonly<{
   children: React.ReactNode;
-  params: { supplierId: string };
+  params: Promise<{ supplierId: string }>;
 }>) {
   const paramx = await params;
   const supplierId = paramx.supplierId;

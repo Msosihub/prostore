@@ -41,7 +41,7 @@ export default async function BuyerChat() {
   return (
     <div className="max-w-2xl mx-auto p-4">
       <h1 className="text-lg font-semibold mb-3">Messages</h1>
-      <ConversationList meId={meId} role="BUYER" initial={initial} />
+      <ConversationList meId={meId || ""} role="BUYER" initial={initial} />
       <BottomNav />
     </div>
   );

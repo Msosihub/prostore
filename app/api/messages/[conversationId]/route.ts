@@ -14,14 +14,14 @@ interface ParsedAttachment {
 
 export async function POST(
   req: Request,
-  { params }: { params: { conversationId: string } }
+  { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
     const session = await auth();
     if (!session)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const conversationId = params.conversationId;
+    const { conversationId } = await params;
     const json = await req.json();
     const parsed = sendMessageSchema.parse({ ...json, conversationId });
 

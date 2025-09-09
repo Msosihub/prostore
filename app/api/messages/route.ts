@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     data: {
       conversationId,
       senderId: session.user.id,
-      body,
+      content: body,
       attachments: attachments
         ? JSON.parse(JSON.stringify(attachments))
         : undefined,

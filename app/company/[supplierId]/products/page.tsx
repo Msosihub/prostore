@@ -10,13 +10,13 @@ export const metadata = {
 export default async function Home({
   params,
 }: {
-  params: { supplierId: string };
+  params: Promise<{ supplierId: string }>;
 }) {
   const locale: "en" | "sw" = "sw"; // You can make this dynamic later
-
+  const { supplierId } = await params;
   //latest products of this supplier
   const latestProducts = await prisma.product.findMany({
-    where: { supplierId: params.supplierId },
+    where: { supplierId: supplierId },
     orderBy: { createdAt: "desc" },
     take: 6,
   });
@@ -32,7 +32,7 @@ export default async function Home({
           variant="grid"
         />
         {/* All categories with fewer products */}
-        <CompanyCategoriesProducts locale="en" supplierId={params.supplierId} />
+        <CompanyCategoriesProducts locale="en" supplierId={supplierId} />
 
         <IconBoxes />
       </div>

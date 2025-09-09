@@ -18,7 +18,7 @@ export async function GET() {
     },
     include: {
       messages: {
-        where: { isRead: false, senderId: { not: userId } },
+        where: { seen: false, senderId: { not: userId } },
       },
     },
   });

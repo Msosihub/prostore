@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 export default async function SupplierHomePage({
   params,
 }: {
-  params: { supplierId: string };
+  params: Promise<{ supplierId: string }>;
 }) {
   const paramsx = await params;
   const supplierId = paramsx.supplierId;

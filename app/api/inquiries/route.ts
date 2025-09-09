@@ -7,15 +7,15 @@ export async function POST(req: Request) {
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { conversationId, ...payload } = await req.json();
-  if (!conversationId)
+  const { conversationId, productId, ...payload } = await req.json();
+  if (!conversationId || !productId)
     return NextResponse.json(
-      { error: "conversationId required" },
+      { error: "conversationId and productId are required" },
       { status: 400 }
     );
 
   const inquiry = await prisma.inquiry.upsert({
-    where: { conversationId },
+    where: { conversationId_productId: { conversationId, productId } },
     update: { ...payload },
     create: { conversationId, ...payload },
   });

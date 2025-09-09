@@ -51,6 +51,27 @@ export const insertProductSchema = z.object({
   pricingTiers: z.array(pricingTierSchema),
 });
 
+// /for product form
+export const productFormSchema = z.object({
+  id: z.string().optional(), // optional, only needed for update
+  name: z.string().min(3, "Jina lazima liwe zaidi ya herufi 3"),
+  slug: z.string().min(3, "Slug lazima liwe zaidi ya herufi 3"),
+  description: z.string().min(3, "Maelezo yanataka walau herufi 3"),
+  stock: z.coerce.number().min(0, "Stock lazima iwe namba chanya"),
+  images: z
+    .array(z.string().url())
+    .min(1, "Product lazima iwe na picha angalau moja"),
+  price: currency,
+  brandId: z.string().uuid({ message: "ID sahihi ya Brand inahitajika" }),
+  categoryId: z.string().uuid({ message: "ID sahihi ya kundi inahitajika" }),
+  subcategoryId: z.string({ message: "Kundi dogo linahitajika" }),
+  supplierId: z.string({ message: "supplier ID rasmi inahitajika" }),
+  pricingTiers: z.array(pricingTierSchema),
+});
+export type ProductFormValues = z.infer<typeof productFormSchema>;
+
+//sign in
+
 export const signInFormSchema = z.object({
   identifier: z.string().email("Email/Namba simu sio sahihi"),
   password: z.string().min(4, "Password lazima iwe herufi 5 au zaidi"),

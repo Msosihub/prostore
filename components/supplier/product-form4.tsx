@@ -2,7 +2,12 @@
 
 import { useToast } from "@/hooks/use-toast";
 import { productDefaultValues } from "@/lib/constants";
-import { insertProductSchema, updateProductSchema } from "@/lib/validators";
+import {
+  insertProductSchema,
+  productFormSchema,
+  ProductFormValues,
+  updateProductSchema,
+} from "@/lib/validators";
 import { Product, Category } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Trash2, Loader2 } from "lucide-react";
@@ -62,15 +67,13 @@ const ProductForm = ({
   const [uploading] = useState(false);
   // console.log("Here are the BEFORE values:", product);
 
-  const form = useForm<z.infer<typeof insertProductSchema>>({
-    resolver:
-      type === "Update"
-        ? zodResolver(updateProductSchema)
-        : zodResolver(insertProductSchema),
-    defaultValues:
-      product && type === "Update"
-        ? product
-        : { ...productDefaultValues, supplierId: supplierId || "" },
+  const form = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      ...productDefaultValues,
+      supplierId: supplierId || "",
+      id: product?.id || undefined, // only for update
+    },
   });
 
   //console.log("Here are the form values:", form.getValues());
@@ -97,12 +100,10 @@ const ProductForm = ({
   //   });
   // };
 
-  const onSubmit: SubmitHandler<z.infer<typeof insertProductSchema>> = async (
-    values
-  ) => {
-    console.log("SUPPLIER ID: ", supplierId);
-    const x = { ...values, supplierId };
-    console.log("Here Values: ", x);
+  const onSubmit: SubmitHandler<ProductFormValues> = async (values) => {
+    // console.log("SUPPLIER ID: ", supplierId);
+    // const x = { ...values, supplierId };
+    // console.log("Here Values: ", x);
     try {
       if (type === "Create") {
         const res = await createProduct({
@@ -484,7 +485,7 @@ const ProductForm = ({
                       appearance={{
                         button:
                           "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-md",
-                        label: "text-green-600 font-medium",
+                        // : "text-green-600 font-medium",
                       }}
                       content={{
                         button: "Chagua na pakia picha", // 👈 changed text

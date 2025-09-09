@@ -10,6 +10,6 @@ export async function GET() {
     return NextResponse.json(res);
   } catch (error) {
     console.log("Error fetching categories: ", error);
-    return null;
+    return NextResponse.json(error);
   }
 }

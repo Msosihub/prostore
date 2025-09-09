@@ -60,7 +60,7 @@ export default function ChatWindow({
           conversationId={conversationId}
           initialMessages={messages}
           pinnedInquiry={latestInquiry}
-          onReply={(m) => setReplyTo(m)}
+          onReply={(m) => setReplyTo(m as MessageLite)}
           onPeerTypingChange={setPeerTyping}
         />
       </div>

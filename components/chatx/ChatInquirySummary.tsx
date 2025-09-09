@@ -4,6 +4,11 @@ import { CornerUpLeft } from "lucide-react";
 import type { InquiryLite, MessageLite } from "./types";
 import Link from "next/link";
 
+type ReplyPayload = MessageLite & {
+  inquiry: InquiryLite;
+  replySourceId: string;
+};
+
 export default function ChatInquirySummary({
   inquiry,
   pinned,
@@ -12,7 +17,7 @@ export default function ChatInquirySummary({
 }: {
   inquiry: InquiryLite;
   pinned?: boolean;
-  onReply?: (m: Partial<MessageLite> & { inquiry: InquiryLite }) => void;
+  onReply?: (m: ReplyPayload) => void;
   message?: MessageLite;
 }) {
   return (
@@ -22,7 +27,7 @@ export default function ChatInquirySummary({
       } p-4 pt-2 text-sm`}
     >
       {/* In-message product mention (if server attaches) */}
-      {message.product && (
+      {message && message.product && (
         <Link
           href={`/product/${message.product.id}`}
           className="mt-2 block rounded-md border bg-white overflow-hidden"

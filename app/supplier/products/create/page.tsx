@@ -27,7 +27,10 @@ const CreateProductPage = async () => {
           type="Create"
           supplierId={supplier.id}
           brands={brands}
-          categories={categories}
+          categories={categories.map((c) => ({
+            ...c,
+            image: c.image ?? undefined, // convert null to undefined
+          }))}
           subcategories={subcategories}
         />
       </div>
