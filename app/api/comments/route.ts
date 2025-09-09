@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
+// import OpenAI from "openai";
 // import AWS from "aws-sdk";
-import { pii_1, pii_2, pii_3, pii_4 } from "@/lib/constants/index_sw"; // Import Swahili constants
+import { pii_2, pii_3, pii_4 } from "@/lib/constants/index_sw"; // Import Swahili constants
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY,
+// });
 
 // const comprehend = new AWS.Comprehend({
 //   region: "us-east-1", // adjust to your AWS region
@@ -52,17 +52,17 @@ export async function POST(req: Request) {
   const { comment } = await req.json();
 
   // Step 1: OpenAI Moderation (toxicity check)
-  const moderation = await openai.moderations.create({
-    model: "omni-moderation-latest",
-    input: comment,
-  });
+  // const moderation = await openai.moderations.create({
+  //   model: "omni-moderation-latest",
+  //   input: comment,
+  // });
 
-  if (moderation.results[0].flagged) {
-    return NextResponse.json(
-      { success: false, reason: pii_1 },
-      { status: 400 }
-    );
-  }
+  // if (moderation.results[0].flagged) {
+  //   return NextResponse.json(
+  //     { success: false, reason: pii_1 },
+  //     { status: 400 }
+  //   );
+  // }
 
   //   // Step 2: Regex PII (emails, phones, links)
   if (containsRegexPII(comment)) {
