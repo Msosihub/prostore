@@ -6,20 +6,14 @@ import {
   insertProductSchema,
   productFormSchema,
   ProductFormValues,
-  updateProductSchema,
 } from "@/lib/validators";
 import { Product, Category } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Trash2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import Image from "next/image";
 
 import { useRouter } from "next/navigation";
-import {
-  useForm,
-  useFieldArray,
-  SubmitHandler,
-  ControllerRenderProps,
-} from "react-hook-form";
+import { useForm, SubmitHandler, ControllerRenderProps } from "react-hook-form";
 import { z } from "zod";
 import {
   Form,
@@ -43,6 +37,7 @@ import {
 import { UploadButton } from "@/lib/uploadthing";
 import { useState } from "react";
 import RichTextEditor from "../customComponents/richTextEditor";
+import { PricingTiersFieldArray } from "./separate-comp";
 
 const ProductForm = ({
   type,
@@ -77,11 +72,6 @@ const ProductForm = ({
   });
 
   //console.log("Here are the form values:", form.getValues());
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "pricingTiers",
-  });
 
   // const addTier = () => {
   //   if (fields.length < 3) append({ minQty: 1, price: 0 });
@@ -379,96 +369,7 @@ const ProductForm = ({
         </div>
 
         {/* Price Tiers */}
-        <div>
-          <FormLabel>Viwango vya bei(Kulingana na Idadi)</FormLabel>
-
-          <div className="space-y-3 mt-2">
-            {fields.map((field, index) => (
-              <div
-                key={field.id}
-                className="grid grid-cols-[1fr,1fr,auto] gap-3 items-start"
-              >
-                {/* Min Qty */}
-                <FormField
-                  control={form.control}
-                  name={`pricingTiers.${index}.minQty`}
-                  render={({
-                    field,
-                  }: {
-                    field: ControllerRenderProps<
-                      z.infer<typeof insertProductSchema>,
-                      "pricingTiers"
-                    >;
-                  }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Min Qty</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="e.g. 5"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Price */}
-                <FormField
-                  control={form.control}
-                  name={`pricingTiers.${index}.price`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Price</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          placeholder="e.g. 19.99"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Remove row */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="mt-7"
-                  onClick={() => remove(index)}
-                  aria-label="Remove tier"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-
-            {/* Add row (max 3) */}
-            {fields.length < 3 && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => append({ minQty: 1, price: 0 })}
-              >
-                + Add Tier
-              </Button>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              Mfano mnunuaje atakavyoona:{" "}
-              <span className="font-mono">1+ → 200tsh</span>,{" "}
-              <span className="font-mono">5+ → 150tsh</span>,{" "}
-              <span className="font-mono">10+ → 100tsh</span>.
-            </p>
-          </div>
-        </div>
+        <PricingTiersFieldArray control={form.control} />
 
         {/* Images */}
         <FormField
@@ -491,7 +392,7 @@ const ProductForm = ({
                         button: "Chagua na pakia picha", // 👈 changed text
                       }}
                       // ✅ Enable multiple uploads
-                      multiple
+                      // multiple
                       onUploadBegin={() => {
                         // ✅ show loader when upload starts
                         toast({

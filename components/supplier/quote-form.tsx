@@ -11,7 +11,7 @@ export default function QuoteForm() {
   return (
     <div className="space-y-4">
       {/* Upload UI */}
-      <UploadDropzone<OurFileRouter>
+      <UploadDropzone<OurFileRouter, "quoteAttachment">
         endpoint="quoteAttachment"
         onClientUploadComplete={(res) => {
           // res is an array of uploaded files

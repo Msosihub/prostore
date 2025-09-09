@@ -10,7 +10,6 @@ export async function getOrCreateConversation(params: {
   const { buyerId, supplierId, productId } = params;
   const existing = await prisma.conversation.findFirst({
     where: { buyerId, supplierId, productId: productId ?? undefined },
-    include: { product: true },
   });
   if (existing) return existing;
 
@@ -32,7 +31,7 @@ export async function getUnreadCount(userId: string) {
   return prisma.message.count({
     where: {
       conversationId: { in: convIds },
-      isRead: false,
+      seen: false,
       // not sent by me:
       NOT: { senderId: userId },
     },
