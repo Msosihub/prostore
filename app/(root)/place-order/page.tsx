@@ -20,6 +20,8 @@ import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import PlaceOrderForm from "./place-order-form";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Place Order",
 };
