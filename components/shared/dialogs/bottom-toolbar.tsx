@@ -86,7 +86,7 @@ export default function BottomToolbar({
         `conversation:${conversation.id}`,
         JSON.stringify(conversation)
       );
-      router.push(`/api/chat/${conversation.id}`);
+      router.push(`/chat/${conversation.id}`);
       setIsPressed(false);
       // redirect to UI page (not API)
       // window.location.href = `/chat/${conversation.id}`;

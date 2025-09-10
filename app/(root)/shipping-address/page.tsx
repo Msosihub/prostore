@@ -27,10 +27,10 @@ const ShippingAddressPage = async () => {
   const user = await getUserById(userId);
 
   return (
-    <>
+    <div className="mb-16">
       <CheckoutSteps current={1} />
       <ShippingAddressForm address={user.address as ShippingAddress} />
-    </>
+    </div>
   );
 };
 

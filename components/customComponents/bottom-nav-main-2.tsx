@@ -18,10 +18,10 @@ export default function BottomNav() {
   return (
     <>
       {/* spacer so content never hides behind bar */}
-      <div className="h-14 md:h-16" />
+      <div className="h-18 md:h-16" />
 
       {/* bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white shadow-md">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white shadow-md hidden">
         <div className="mx-auto flex max-w-4xl items-center justify-around px-2 py-1">
           {navItems.map((item) => {
             const Icon = item.icon;

@@ -54,9 +54,9 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
   return (
     <>
       <div className="max-w-md mx-auto space-y-4">
-        <h1 className="h2-bold mt-4">Shipping Address</h1>
+        <h1 className="h2-bold mt-4">Taarifa za usafirishaji</h1>
         <p className="text-sm text-muted-foreground">
-          Please enter and address to ship to
+          Tafadhali andika anuani ya mzigo unapoenda
         </p>
         <Form {...form}>
           <form
@@ -77,9 +77,12 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                   >;
                 }) => (
                   <FormItem className="w-full">
-                    <FormLabel>Full Name</FormLabel>
+                    <FormLabel>Jina Kamili</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter full name" {...field} />
+                      <Input
+                        placeholder="Ingiza majina yako kamili"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

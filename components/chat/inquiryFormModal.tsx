@@ -51,7 +51,7 @@ export function InquiryFormModal({
       setQuantity("");
       setNotes("");
       const { conversation } = await res.json();
-      router.push(`/api/chat/${conversation.id}`);
+      router.push(`/chat/${conversation.id}`);
       setLoading(false);
       onOpenChange(false); // close modal
     }

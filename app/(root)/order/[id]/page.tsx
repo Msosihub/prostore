@@ -54,15 +54,17 @@ const OrderDetailsPage = async (props: {
   // }
 
   return (
-    <OrderDetailsTable
-      order={{
-        ...safeOrder,
-        shippingAddress: order.shippingAddress as ShippingAddress,
-      }}
-      // stripeClientSecret={client_secret}
-      paypalClientId={process.env.PAYPAL_CLIENT_ID || "sb"}
-      isAdmin={session?.user?.role === "admin" || false}
-    />
+    <div className="mb-28">
+      <OrderDetailsTable
+        order={{
+          ...safeOrder,
+          shippingAddress: order.shippingAddress as ShippingAddress,
+        }}
+        // stripeClientSecret={client_secret}
+        paypalClientId={process.env.PAYPAL_CLIENT_ID || "sb"}
+        isAdmin={session?.user?.role === "admin" || false}
+      />
+    </div>
   );
 };
 

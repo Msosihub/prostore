@@ -53,7 +53,7 @@ const PlaceOrderPage = async () => {
   const userAddress = user.address as ShippingAddress;
 
   return (
-    <>
+    <div className="mb-20">
       <CheckoutSteps current={3} />
       <h1 className="py-4 text-2xl">Place Order</h1>
       <div className="grid md:grid-cols-3 md:gap-5">
@@ -135,7 +135,7 @@ const PlaceOrderPage = async () => {
                 <div>{formatCurrency(safeCartData.itemsPrice)}</div>
               </div>
               <div className="flex justify-between">
-                <div>Tax</div>
+                <div>Kodi</div>
                 <div>{formatCurrency(safeCartData.taxPrice)}</div>
               </div>
               <div className="flex justify-between">
@@ -151,7 +151,7 @@ const PlaceOrderPage = async () => {
           </Card>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
