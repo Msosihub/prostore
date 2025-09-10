@@ -3,6 +3,8 @@
 import { prisma } from "@/db/prisma";
 import { NextResponse } from "next/server";
 
+export const revalidate = 30;
+
 export async function GET() {
   // Pick random categories first
   let categories = [];

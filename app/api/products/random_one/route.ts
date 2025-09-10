@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 
+export const revalidate = 30;
+
 let recentlyUsed: string[] = []; // category IDs we used recently
 const MAX_MEMORY = 5; // don't repeat last 5
 

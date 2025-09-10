@@ -3,6 +3,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 
+export const revalidate = 30;
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const batchSize = Number(searchParams.get("count") || 2); // how many random categories per call

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma"; // adjust if your prisma client is in a different path
 
+export const revalidate = 120;
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 

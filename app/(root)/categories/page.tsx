@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Category } from "@/types";
 
+export const revalidate = 600;
+
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function CategoriesPage() {

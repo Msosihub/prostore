@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 
+export const revalidate = 30;
+
 //chooses one suplier and his products
 let recentlyUsed: string[] = [];
 const MAX_MEMORY = 5;
