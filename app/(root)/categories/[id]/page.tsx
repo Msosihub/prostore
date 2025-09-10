@@ -8,7 +8,7 @@ import React from "react";
 import ProductCard from "@/components/shared/product/product-card";
 import { Product } from "@/types";
 
-export const revalidate = 600;
+// export const revalidate = 600;
 
 interface ProductsResponse {
   products: Product[];
