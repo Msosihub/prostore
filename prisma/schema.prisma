@@ -350,7 +350,7 @@ model Inquiry {
   Quote         Quote[]
   Message       Message[]
 
-  @@unique([conversationId, productId])
+  // @@unique([conversationId, productId]) //If you want to allow only one inquiry per product per conversation
 }
 
 model Quote {
