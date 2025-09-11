@@ -26,7 +26,7 @@ export default async function SupplierMessagesPage() {
         {conversations.map((c) => (
           <Link
             key={c.id}
-            href={`/api/chat/${c.id}`}
+            href={`/chat/${c.id}`}
             className="block p-4 border rounded-lg hover:bg-gray-50"
           >
             <div className="flex justify-between items-center">

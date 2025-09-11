@@ -20,7 +20,8 @@ export default function BottomNav() {
     <>
       {/* spacer so content never hides behind bar */}
       <div className="h-14 md:h-16" />
-      {pathname.startsWith("/product/") ? null : (
+      {pathname.startsWith("/product/") ||
+      pathname.startsWith("/chat/") ? null : (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white shadow-md">
           <div className="mx-auto flex max-w-4xl items-center justify-around px-2 py-1">
             {navItems.map((item) => {

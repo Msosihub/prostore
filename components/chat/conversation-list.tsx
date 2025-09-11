@@ -112,7 +112,7 @@ export default function ConversationList({
       {items.map((c) => (
         <Link
           key={c.id}
-          href={`/api/chat/${c.id}`}
+          href={`/chat/${c.id}`}
           className="flex items-center justify-between p-4 hover:bg-muted transition-colors"
         >
           <div className="flex-1 min-w-0">
