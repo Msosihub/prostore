@@ -14,10 +14,12 @@ export async function POST(req: Request) {
       { status: 400 }
     );
 
-  const inquiry = await prisma.inquiry.upsert({
-    where: { conversationId_productId: { conversationId, productId } },
-    update: { ...payload },
-    create: { conversationId, ...payload },
+  const inquiry = await prisma.inquiry.create({
+    data: {
+      conversationId,
+      productId,
+      ...payload,
+    },
   });
 
   return NextResponse.json(inquiry);
