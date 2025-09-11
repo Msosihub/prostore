@@ -270,16 +270,19 @@ export async function POST(
     data: { updatedAt: new Date() },
   });
 
+  const receiverId =
+    session.user.id === conv.buyerId ? conv.supplierId : conv.buyerId;
+
   // Realtime fanout - Push event
-  await pusherServer.trigger(`private-conv-${conversationId}`, "message:new", {
+  await pusherServer.trigger(`private-conv-${conversationId}`, "msg:new", {
     message,
     conversationId: conversationId,
   });
 
   // Push unread notification to the supplier
-  // await pusherServer.trigger(`user-${receiverId}`, "new-message", {
-  //   conversationId,
-  // });
+  await pusherServer.trigger(`private-user-${receiverId}`, "msg:new", {
+    conversationId,
+  });
 
   return NextResponse.json(message);
 }
@@ -307,15 +310,11 @@ export async function PATCH(
   });
 
   for (const id of messageIds) {
-    await pusherServer.trigger(
-      `private-conv-${conversationId}`,
-      "message:read",
-      {
-        messageId: id,
-        conversationId: conversationId,
-        readerId: session.user.id,
-      }
-    );
+    await pusherServer.trigger(`private-conv-${conversationId}`, "msg:read", {
+      messageId: id,
+      conversationId: conversationId,
+      readerId: session.user.id,
+    });
   }
 
   return NextResponse.json({ success: true });
