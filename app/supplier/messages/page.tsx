@@ -1,63 +1,29 @@
-"use client";
-
+// app/supplier/messages/page.tsx
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { pusherClient } from "@/lib/pusher/client";
-import { MessageLite } from "@/types";
+import { prisma } from "@/db/prisma";
+import { auth } from "@/auth";
 
-type ConversationItem = {
-  id: string;
-  buyerName: string;
-  lastMessage?: string;
-  unreadCount: number;
-};
+export default async function SupplierMessagesPage() {
+  const session = await auth();
+  const supplierId = session?.user.id;
 
-export default function SupplierMessages({
-  meId,
-  initial,
-}: {
-  meId: string;
-  initial: ConversationItem[];
-}) {
-  const [items, setItems] = useState(initial);
-
-  useEffect(() => {
-    const channel = pusherClient.subscribe(`private-user-${meId}`);
-
-    channel.bind(
-      "msg:new",
-      ({
-        conversationId,
-        message,
-      }: {
-        conversationId: string;
-        message: MessageLite;
-      }) => {
-        setItems((prev) =>
-          prev.map((c) =>
-            c.id === conversationId
-              ? {
-                  ...c,
-                  unreadCount: c.unreadCount + 1,
-                  lastMessage: message.content,
-                }
-              : c
-          )
-        );
-      }
-    );
-
-    return () => {
-      channel.unbind_all();
-      channel.unsubscribe();
-    };
-  }, [meId]);
+  const conversations = await prisma.conversation.findMany({
+    where: { supplierId },
+    include: {
+      buyer: true,
+      messages: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
 
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h1 className="text-xl font-semibold mb-4">Buyer Messages</h1>
       <div className="space-y-4">
-        {items.map((c) => (
+        {conversations.map((c) => (
           <Link
             key={c.id}
             href={`/chat/${c.id}`}
@@ -65,15 +31,15 @@ export default function SupplierMessages({
           >
             <div className="flex justify-between items-center">
               <div>
-                <p className="font-medium">{c.buyerName}</p>
+                <p className="font-medium">{c.buyer.name}</p>
               </div>
+              <span className="text-xs text-gray-400">
+                {c.messages[0]?.createdAt.toLocaleDateString()}
+              </span>
             </div>
             <p className="text-sm text-gray-700 truncate">
-              {c.lastMessage ?? "No messages yet"}
+              {c.messages[0]?.content ?? "No messages yet"}
             </p>
-            {c.unreadCount > 0 && (
-              <span className="text-xs text-red-500">{c.unreadCount} new</span>
-            )}
           </Link>
         ))}
       </div>
