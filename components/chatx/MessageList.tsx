@@ -59,13 +59,13 @@ export default function MessageList({
       if (payload.userId !== meId) onPeerTypingChange?.(payload.isTyping);
     };
 
-    ch.bind("message:new", onNewMessage);
-    ch.bind("message:read", onRead);
+    ch.bind("msg:new", onNewMessage);
+    ch.bind("msg:read", onRead);
     ch.bind("typing", onTyping);
 
     return () => {
-      ch.unbind("message:new", onNewMessage);
-      ch.unbind("message:read", onRead);
+      ch.unbind("msg:new", onNewMessage);
+      ch.unbind("msg:read", onRead);
       ch.unbind("typing", onTyping);
       pusherClient.unsubscribe(channelName);
     };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import SectionSkeleton from "@/components/skeletons/skeleton-section";
+// import SectionSkeleton from "@/components/skeletons/skeleton-section";
 import SupplierSection from "./supplie-section";
 import { Product, Supplier } from "@/types";
 import { Loader } from "lucide-react";
