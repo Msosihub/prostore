@@ -25,7 +25,6 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json()); //for swr
 const ReviewList = ({
   userId,
   productId,
-  productSlug,
 }: {
   userId: string;
   productId: string;
@@ -49,7 +48,7 @@ const ReviewList = ({
       </div>
     );
   if (!reviews) return <Loader className="w-4 h-4 animate-spin" />;
-  if (reviews.length === 0) return <>No reviews yet.</>;
+  if (reviews.length === 0) return <>Hakuna maoni bado.</>;
   if (error) return <div>Failed to load reviews</div>;
 
   // useEffect(() => {
@@ -82,7 +81,7 @@ const ReviewList = ({
   };
   return (
     <div className="space-y-4">
-      {reviews.length === 0 && <div>No reviews yet</div>}
+      {reviews.length === 0 && <div>Hakuna maoni bado.</div>}
       {userId ? (
         <ReviewForm
           userId={userId}
@@ -94,7 +93,7 @@ const ReviewList = ({
           Tafadhali
           <Link
             className="text-blue-700 px-2"
-            href={`/sign-in?callbackUrl=/product/${productSlug}`}
+            href={`/sign-in?callbackUrl=/product/${productId}`}
           >
             Jisajili
           </Link>

@@ -55,7 +55,7 @@ export default function SupplierSection({
                   variant="outline"
                   className="text-blue-600 px-2 bg-blue-50"
                 >
-                  Verified Supplier
+                  Amehakikishwa
                 </Badge>
                 • {"Multispecialty Supplier"}
                 <div className={"pl-0"}>
@@ -70,7 +70,7 @@ export default function SupplierSection({
           href={`/company/${supplier.id}/home`}
           className="flex items-center gap-1 text-blue-600 hover:underline ml-4"
         >
-          <span>See all</span>
+          <span>Ona zaidi</span>
           <ChevronRight size={20} />
         </Link>
       </div>

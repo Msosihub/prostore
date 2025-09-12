@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import SectionSkeleton from "@/components/skeletons/skeleton-section";
 import SupplierSection from "./supplie-section";
 import { Product, Supplier } from "@/types";
+import { Loader } from "lucide-react";
 
 type SupplierBlock = { supplier: Supplier; products: Product[] };
 
@@ -98,9 +99,10 @@ export default function InfiniteSuppliers() {
       ))}
 
       {isLoading && (
-        <div className="space-y-4">
-          <SectionSkeleton />
-        </div>
+        // <div className="space-y-4">
+        //   {/* <SectionSkeleton /> */}
+        // </div>
+        <Loader className="w-4 h-4 animate-spin justify-center items-center" />
       )}
 
       {/* sentinel for infinite scroll */}
@@ -108,7 +110,7 @@ export default function InfiniteSuppliers() {
 
       {!hasMore && blocks.length > 0 && (
         <div className="text-sm text-center text-muted-foreground py-4">
-          🎉 You’ve seen all suppliers for now.
+          🎉 Umaona wauzaji wote.
         </div>
       )}
     </div>

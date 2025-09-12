@@ -34,7 +34,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
         description: res.message,
         action: (
           <Description className=" text-green-900 hover:text-green-700">
-            View Cart
+            Angalia Kikapu
           </Description>
         ),
         onClick: () => router.push("/cart"),
@@ -89,7 +89,7 @@ const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
       ) : (
         <Plus className="w-4 h-4" />
       )}{" "}
-      Add To Cart
+      Weka Kikapuni
     </Button>
   );
 };

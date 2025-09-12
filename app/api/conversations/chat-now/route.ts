@@ -7,6 +7,13 @@ export async function POST(req: Request) {
   try {
     const { buyerId, supplierId, productId, supplierUserId } = await req.json();
 
+    // console.log("chat data received: ", {
+    //   buyerId,
+    //   supplierId,
+    //   productId,
+    //   supplierUserId,
+    // });
+
     // 1. Find or create conversation
     let conversation = await prisma.conversation.findUnique({
       where: {
@@ -27,6 +34,7 @@ export async function POST(req: Request) {
       });
     }
 
+    // console.log("chat convo: ", conversation);
     let productMessage = null;
 
     // 2. If productId exists → create a product "marker" message
@@ -78,7 +86,6 @@ export async function POST(req: Request) {
               select: {
                 id: true,
                 name: true,
-                slug: true,
                 images: true,
                 price: true,
               },
@@ -95,6 +102,12 @@ export async function POST(req: Request) {
       },
     });
 
+    // console.log("chat return: ", {
+    //   conversation: fullConversation,
+    //   newMessage: productMessage, // optional: send it back if client wants it immediately
+    // });
+
+    console.log(" in route: ", conversation.id);
     return NextResponse.json({
       conversation: fullConversation,
       newMessage: productMessage, // optional: send it back if client wants it immediately

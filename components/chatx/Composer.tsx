@@ -70,7 +70,7 @@ export default function Composer({
 
   const send = async () => {
     const text = value.trim();
-    // console.log("SMS ENTERED: ", text);
+    console.log("SMS ENTERED: ", text);
     if (!text && attachments.length === 0) return;
 
     const payload: ComposerPayload = { content: text };
@@ -79,7 +79,7 @@ export default function Composer({
     if (replyTo?.inquiry?.id) payload.replyToInquiryId = replyTo.inquiry.id;
     if (product) {
       payload.productId = product.id;
-      // console.log("Creating Payload: ", product.id);
+      console.log("Creating Payload: ", product.id);
       onProductUsed?.(); // 👈 clear it after first use
     }
 

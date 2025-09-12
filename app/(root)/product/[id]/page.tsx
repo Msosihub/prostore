@@ -101,9 +101,9 @@ const ProductDetailsPagez = async (props: {
                 <div className="flex justify-between items-center text-sm text-gray-700">
                   <span className="truncate">Status</span>
                   {product.stock > 0 ? (
-                    <Badge variant="outline">In Stock</Badge>
+                    <Badge variant="outline">Mzigo Upo</Badge>
                   ) : (
-                    <Badge variant="destructive">Out Of Stock</Badge>
+                    <Badge variant="destructive">Zimeisha</Badge>
                   )}
                 </div>
                 {product.stock > 0 && (
@@ -140,7 +140,7 @@ const ProductDetailsPagez = async (props: {
       {/* Reviews Section */}
       <section className="px-4 py-6 sm:px-6 lg:px-12">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
-          Customer Reviews
+          Maoni ya Wateja
         </h2>
         <Suspense fallback={<Skeleton className="h-32 w-full" />}>
           <ReviewList
@@ -160,8 +160,9 @@ const ProductDetailsPagez = async (props: {
       />
 
       {/* Related Products */}
-      <section className="px-4 py-6 sm:px-6 lg:px-12">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
+      {/* <section className="px-4 py-6 sm:px-6 lg:px-12"> */}
+      <section className="mb-16">
+        <h2 className="text-xl mt-6 sm:text-2xl font-bold text-gray-800 mb-2">
           Zaidi katika {product.category?.name_en ?? ""}
         </h2>
         <Suspense fallback={<SkeletonProduct />}>
@@ -171,7 +172,7 @@ const ProductDetailsPagez = async (props: {
           />
         </Suspense>
       </section>
-      {console.log("ProductId Passed to Buttons", product.id)}
+      {/* {console.log("ProductId Passed to Buttons", product.id)} */}
       <ProductClientActions
         buyerId={session?.user?.id || ""}
         supplierId={product?.supplierId || ""}

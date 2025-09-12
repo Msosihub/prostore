@@ -35,7 +35,7 @@ const SupplierProfileCard = ({ supplier }: { supplier: Supplier }) => {
               <div className="text-[11px] sm:text-xs md:text-sm text-muted-foreground">
                 {/* {supplier.isVerified && */}
                 <Badge variant="outline" className="text-blue-600 px-0">
-                  Verified Supplier ✅
+                  Amehakikishwa ✅
                 </Badge>
                 • {"Multispecialty Supplier"}
                 <div className={"pl-0"}>
@@ -51,21 +51,21 @@ const SupplierProfileCard = ({ supplier }: { supplier: Supplier }) => {
             <div className="flex flex-col items-center">
               <h2 className="text-sm font-bold">{supplier.rating}/5</h2>
               <p className="text-[10px]  md:text-xs text-muted-foreground">
-                Store rating
+                Nyota za Duka
               </p>
             </div>
 
             <div className="flex flex-col items-center">
               <h2 className="text-sm font-bold">{supplier.deliveryRate}.0%</h2>
               <p className="text-[10px]  md:text-xs text-muted-foreground">
-                On-time delivery rate
+                Uwasilishaji kwa Muda
               </p>
             </div>
 
             <div className="flex flex-col items-center">
               <h2 className="text-sm font-bold"> ≤{supplier.responseTime}h</h2>
               <p className="text-[10px]  md:text-xs text-muted-foreground">
-                Response time
+                Muda wa majibu
               </p>
             </div>
           </div>
@@ -75,7 +75,7 @@ const SupplierProfileCard = ({ supplier }: { supplier: Supplier }) => {
         {supplier.certifications && supplier.certifications.length > 0 && (
           <div className="space-y-2 pt-2">
             <p className="text-sm font-semibold text-gray-700">
-              Verified Certifications
+              Vyeti Vilivyothibitishwa
             </p>
             <ImageGallery
               certifications={supplier.certifications.map((cert) => ({

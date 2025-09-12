@@ -71,7 +71,7 @@ const ProductCard = ({
         </Link>
 
         <div className="text-[11px] sm:text-xs text-muted-foreground">
-          Supplied by: <span className="font-medium">{supplier}</span>
+          Muuzaji: <span className="font-medium">{supplier}</span>
         </div>
 
         <div className="flex flex-col gap-1 sm:gap-2 mt-1">

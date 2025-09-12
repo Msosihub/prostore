@@ -9,6 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 type ProductCardProps = {
   product: {
+    id: string;
     slug: string;
     name: string;
     brand: string;
@@ -29,7 +30,7 @@ type ProductCardProps = {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const {
-    slug,
+    id,
     name,
     brand,
     category,
@@ -50,8 +51,8 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
   return (
     <Card className="w-full max-w-sm overflow-hidden group transition-shadow hover:shadow-lg border border-transparent hover:border-gray-200">
-      <CardHeader className="p-0 items-center">
-        <Link href={`/product/${slug}`}>
+      <CardHeader className="p-2 items-center">
+        <Link href={`/product/${id}`}>
           <Image
             src={images?.[0] || "null"}
             alt={name}
@@ -63,19 +64,19 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </Link>
       </CardHeader>
 
-      <CardContent className="p-0 sm:p-4 grid gap-1 sm:gap-2 text-xs sm:text-sm">
+      <CardContent className="p-2 grid gap-1 sm:gap-2 text-xs sm:text-sm">
         <div className="text-[11px] sm:text-xs md:text-sm text-muted-foreground">
           {brand} • {category} • {subcategory}
         </div>
 
-        <Link href={`/product/${slug}`}>
+        <Link href={`/product/${id}`}>
           <h2 className="font-medium text-sm sm:text-base md:text-lg line-clamp-2">
             {name}
           </h2>
         </Link>
 
         <div className="text-[11px] sm:text-xs text-muted-foreground">
-          Supplied by: <span className="font-medium">{supplier}</span>
+          Muuzaji: <span className="font-medium">{supplier}</span>
         </div>
 
         <div className="flex flex-col gap-1 sm:gap-2 mt-1">
@@ -94,7 +95,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
                 label={middleTier ? `${middleTier.minQty}+ pcs` : undefined}
               />
             ) : (
-              <p className="text-destructive">Out of Stock</p>
+              <p className="text-destructive">Zimeisha</p>
             )}
           </div>
 

@@ -137,6 +137,16 @@ export async function POST(
     attachments, // expect [{ url, name? }]
   } = await req.json();
 
+  console.log("mESSAGE RECEIVED: ", {
+    content,
+    replyToId,
+    inquiryData,
+    productId,
+    attachments, // expect [{ url, name? }]
+  });
+
+  console.log(" in creating: ", conversationId);
+
   // Ensure the sender is part of this conversation
   const conv = await prisma.conversation.findUnique({
     where: { id: conversationId },

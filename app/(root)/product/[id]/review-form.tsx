@@ -98,7 +98,7 @@ const ReviewForm = ({
     if (!description) {
       toast({
         variant: "destructive",
-        description: "Description is required.",
+        description: "Maelezo yanahitajika.",
       });
       descRef.current?.focus();
       return;
@@ -107,7 +107,7 @@ const ReviewForm = ({
     if (!values.rating) {
       toast({
         variant: "destructive",
-        description: "Rating is required.",
+        description: "Nyota zinahitajika.",
       });
       ratingRef.current?.focus();
       return;
@@ -126,7 +126,7 @@ const ReviewForm = ({
       toast({
         variant: "destructive",
         description:
-          "Please do not include emails, phone numbers, or links in your review.",
+          "Tafadhali usijumuisha barua pepe, nambari za simu, au viunganishi katika ukaguzi wako.",
       });
       return;
     }
@@ -191,15 +191,15 @@ const ReviewForm = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button onClick={handleOpenForm} variant="default">
-        Write a Review
+        Andika Maoni
       </Button>
       <DialogContent className="sm:max-w-[425px]">
         <Form {...form}>
           <form method="post" onSubmit={form.handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Write a Review</DialogTitle>
+              <DialogTitle>Andika Maoni</DialogTitle>
               <DialogDescription>
-                Share your thoughts with other customers
+                Shiriki mawazo yako na wateja wengine
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -209,7 +209,7 @@ const ReviewForm = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Title{" "}
+                      Kichwa{" "}
                       <span className="text-xs text-gray-400">
                         (max {TITLE_WORD_LIMIT_COMMENT} words)
                       </span>
@@ -237,7 +237,7 @@ const ReviewForm = ({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Description *{" "}
+                      Maelezo *{" "}
                       <span className="text-xs text-gray-400">
                         (max {DESCRIPTION_WORD_LIMIT_COMMENT} words)
                       </span>
@@ -268,7 +268,7 @@ const ReviewForm = ({
                 name="rating"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Rating *</FormLabel>
+                    <FormLabel>Nyota *</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value ? field.value.toString() : ""}
@@ -301,7 +301,7 @@ const ReviewForm = ({
                 className="w-full"
                 disabled={form.formState.isSubmitting}
               >
-                {form.formState.isSubmitting ? "Submitting..." : "Submit"}
+                {form.formState.isSubmitting ? "Wasilisha..." : "Wasilisha"}
               </Button>
             </DialogFooter>
           </form>
