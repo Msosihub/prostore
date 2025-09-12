@@ -132,7 +132,7 @@ export default async function SupplierHomePage({
                 className="min-w-[180px] flex-shrink-0 shadow-md hover:shadow-lg transition"
               >
                 <CardContent className="p-3">
-                  <Link href={`/product/${p.slug}?supplierId=${supplierId}`}>
+                  <Link href={`/product/${p.id}?supplierId=${supplierId}`}>
                     <Image
                       src={
                         p.thumbnail ||
