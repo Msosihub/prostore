@@ -39,7 +39,7 @@ export default function RandomProducts({ locale }: Props) {
   return (
     <ProductList
       data={data.products as Product[]}
-      title="Discover Something New"
+      title="Pata kitu kipya"
       limit={6}
       locale={locale}
       variant="grid"

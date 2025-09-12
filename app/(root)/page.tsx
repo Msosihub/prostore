@@ -42,7 +42,7 @@ export default async function Home() {
 
         <ProductList
           data={latestProducts}
-          title="Newest Arrivals"
+          title="Mizigo mipya"
           limit={8}
           locale={locale}
           variant="grid"
