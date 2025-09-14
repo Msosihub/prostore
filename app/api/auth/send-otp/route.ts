@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     await sendEmail(identifier, `Nambari yako ya uthibitisho ni ${token}`);
   } else {
     console.log("OTP yako ni: ", token);
-    //sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
+    sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
   }
 
   console.log("SUccess sent otp");
