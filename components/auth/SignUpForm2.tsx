@@ -17,32 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { signUpUser } from "@/lib/actions/user.actions";
-
-// ---------- East Africa countries + dial codes ----------
-const EA_COUNTRIES = [
-  { code: "TZ", name: "Tanzania", dial: "255" },
-  { code: "KE", name: "Kenya", dial: "254" },
-  { code: "UG", name: "Uganda", dial: "256" },
-  { code: "RW", name: "Rwanda", dial: "250" },
-  { code: "BI", name: "Burundi", dial: "257" },
-  { code: "SS", name: "South Sudan", dial: "211" },
-];
-
-// ---------- Helpers ----------
-const countryByCode = (code: string | null | undefined) =>
-  EA_COUNTRIES.find((c) => c.code === code);
-
-// normalize local phone -> E.164-ish (best-effort, simple rules)
-function normalizePhone(input: string, countryCode: string) {
-  const c = countryByCode(countryCode);
-  if (!c) return input.trim();
-
-  let raw = input.replace(/\s+/g, "");
-  if (raw.startsWith("+")) return raw; // already in + format
-  if (raw.startsWith("0")) raw = raw.slice(1); // drop leading 0
-  if (raw.startsWith(c.dial)) return `+${raw}`;
-  return `+${c.dial}${raw}`;
-}
+import { EA_COUNTRIES } from "@/lib/constants";
+import { normalizePhone } from "@/lib/utils";
 
 // very simple EA dial regex (you can harden later)
 const eaPhoneRegex = /^\+?(255|254|256|250|257|211)\d{6,12}$/;
@@ -51,13 +27,14 @@ const eaPhoneRegex = /^\+?(255|254|256|250|257|211)\d{6,12}$/;
 const SignUpSchema = z
   .object({
     name: z.string().min(3, "Jina lazima liwe zaidi ya herufi 3"),
-    email: z.string().email("Email sio sahihi"),
+    email: z.union([z.string().email("Email sio sahihi"), z.literal("")]),
+    // ✅ Accept empty string too,,
     phone: z.string().min(7, "Namba ya simu sio sahihi"),
     country: z.string().min(2, "Chagua nchi"),
-    password: z.string().min(6, "Password lazima iwe herufi 6 au zaidi"),
+    password: z.string().min(5, "Password lazima iwe herufi 5 au zaidi"),
     confirmPassword: z
       .string()
-      .min(6, "Hakiki password lazima iwe herufi 6 au zaidi"),
+      .min(5, "Hakiki password lazima iwe herufi 5 au zaidi"),
     role: z.enum(["BUYER", "SUPPLIER", "ADMIN"] as const, {
       required_error: "Role is required",
       invalid_type_error: "Invalid role",
@@ -96,6 +73,15 @@ export default function SignUpForm() {
   const [resendCount, setResendCount] = useState(0);
   const [submitting, setSubmitting] = useState(false); // local submit lock
   const [error, setError] = useState<string | null>(null);
+
+  //reedit Phone number
+  function editPhoneNumber() {
+    setOtpSent(false);
+    setOtp("");
+    setTimer(0);
+    setResendCount(0);
+    setSubmitting(false);
+  }
 
   // For calling the server action AFTER OTP verifies
   const formRef = useRef<HTMLFormElement>(null);
@@ -138,7 +124,8 @@ export default function SignUpForm() {
     const parsed = SignUpSchema.safeParse(toValidate);
     if (!parsed.success) {
       const first = parsed.error.errors[0];
-      setError(first?.message || "Makosa kwenye taarifa zako");
+      console.log(first);
+      setError(first?.message || "Kuna makosa kwenye taarifa zako");
       return;
     }
 
@@ -166,7 +153,7 @@ export default function SignUpForm() {
       setResendCount(0);
       toast({
         title: "OTP imetumwa",
-        description: identifierToVerify.startsWith("+")
+        description: identifierToVerify?.startsWith("+")
           ? `Tumetuma msimbo kwa ${identifierToVerify}`
           : `Tumetuma msimbo kwa ${identifierToVerify}`,
       });
@@ -215,7 +202,7 @@ export default function SignUpForm() {
     if (submitting) return; // prevent double click
     setSubmitting(true);
 
-    console.log("handleVerifyThenCreate called by ", e.target);
+    // console.log("handleVerifyThenCreate called by ", e.target);
 
     if (!otp || otp.length < 4) {
       setError("Weka OTP sahihi");
@@ -224,7 +211,7 @@ export default function SignUpForm() {
 
     try {
       setSubmitting(true);
-      console.log("Verifying OTP for:", identifierToVerify, otp);
+      // console.log("Verifying OTP for:", identifierToVerify, otp);
       // verify OTP first
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
@@ -244,7 +231,7 @@ export default function SignUpForm() {
       // (the form carries all fields + hidden normalized phone)
       //get form data from formRef
       const formData = new FormData(formRef.current!);
-      console.log("FormData before submit:", formData.get("name"));
+
       signUpUser({}, formData).then((data) => {
         console.log("SignUp action response:", data);
         if (!data?.success) {
@@ -255,6 +242,7 @@ export default function SignUpForm() {
           //the user is automatically signed in after sign up
         }
       });
+
       //formRef.current?.requestSubmit();
       console.log("Displaying formRef:", formRef.current);
       // ✅ OTP verified → now call server action to insert into DB
@@ -268,9 +256,10 @@ export default function SignUpForm() {
         //router.push("/sign-in");
         //the user is automatically signed in after sign up
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.log(err);
-      setError("Imeshindikana kuhakiki OTP");
+      const error = err as Error;
+      setError(error?.message);
       setSubmitting(false);
     }
   }
@@ -382,16 +371,29 @@ export default function SignUpForm() {
           required
           readOnly={otpSent}
         />
-        <p className="text-xs text-muted-foreground mt-1">
-          Itahifadhiwa kama{" "}
-          <span className="font-medium">
-            {normalizePhone(phone || "", country)}
-          </span>
-        </p>
+        {!otpSent && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Itahifadhiwa kama{" "}
+            <span className="font-medium">
+              {normalizePhone(phone || "", country)}
+            </span>
+          </p>
+        )}
+        {otpSent && (
+          <p
+            onClick={editPhoneNumber}
+            className="text-xs text-muted-foreground mt-1"
+          >
+            Umekosea namba?{" "}
+            <span className="font-medium underline text-blue-800">
+              Badilisha.
+            </span>
+          </p>
+        )}
       </div>
 
       {/* Role */}
-      <div>
+      <div className="hidden">
         <Label htmlFor="role">Role</Label>
         <Select
           name="role"

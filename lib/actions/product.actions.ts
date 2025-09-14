@@ -6,6 +6,8 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { insertProductSchema, updateProductSchema } from "../validators";
+// import NextAuth from "next-auth";
+import { NextResponse } from "next/server";
 //import { Product } from "@/types";
 
 // lib/actions/product.actions.ts
@@ -204,7 +206,7 @@ export async function getAllCategories() {
       },
     });
 
-    if (!data) return undefined;
+    if (!data) return NextResponse.json("Cant fetch categories");
 
     return data;
   } catch (error) {

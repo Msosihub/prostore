@@ -10,6 +10,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "@/hooks/use-toast";
 import { z } from "zod";
 import Link from "next/link";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { EA_COUNTRIES } from "@/lib/constants";
 
 // Zod schema for identifier and password
 const signInFormSchema = z.object({
@@ -21,6 +29,7 @@ const CredentialsSignInForm = () => {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [country, setCountry] = useState("TZ");
   const [data, setData] = useState<{
     success: boolean;
     message: string;
@@ -78,12 +87,35 @@ const CredentialsSignInForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Country */}
+      <div>
+        <Label htmlFor="country">Nchi</Label>
+        <Select
+          name="country"
+          value={country}
+          onValueChange={setCountry}
+          required
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Chagua nchi" />
+          </SelectTrigger>
+          <SelectContent>
+            {EA_COUNTRIES.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {/* Hidden input ensures role is part of formData */}
+        <input type="hidden" name="country" value={country} />
+      </div>
       <div>
         <Label htmlFor="identifier">Simu au Email</Label>
         <Input
           id="identifier"
           type="text"
-          placeholder="Simu au Email"
+          placeholder="Simu +255xxxxxx au Email"
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           required
@@ -121,10 +153,7 @@ const CredentialsSignInForm = () => {
           </Link>
         </div>
         <div>
-          <Link
-            href="/forgot-password"
-            className="link underline text-blue-700"
-          >
+          <Link href="/reset-password" className="link underline text-blue-700">
             Umesahau password?
           </Link>
         </div>

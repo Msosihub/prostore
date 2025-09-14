@@ -19,7 +19,7 @@ export async function GET() {
     }
     // Pick 1–2 random categories
     randomCats = categories.sort(() => 0.5 - Math.random()).slice(0, 2);
-    console.log("Categories Picked: ", randomCats);
+    // console.log("Categories Picked: ", randomCats);
   } catch (error) {
     console.error("Error fetching categories:", error);
     return NextResponse.json({ products: [] });

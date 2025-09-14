@@ -1,12 +1,26 @@
 import { z } from "zod";
 import { formatNumberWithDecimal } from "./utils";
-import { PAYMENT_METHODS } from "./constants";
+import { EA_COUNTRIES, PAYMENT_METHODS } from "./constants";
 // import { UserRole } from "@prisma/client";
 // import Decimal from "decimal.js";
 
 // East Africa phone regex (basic example: starts with +254, +255, +256, +257, +211, +250)
 // You can refine later for stricter formats
 const phoneRegex = /^\+?(254|255|256|257|211|250)\d{6,12}$/;
+
+const countryByCode = (code: string | null | undefined) =>
+  EA_COUNTRIES.find((c) => c.code === code);
+
+function normalizePhone(input: string, countryCode: string) {
+  const c = countryByCode(countryCode);
+  if (!c) return input.trim();
+
+  let raw = input.replace(/\s+/g, "");
+  if (raw.startsWith("+")) return raw; // already in + format
+  if (raw.startsWith("0")) raw = raw.slice(1); // drop leading 0
+  if (raw.startsWith(c.dial)) return `+${raw}`;
+  return `+${c.dial}${raw}`;
+}
 
 export enum UserRole {
   BUYER = "BUYER",
@@ -77,6 +91,24 @@ export const signInFormSchema = z.object({
   password: z.string().min(4, "Password lazima iwe herufi 5 au zaidi"),
 });
 
+//forgot password
+export const resetPasswordSSchema = z
+  .object({
+    newPassword: z.string().min(5, "Password lazima iwe herufi 5 au zaidi"),
+    otp: z.string().min(6, "OTP ina herufii sita"),
+    identifier: z.string().min(7, "Namba si sahihi"),
+    country: z.string().min(2, "Chagua nchi"),
+  })
+  .refine(
+    (data) => {
+      const phoneE164 = normalizePhone(data.identifier, data.country);
+      return phoneRegex.test(phoneE164);
+    },
+    {
+      message: "Namba ya simu sio sahihi",
+      path: ["phone"],
+    }
+  );
 // Schema for signing up a user
 export const signUpFormSchema = z
   .object({
@@ -85,10 +117,10 @@ export const signUpFormSchema = z
     // ✅ Accept empty string too,,
     phone: z.string().regex(phoneRegex, "Namba ya simu sio sahihi"),
     country: z.string().min(2, "Chagua nchi"),
-    password: z.string().min(6, "Password lazima iwe herufi 6 au zaidi"),
+    password: z.string().min(5, "Password lazima iwe herufi 5 au zaidi"),
     confirmPassword: z
       .string()
-      .min(6, "Hakiki password lazima iwe herufi 6 au zaidi"),
+      .min(5, "Hakiki password lazima iwe herufi 5 au zaidi"),
     role: z.nativeEnum(UserRole, {
       required_error: "Role is required",
       invalid_type_error: "Invalid role",

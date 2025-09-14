@@ -30,6 +30,7 @@ export async function signInWithCredentials(
       email: formData.get("email"),
       password: formData.get("password"),
     });
+    console.log("Data in SignIn: ", user);
 
     await signIn("credentials", user);
 
@@ -88,7 +89,7 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
     formData.get("phoneNormalized")
   );
   console.log("In SignUp Action - formData email:", formData.get("role"));
-  console.log("In SignUp Action - formData email:", formData.get("email"));
+  // console.log("In SignUp Action - formData email:", formData.get("email"));
   try {
     const user = signUpFormSchema.parse({
       name: formData.get("name"),
@@ -105,22 +106,44 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
       return { success: false, message: "Passwords do not match." };
     }
 
-    console.log("Entered Password:", user.password);
     const hashedPassword = await hashSync(user.password, 10);
-    console.log("Hashed Password:", hashedPassword);
     user.password = hashedPassword;
 
     const phoneNormalized =
       (formData.get("phoneNormalized") as string | null) ?? user.phone;
-    console.log("In SignUp Action");
-    console.log("Normalized Phone:", phoneNormalized);
-    console.log("hashedPasswword:", hashedPassword);
-    console.log(" all user data: ", user);
+    let emailNormalized =
+      ((formData.get("email") as string) || null) ?? user.email;
+    emailNormalized = emailNormalized.toLowerCase().trim();
+
+    const conditions: Prisma.UserWhereInput[] = [];
+
+    if (emailNormalized) {
+      conditions.push({ email: emailNormalized });
+    }
+
+    if (phoneNormalized) {
+      conditions.push({ phone: phoneNormalized });
+    }
+
+    // check if user exists by phone OR email
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: conditions.length > 0 ? conditions : undefined,
+      },
+      select: { id: true, email: true, phone: true },
+    });
+
+    if (existing) {
+      throw new Error(
+        "Akaunti tayari ipo na nambari hii ya simu/barua pepe. Tafadhali ingia badala yake."
+      );
+    }
+
     await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
           name: user.name,
-          email: user.email,
+          email: user?.email || "",
           phone: phoneNormalized,
           location: user.country || "Tanzania",
           // country: user.country || "Tanzania",
@@ -156,7 +179,7 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
 
     // Auto-login (your credentials provider expects "identifier")
     await signIn("credentials", {
-      identifier: user.email || phoneNormalized,
+      identifier: user?.email || phoneNormalized,
       password: plainPassword,
       redirect: true, // let client do the redirect using callbackUrl
     });

@@ -12,11 +12,14 @@ export async function POST(req: Request) {
   console.log("OTP Record Found:", record);
 
   if (record === null) {
-    return NextResponse.json({ success: false, message: "Invalid code" });
+    return NextResponse.json({ success: false, message: "OTP si sahihi" });
     console.log("NO RECORD");
   }
   if (record.expires < new Date())
-    return NextResponse.json({ success: false, message: "Code expired" });
+    return NextResponse.json({
+      success: false,
+      message: "OTP imeisha muda wake",
+    });
 
   //soround with try catch finally
   try {

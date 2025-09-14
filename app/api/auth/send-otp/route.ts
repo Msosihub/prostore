@@ -20,10 +20,12 @@ export async function POST(req: Request) {
 
   if (existing && existing.attempts >= 3) {
     const cooldown = new Date(existing.createdAt.getTime() + 15 * 60 * 1000);
+    console.log("In Existing");
     if (cooldown > new Date()) {
+      console.log("Too many Requests");
       return NextResponse.json({
         success: false,
-        message: "Too many requests. Try again later.",
+        message: "Maombi mengi sana. Jaribu tena baadaye.",
       });
     }
   }
@@ -46,11 +48,13 @@ export async function POST(req: Request) {
 
   // send OTP
   if (identifier.includes("@")) {
-    await sendEmail(identifier, `Your verification code is ${token}`);
+    await sendEmail(identifier, `Nambari yako ya uthibitisho ni ${token}`);
   } else {
-    sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
+    console.log("OTP yako ni: ", token);
+    //sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
   }
 
+  console.log("SUccess sent otp");
   return NextResponse.json({ success: true, message: "OTP sent successfully" });
 }
 

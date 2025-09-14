@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import qs from "query-string";
+import { EA_COUNTRIES } from "./constants";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -164,4 +165,20 @@ export function formUrlQuery({
       skipNull: true,
     }
   );
+}
+
+// ---------- Helpers ----------
+export const countryByCode = (code: string | null | undefined) =>
+  EA_COUNTRIES.find((c) => c.code === code);
+
+// normalize local phone -> E.164-ish (best-effort, simple rules)
+export function normalizePhone(input: string, countryCode: string) {
+  const c = countryByCode(countryCode);
+  if (!c) return input.trim();
+
+  let raw = input.replace(/\s+/g, "");
+  if (raw.startsWith("+")) return raw; // already in + format
+  if (raw.startsWith("0")) raw = raw.slice(1); // drop leading 0
+  if (raw.startsWith(c.dial)) return `+${raw}`;
+  return `+${c.dial}${raw}`;
 }

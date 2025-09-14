@@ -48,20 +48,21 @@ const CategoryDrawer = () => {
         <DrawerHeader>
           <DrawerTitle>Chagua kundi</DrawerTitle>
           <div className="space-y-1 mt-4">
-            {categories.map((x) => (
-              <Button
-                variant="ghost"
-                className="w-full justify-start"
-                key={x.id}
-                asChild
-              >
-                <DrawerClose asChild>
-                  <Link href={`/search?category=${x.name_en}`}>
-                    {x.name_en} ({x._count.products})
-                  </Link>
-                </DrawerClose>
-              </Button>
-            ))}
+            {categories &&
+              categories.map((x) => (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  key={x.id}
+                  asChild
+                >
+                  <DrawerClose asChild>
+                    <Link href={`/search?category=${x.name_en}`}>
+                      {x.name_en} ({x._count.products})
+                    </Link>
+                  </DrawerClose>
+                </Button>
+              ))}
           </div>
         </DrawerHeader>
       </DrawerContent>

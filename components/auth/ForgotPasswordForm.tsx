@@ -20,7 +20,7 @@ export default function ForgotPasswordForm() {
       setOtpSent(true);
       setTimer(60);
     } else {
-      setError("Failed to send OTP");
+      setError("Imeshindikana kutuma OTP");
     }
   };
 
@@ -32,8 +32,7 @@ export default function ForgotPasswordForm() {
   }, [timer]);
 
   return (
-    <div className="space-y-4 p-6 bg-white shadow rounded-2xl w-full max-w-sm">
-      <h2 className="text-xl font-semibold">Forgot Password</h2>
+    <div className="space-y-4 p-6 bg-white shadow-md rounded-2xl  ">
       {error && <p className="text-red-500">{error}</p>}
 
       {!otpSent ? (
@@ -46,15 +45,15 @@ export default function ForgotPasswordForm() {
             required
           />
           <Button type="button" onClick={sendOtp} className="w-full">
-            Send OTP
+            Tuma OTP
           </Button>
         </>
       ) : (
         <>
           <p className="text-gray-500">
-            OTP sent! Go to{" "}
+            OTP Imetumwa! Nenda{" "}
             <a href="/reset-password" className="text-blue-600">
-              Reset Password
+              Kabadili password
             </a>
           </p>
           <Button
@@ -63,7 +62,7 @@ export default function ForgotPasswordForm() {
             onClick={sendOtp}
             className="w-full"
           >
-            {timer > 0 ? `Resend OTP in ${timer}s` : "Resend OTP"}
+            {timer > 0 ? `tuma OTP baada ya ${timer}s` : "Tuma OTP"}
           </Button>
         </>
       )}
