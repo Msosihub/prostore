@@ -1,61 +1,61 @@
-"use client";
+// "use client";
 
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { getAllCategories } from "@/lib/actions/product.actions";
+// import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+// import { useRouter, useSearchParams } from "next/navigation";
+// import { useEffect, useState } from "react";
+// import { getAllCategories } from "@/lib/actions/product.actions";
 
-export type CategoryLite = {
-  id: string;
-  name_en: string;
-  name_sw: string;
-  _count: { products: number };
-};
+// export type CategoryLite = {
+//   id: string;
+//   name_en: string;
+//   name_sw: string;
+//   _count: { products: number };
+// };
 
-const CategoryFilter = () => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [categories, setCategories] = useState<CategoryLite[]>([]);
+// const CategoryFilter = () => {
+//   const router = useRouter();
+//   const searchParams = useSearchParams();
+//   const [categories, setCategories] = useState<CategoryLite[]>([]);
 
-  const activeCategory = searchParams.get("category") || "all";
+//   const activeCategory = searchParams.get("category") || "all";
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      const result = await getAllCategories(); // Should return array of { name_en }
-      if (result) setCategories(result);
-    };
-    fetchCategories();
-  }, []);
+//   useEffect(() => {
+//     const fetchCategories = async () => {
+//       const result = await getAllCategories(); // Should return array of { name_en }
+//       if (result) setCategories(result);
+//     };
+//     fetchCategories();
+//   }, []);
 
-  const handleSelect = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (value === "all") {
-      params.delete("category");
-      params.delete("page");
-    } else {
-      params.set("category", value);
-    }
-    router.push(`/search?${params.toString()}`);
-  };
+//   const handleSelect = (value: string) => {
+//     const params = new URLSearchParams(searchParams.toString());
+//     if (value === "all") {
+//       params.delete("category");
+//       params.delete("page");
+//     } else {
+//       params.set("category", value);
+//     }
+//     router.push(`/search?${params.toString()}`);
+//   };
 
-  return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium">Filter by Category</h3>
-      <ToggleGroup
-        type="single"
-        value={activeCategory}
-        onValueChange={handleSelect}
-        className="flex flex-wrap gap-2"
-      >
-        <ToggleGroupItem value="all">All</ToggleGroupItem>
-        {categories.map((cat) => (
-          <ToggleGroupItem key={cat.name_en} value={cat.name_en}>
-            {cat.name_en}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-    </div>
-  );
-};
+//   return (
+//     <div className="space-y-2">
+//       <h3 className="text-sm font-medium">Chuja kwa Kundi</h3>
+//       {/* <ToggleGroup
+//         type="single"
+//         value={activeCategory}
+//         onValueChange={handleSelect}
+//         className="flex flex-wrap gap-2"
+//       >
+//         <ToggleGroupItem value="all">All</ToggleGroupItem>
+//         {categories.map((cat) => (
+//           <ToggleGroupItem key={cat.name_en} value={cat.name_en}>
+//             {cat.name_en}
+//           </ToggleGroupItem>
+//         ))}
+//       </ToggleGroup> */}
+//     </div>
+//   );
+// };
 
-export default CategoryFilter;
+// export default CategoryFilter;

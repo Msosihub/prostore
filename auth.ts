@@ -52,9 +52,9 @@ export const config = {
 
         return {
           id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
+          name: user.name ?? undefined,
+          email: user.email ?? undefined,
+          phone: user.phone ?? undefined,
           role: user.role,
         };
       },

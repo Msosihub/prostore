@@ -6,10 +6,11 @@ import {
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
+  // DrawerTrigger,
 } from "@/components/ui/drawer";
-import { Loader, MenuIcon } from "lucide-react";
+// import { Loader, MenuIcon } from "lucide-react";
 import Link from "next/link";
+// import { useEffect, useState } from "react";
 import useSWR from "swr";
 type Category = {
   id: string;
@@ -26,30 +27,47 @@ const fetcher = async (url: string): Promise<Category[]> => {
   return res.json();
 };
 
-const CategoryDrawer = () => {
+const CategoryDrawer = ({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (val: boolean) => void;
+}) => {
   const {
     data: categories,
     error,
     isLoading,
   } = useSWR<Category[]>("/api/shared/categories", fetcher);
 
-  if (isLoading) return <Loader className="w-4 h-4 animate-spin" />;
+  // useEffect(() => {
+  //   const toggle = document.getElementById(
+  //     "category-drawer-toggle"
+  //   ) as HTMLInputElement;
+  //   if (!toggle) return;
 
-  if (error || !categories) return <Loader className="w-4 h-4 animate-spin" />;
+  //   const observer = () => setOpen(toggle.checked);
+  //   toggle.addEventListener("change", observer);
+  //   return () => toggle.removeEventListener("change", observer);
+  // }, []);
+
+  if (isLoading) return null;
+
+  if (error || !categories) return null;
 
   return (
-    <Drawer direction="left">
-      <DrawerTrigger asChild>
+    <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
+      {/* <DrawerTrigger asChild>
         <Button variant="outline">
           <MenuIcon />
         </Button>
-      </DrawerTrigger>
-      <DrawerContent className="h-full max-w-sm">
+      </DrawerTrigger> */}
+      <DrawerContent className=" h-[90vh] w-full rounded-t-xl overflow-y-auto">
         <DrawerHeader>
           <DrawerTitle>Chagua kundi</DrawerTitle>
           <div className="space-y-1 mt-4">
             {categories &&
-              categories.map((x) => (
+              categories?.map((x) => (
                 <Button
                   variant="ghost"
                   className="w-full justify-start"

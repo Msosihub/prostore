@@ -5,6 +5,7 @@ import type { MessageLite } from "./types";
 import { CornerUpLeft } from "lucide-react";
 import ChatInquirySummary from "./ChatInquirySummary";
 import { FileText } from "lucide-react";
+import Image from "next/image";
 
 type Props = {
   meId: string;
@@ -18,6 +19,14 @@ type Props = {
 };
 
 export default function MessageBubble({ meId, message, onReply }: Props) {
+  // function formatBytes(bytes: number, decimals = 1) {
+  //   if (!bytes) return "0 Bytes";
+  //   const k = 1024;
+  //   const dm = decimals < 0 ? 0 : decimals;
+  //   const sizes = ["Bytes", "KB", "MB", "GB"];
+  //   const i = Math.floor(Math.log(bytes) / Math.log(k));
+  //   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+  // }
   const mine = message.senderId === meId;
   // Special case: Inquiry message in flow
   if (message.inquiry) {
@@ -113,19 +122,77 @@ export default function MessageBubble({ meId, message, onReply }: Props) {
 
         {/* Attachments */}
         {!!message.attachments?.length && (
-          <div className="mt-2 space-y-1">
-            {message.attachments.map((att, idx) => (
-              <a
-                key={idx}
-                href={att.url}
-                target="_blank"
-                rel="noreferrer"
-                className={`${mine ? "text-white underline" : "text-primary underline"} text-xs`}
-              >
-                <FileText size={24} strokeWidth={2} />{" "}
-                {att.name || "Attachment"}
-              </a>
-            ))}
+          <div className="mt-2 space-y-2">
+            {message.attachments.map((att, idx) => {
+              const isImage = att?.mimeType?.startsWith("image/");
+              const isPdf = att?.mimeType === "application/pdf";
+
+              console.log("IsImage: ", isImage);
+              console.log("IsPdf: ", isPdf);
+              // console.log("URL: ", att.url);
+
+              if (isImage) {
+                return (
+                  <a
+                    key={idx}
+                    href={att.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <div className="relative inline-block max-w-[280px] max-h-[240px] overflow-hidden rounded-md border">
+                      <Image
+                        src={att.url}
+                        alt={att.name || "image"}
+                        width={0}
+                        height={0}
+                        sizes="100vw"
+                        className="h-auto w-auto max-w-full max-h-[240px] object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  </a>
+                );
+              }
+
+              if (isPdf) {
+                return (
+                  <a
+                    key={idx}
+                    href={att.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 p-2 border rounded-md bg-white text-sm hover:bg-gray-50 max-w-[280px]"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <FileText size={24} className="text-red-500 truncate" />
+                      <div className="flex flex-col overflow-hidden truncate">
+                        <span className="font-medium truncate text-muted-foreground">
+                          {att.name || "Document.pdf"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {/* {att.size ? formatBytes(att.size) : "PDF file"} */}
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                );
+              }
+
+              // fallback for other files
+              return (
+                <a
+                  key={idx}
+                  href={att.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`flex items-center gap-2 text-xs ${mine ? "text-white underline" : "text-primary underline"}`}
+                >
+                  <FileText size={20} /> {att.name || "Attachment"}
+                </a>
+              );
+            })}
           </div>
         )}
 

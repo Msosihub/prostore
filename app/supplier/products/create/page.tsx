@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { Metadata } from "next";
 import ProductForm from "@/components/supplier/product-form4";
 import { requireSupplier } from "@/lib/auth-guard";

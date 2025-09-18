@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import ProductForm from "@/components/supplier/product-form4";
 import { getProductById } from "@/lib/actions/product.actions";
 import { Metadata } from "next";

@@ -22,6 +22,7 @@ export default function ChatWindow({
   peerTimezone,
 }: Props) {
   const { id: conversationId, buyer, supplier, messages } = conversation;
+  console.log("SUPPLIER DATA: ", supplier);
 
   //always visible in header
   const [activeProduct, setActiveProduct] = useState<ProductLite | null>(

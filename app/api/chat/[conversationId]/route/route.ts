@@ -9,6 +9,7 @@ import { Prisma } from "@prisma/client";
 interface urlResponse {
   url: string;
   name: string;
+  mimeType: string;
 }
 
 // const openai = new OpenAI({
@@ -134,18 +135,8 @@ export async function POST(
     replyToId,
     inquiryData,
     productId,
-    attachments, // expect [{ url, name? }]
+    attachments, // expect [{ url, name?, mimeType? }]
   } = await req.json();
-
-  console.log("mESSAGE RECEIVED: ", {
-    content,
-    replyToId,
-    inquiryData,
-    productId,
-    attachments, // expect [{ url, name? }]
-  });
-
-  console.log(" in creating: ", conversationId);
 
   // Ensure the sender is part of this conversation
   const conv = await prisma.conversation.findUnique({
@@ -156,7 +147,6 @@ export async function POST(
     !conv ||
     (session.user.id !== conv.buyerId && session.user.id !== conv.supplierId)
   ) {
-    console.log("eturning Forbiden: ");
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -189,6 +179,7 @@ export async function POST(
         .map((a: urlResponse) => ({
           url: a.url,
           name: typeof a.name === "string" ? a.name : undefined,
+          mimeType: a.mimeType,
         }))
     : [];
 
@@ -265,6 +256,8 @@ export async function POST(
       attachments: true,
     },
   });
+
+  // console.log("Message as Saved", await message);
 
   // Bump conversation timestamp so lists sort by last activity
   await prisma.conversation.update({

@@ -1,4 +1,6 @@
 // app/supplier/messages/page.tsx
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";

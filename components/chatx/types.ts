@@ -1,7 +1,10 @@
+import { Supplier } from "@/types";
+
 export type UserLite = {
   id: string;
   name?: string | null;
   image?: string | null;
+  Supplier?: Supplier;
 };
 
 export type ProductLite = {
@@ -25,7 +28,7 @@ export type InquiryLite = {
   status: "PENDING" | "QUOTED" | "CLOSED";
 };
 
-export type AttachmentLite = { name?: string; url: string };
+export type AttachmentLite = { name?: string; url: string; mimeType?: string };
 
 export type ReplyLite = {
   id: string;

@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getAllProducts, deleteProduct } from "@/lib/actions/product.actions";
 import { cn, formatCurrency, formatId } from "@/lib/utils";

@@ -263,6 +263,7 @@ model Attachment {
   id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   url       String
   name      String?
+  mimeType  String?
   messageId String  @db.Uuid
   message   Message @relation(fields: [messageId], references: [id])
 

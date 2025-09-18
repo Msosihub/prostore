@@ -8,7 +8,11 @@ export async function getConversation(conversationId: string) {
     where: { id: conversationId },
     include: {
       buyer: true,
-      supplier: true,
+      supplier: {
+        include: {
+          Supplier: true, // 👈 this assumes User → Supplier relation exists
+        },
+      },
       Inquiry: true,
       messages: {
         orderBy: { createdAt: "asc" },

@@ -2,11 +2,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+// import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadButton } from "@/lib/uploadthing";
 import type { ProductLite, MessageLite } from "./types";
-import { Paperclip, Send } from "lucide-react";
+import { Camera, FileCheck2, Loader, Send } from "lucide-react";
 type Props = {
   conversationId: string;
   product: ProductLite | null;
@@ -15,7 +15,7 @@ type Props = {
   onProductUsed?: () => void;
 };
 
-type Att = { url: string; name?: string };
+type Att = { url: string; name?: string; mimeType?: string };
 
 export default function Composer({
   conversationId,
@@ -70,7 +70,7 @@ export default function Composer({
 
   const send = async () => {
     const text = value.trim();
-    console.log("SMS ENTERED: ", text);
+    // console.log("SMS ENTERED: ", text);
     if (!text && attachments.length === 0) return;
 
     const payload: ComposerPayload = { content: text };
@@ -79,7 +79,7 @@ export default function Composer({
     if (replyTo?.inquiry?.id) payload.replyToInquiryId = replyTo.inquiry.id;
     if (product) {
       payload.productId = product.id;
-      console.log("Creating Payload: ", product.id);
+      // console.log("Creating Payload: ", product.id);
       onProductUsed?.(); // 👈 clear it after first use
     }
 
@@ -124,13 +124,19 @@ export default function Composer({
           }}
         /> */}
         {uploadingCount > 0 && (
-          <span className="text-xs text-orange-600">Uploading…</span>
+          <span className="flex flex-row gap-1 text-xs text-orange-600 mb-1 justify-center items-center">
+            <Loader color="#ea580c" className=" animate-spin" />
+            Inapakia…
+          </span>
         )}
         {!!attachments.length && (
           <div className="flex flex-wrap gap-2 text-xs">
             {attachments.map((f, i) => (
-              <span key={i} className="px-2 py-1 bg-muted rounded-full">
-                📎 {f.name || "File"}
+              <span
+                key={i}
+                className="flex flex-row gap-1 px-2 py-1 bg-muted rounded-full justify-center items-center"
+              >
+                <FileCheck2 color="#25D366" /> {f.name || "File"}
               </span>
             ))}
           </div>
@@ -195,10 +201,12 @@ export default function Composer({
                   setUploadingCount((c) => Math.max(0, c - 1))
                 }
                 onClientUploadComplete={(res) => {
+                  // console.log("Upload respomse: ", res);
                   const files: Att[] = res.map(
-                    (r: { url: string; name: string }) => ({
+                    (r: { url: string; name: string; type?: string }) => ({
                       url: r.url as string,
                       name: r.name as string | undefined,
+                      mimeType: r.type,
                     })
                   );
                   setAttachments((prev) => [...prev, ...files]);
@@ -206,9 +214,9 @@ export default function Composer({
                 }}
                 content={{
                   button: (
-                    <Paperclip
-                      className="w-6 h-6"
-                      color="#25D366"
+                    <Camera
+                      className="w-8 h-8"
+                      color="#ea580c"
                       strokeWidth={2}
                     />
                   ),
@@ -217,13 +225,13 @@ export default function Composer({
             </div>
           </div>
         </div>
-        <Button
+        <button
           onClick={send}
           disabled={!canSend}
-          className="shrink-0 bg-orange-500 hover:bg-orange-600  flex justify-center items-center"
+          className="bg-orange-500 hover:bg-orange-600 rounded-full flex justify-center items-center w-12 h-12 p-1"
         >
-          <Send className="text-white -rotate-45 w-8 h-8" />
-        </Button>
+          <Send className="text-white w-7 h-7" />
+        </button>
       </div>
 
       <div className="text-[10px] text-muted-foreground text-center">

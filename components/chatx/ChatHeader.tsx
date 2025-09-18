@@ -98,7 +98,10 @@ export default function ChatHeader({
 
         <div className="flex items-center ">
           {/* link to supplier mini page even if I'm the supplier (keeps consistent target) */}
-          <Link href={`/company/${supplier.id}/home`} className=" sm:block">
+          <Link
+            href={`/company/${supplier?.Supplier?.id}/home`}
+            className=" sm:block"
+          >
             <Button variant="ghost" size="sm" className="rounded-full">
               <Store className="h-4 w-4" />
               {/* <span className="ml-2 hidden md:inline ">Supplier</span> */}

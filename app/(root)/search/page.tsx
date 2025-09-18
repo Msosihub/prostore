@@ -1,5 +1,5 @@
 import Pagination from "@/components/shared/pagination4";
-import CategoryFilter from "@/components/shared/product/category-filter";
+// import CategoryFilter from "@/components/shared/product/category-filter";
 import ProductCard from "@/components/shared/product/product-card";
 import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import { Button } from "@/components/ui/button";
@@ -104,7 +104,7 @@ const SearchPage = async (props: {
   return (
     <div className="grid md:grid-cols-4 md:gap-5">
       <div className="md:col-span-4 space-y-4">
-        <CategoryFilter />
+        {/* <CategoryFilter /> */}
         <div className="flex-between flex-col md:flex-row my-4">
           <div className="flex items-center flex-wrap gap-2 text-sm">
             {q !== "all" && q !== "" && <span>Query: {q}</span>}
@@ -118,13 +118,13 @@ const SearchPage = async (props: {
             rating !== "all" ||
             price !== "all" ? (
               <Button variant="link" asChild>
-                <Link href="/search">Clear</Link>
+                <Link href="/search">Safisha</Link>
               </Button>
             ) : null}
           </div>
 
           <div className="text-sm">
-            Sort by{" "}
+            Panga kwa{" "}
             {sortOrders.map((s) => (
               <Link
                 key={s}
