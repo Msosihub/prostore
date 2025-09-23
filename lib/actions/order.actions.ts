@@ -73,6 +73,7 @@ export async function createOrder() {
             ...item,
             price: item.price,
             orderId: insertedOrder.id,
+            slug: item.slug || "",
           },
         });
       }
@@ -103,7 +104,101 @@ export async function createOrder() {
     return { success: false, message: formatError(error) };
   }
 }
+//========================================================================
+//Buy now logic
+export async function createBuyNowOrder({
+  productId,
+  qty,
+}: {
+  productId: string;
+  qty: number;
+}) {
+  try {
+    const session = await auth();
+    if (!session) throw new Error("User is not authenticated");
 
+    const userId = session?.user?.id;
+    if (!userId) throw new Error("User not found");
+
+    const user = await getUserById(userId);
+    if (!user.address) {
+      return {
+        success: false,
+        message: "No shipping address",
+        redirectTo: "/shipping-address",
+      };
+    }
+    if (!user.paymentMethod) {
+      return {
+        success: false,
+        message: "No payment method",
+        redirectTo: "/payment-method",
+      };
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+    if (!product) return { success: false, message: "Product not found" };
+    if (Number(product.stock) < qty)
+      return { success: false, message: "Not enough stock" };
+
+    const item: CartItem & { qty: number } = {
+      productId: product.id,
+      name: product.name,
+      image: product.images?.[0] ?? "",
+      price: product.price.toString(),
+      qty,
+      slug: product.slug ?? "",
+    };
+
+    const cartLike = {
+      items: [item],
+      itemsPrice: (Number(product.price) * qty).toString(),
+      shippingPrice: "0",
+      taxPrice: "0",
+      totalPrice: (Number(product.price) * qty).toString(),
+    };
+
+    const order = insertOrderSchema.parse({
+      userId,
+      shippingAddress: user.address,
+      paymentMethod: user.paymentMethod,
+      itemsPrice: cartLike.itemsPrice,
+      shippingPrice: cartLike.shippingPrice,
+      taxPrice: cartLike.taxPrice,
+      totalPrice: cartLike.totalPrice,
+    });
+
+    const insertedOrderId = await prisma.$transaction(async (tx) => {
+      const insertedOrder = await tx.order.create({ data: order });
+      for (const it of cartLike.items as CartItem[]) {
+        await tx.orderItem.create({
+          data: {
+            productId: it.productId,
+            name: it.name,
+            image: it.image,
+            price: it.price,
+            qty: it.qty,
+            orderId: insertedOrder.id,
+            slug: it.slug || "",
+          },
+        });
+      }
+      return insertedOrder.id;
+    });
+
+    return {
+      success: true,
+      message: "Order created",
+      redirectTo: `/order/${insertedOrderId}`,
+    };
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    return { success: false, message: formatError(error) };
+  }
+}
+//===================================================================
 // Get order by id
 export async function getOrderById(orderId: string) {
   const data = await prisma.order.findFirst({

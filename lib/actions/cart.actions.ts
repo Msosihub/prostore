@@ -118,7 +118,9 @@ export async function addItemToCart(data: CartItem) {
   }
 }
 
-export async function getMyCart() {
+export async function getMyCart({
+  isBuyNow = false,
+}: { isBuyNow?: boolean } = {}) {
   try {
     const sessionCartId = (await cookies()).get("sessionCartId")?.value;
     if (!sessionCartId) throw new Error("Cart item not found");
@@ -130,7 +132,10 @@ export async function getMyCart() {
     //pull the item from database
 
     const cart = await prisma.cart.findFirst({
-      where: userId ? { userId: userId } : { sessionCartId: sessionCartId },
+      where: {
+        ...(userId ? { userId } : { sessionCartId }),
+        isBuyNow, // 🔑 ensures correct type of cart
+      },
     });
 
     if (!cart) return undefined;
@@ -201,5 +206,56 @@ export async function removeItemFromCart(productId: string) {
     };
   } catch (error) {
     return { success: false, message: formatError(error) };
+  }
+}
+
+export async function buyNowItem(data: CartItem) {
+  try {
+    const session = await auth();
+    const userId = session?.user?.id ? (session.user.id as string) : undefined;
+
+    // 🔥 ensure only ONE BuyNow cart exists at a time
+    const oldSessionCartId = (await cookies()).get("sessionCartId")?.value;
+    if (oldSessionCartId) {
+      await prisma.cart.deleteMany({
+        where: { sessionCartId: oldSessionCartId, isBuyNow: true },
+      });
+    }
+
+    // Force create a fresh cart (ignore existing one)
+    const sessionCartId = crypto.randomUUID(); // temporary unique cart id
+    (await cookies()).set("sessionCartId", sessionCartId);
+
+    const item = cartItemSchema.parse(data);
+    const product = await prisma.product.findFirst({
+      where: { id: item.productId },
+    });
+
+    if (!product) throw new Error("Product not found");
+    if (product.stock < 1) throw new Error("Not enough stock");
+
+    const newCart = insertCartSchema.parse({
+      userId,
+      items: [item],
+      sessionCartId,
+      isBuyNow: true, // mark it
+      ...calcPrice([item]),
+    });
+
+    await prisma.cart.create({
+      data: newCart,
+    });
+
+    // ✅ instead of staying on product page → redirect to checkout
+    revalidatePath(`/checkout/${sessionCartId}`);
+
+    return {
+      success: true,
+      message: `${product.name} ready for checkout`,
+      cartId: sessionCartId,
+    };
+  } catch (error) {
+    console.error("Error in Buy Now:", error);
+    return { success: false, message: "Failed to start Buy Now checkout" };
   }
 }

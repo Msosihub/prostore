@@ -9,6 +9,8 @@ import CheckoutSteps from "@/components/shared/checkup-steps";
 // import ShippingAddressForm from "./shipping-address-form";
 // import CheckoutSteps from "@/components/shared/checkout-steps";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Shipping Address",
 };

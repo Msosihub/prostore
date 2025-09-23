@@ -131,7 +131,7 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
                   ) : (
                     <ArrowRight className="w-5 h-5" />
                   )}{" "}
-                  Proceed to Checkout
+                  Endelea na malipo
                 </Button>
               </CardContent>
             </Card>

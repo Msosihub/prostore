@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import BuyNow from "../product/buy-now";
+import { CartItem } from "@/types";
 // import { auth } from "@/auth";
 
 export default function BottomToolbar({
@@ -12,44 +14,19 @@ export default function BottomToolbar({
   supplierId,
   supplierUserId,
   userId,
-  openInquiryClick,
+  item,
+  // openInquiryClick,
 }: {
   productId: string;
   supplierId: string;
   supplierUserId: string;
   userId: string;
-  openInquiryClick?: () => void;
+  item: CartItem;
+  // openInquiryClick?: () => void;
 }) {
   const router = useRouter();
   const [isPressed, setIsPressed] = useState(false);
-  const [inquiryPressed, setInquiryPressed] = useState(false);
-  // async function handleChatOrInquiry() {
-  //   const res = await fetch("/api/conversations", {
-  //     method: "POST",
-  //     body: JSON.stringify({ productId, supplierId }),
-  //     headers: { "Content-Type": "application/json" },
-  //   });
-
-  //   const convo = await res.json();
-  //   if (convo?.id) {
-  //     router.push(`/chat/${convo.id}`);
-  //   }
-  // }
-
-  // async function startInquiry() {
-  //   const buyerId = userId;
-  //   console.log("START INQUIRY", { buyerId, supplierId, productId, inquiry });
-
-  //   const res = await fetch("/api/conversations", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({ buyerId, supplierId, productId, inquiry }),
-  //   });
-  //   const data = await res.json();
-  //   if (res.ok) {
-  //     window.location.href = `/chat/${data.conversation.id}`;
-  //   }
-  // }
+  // const [inquiryPressed, setInquiryPressed] = useState(false);
 
   async function startChat() {
     setIsPressed(true);
@@ -98,19 +75,19 @@ export default function BottomToolbar({
       <div className="mx-auto flex max-w-4xl items-center  px-4 py-2 gap-3 md:justify-between">
         {/* Left: Small Cart/Store Button */}
         <button
-          disabled={isPressed || inquiryPressed}
+          disabled={isPressed}
           onClick={() => {
             router.push("/cart");
           }}
           className="flex flex-col items-center justify-center text-xs text-muted-foreground"
         >
-          <ShoppingCart className="h-6 w-6 mb-1 text-gray-700" />
-          <span>Mizigo</span>
+          <ShoppingCart className="text-[11px] md:text-base h-6 w-6 mb-1 text-gray-700" />
+          <span>Mizigo yako</span>
         </button>
 
         {/* Right: Two Action Buttons */}
         <div className="flex flex-1 gap-2">
-          <Button
+          {/* <Button
             disabled={isPressed || inquiryPressed}
             variant="outline"
             className="flex-1 rounded-full px-6 py-2 text-sm"
@@ -130,10 +107,19 @@ export default function BottomToolbar({
             }}
           >
             {inquiryPressed && <Loader className="w-4 h-4 animate-spin" />}
-            {inquiryPressed ? "Inaanza..." : "Tuma Ulizo"}
-          </Button>
+            {inquiryPressed ? "Inaanza..." : "Nunua sasa"}
+          </Button> */}
+          <BuyNow
+            item={{
+              productId: productId,
+              name: item?.name,
+              price: item?.price,
+              qty: 1,
+              image: "",
+            }}
+          />
           <Button
-            disabled={isPressed || inquiryPressed}
+            disabled={isPressed}
             className=" text-xs flex-1 rounded-full px-6 py-2 md:text-sm bg-orange-500"
             onClick={startChat}
           >

@@ -182,3 +182,17 @@ export function normalizePhone(input: string, countryCode: string) {
   if (raw.startsWith(c.dial)) return `+${raw}`;
   return `+${c.dial}${raw}`;
 }
+
+import { ShippingAddress } from "@/types";
+
+export function isShippingAddress(value: unknown): value is ShippingAddress {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "fullName" in value &&
+    "streetAddress" in value &&
+    "city" in value &&
+    "postalCode" in value &&
+    "country" in value
+  );
+}

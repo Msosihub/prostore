@@ -20,6 +20,7 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-description";
+import BuyNow from "@/components/shared/product/buy-now";
 
 // Re-generate product pages every 60 seconds (fro ISR)
 export const revalidate = 60;
@@ -119,16 +120,15 @@ const ProductDetailsPagez = async (props: {
                         image: product.images![0],
                       }}
                     />
-                    {/* <Button
-                variant="default"
-                className="w-full"
-                // onClick={() => {
-                //   // TODO: configure direct checkout logic
-                //   console.log("Buy Now clicked");
-                // }}
-              >
-                Buy Now
-              </Button> */}
+                    <BuyNow
+                      item={{
+                        productId: product.id,
+                        name: product.name,
+                        price: product.price,
+                        qty: 1,
+                        image: product.images![0],
+                      }}
+                    />
                   </div>
                 )}
               </CardContent>
@@ -174,6 +174,13 @@ const ProductDetailsPagez = async (props: {
       </section>
       {/* {console.log("ProductId Passed to Buttons", product.id)} */}
       <ProductClientActions
+        item={{
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          qty: 1,
+          image: product.images![0],
+        }}
         buyerId={session?.user?.id || ""}
         supplierId={product?.supplierId || ""}
         supplierUserId={product?.supplier?.userId || ""}

@@ -10,7 +10,7 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
+  // CardTitle,
 } from "@/components/ui/card";
 import { Calendar, Loader, User } from "lucide-react";
 import { formatDate2 } from "@/lib/utils";
@@ -108,14 +108,14 @@ const ReviewList = ({
           return (
             <Card key={review.id}>
               <CardHeader>
-                <div className="flex-between">
+                {/* <div className="flex-between">
                   <CardTitle
                     className="truncate max-w-full"
                     title={review.title}
                   >
                     {review.title}
                   </CardTitle>
-                </div>
+                </div> */}
                 <CardDescription>
                   {isLong && !isExpanded
                     ? review.description.slice(

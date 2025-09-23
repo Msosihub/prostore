@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { InquiryFormModal } from "@/components/chat/inquiryFormModal";
+// import { useState } from "react";
+// import { InquiryFormModal } from "@/components/chat/inquiryFormModal";
 import BottomToolbar from "@/components/shared/dialogs/bottom-toolbar";
+import { CartItem } from "@/types";
 
 type Props = {
   buyerId: string;
   supplierId: string;
   productId: string;
   supplierUserId: string;
+  item: CartItem;
 };
 
 export default function ProductClientActions({
@@ -16,15 +18,16 @@ export default function ProductClientActions({
   supplierId,
   productId,
   supplierUserId,
+  item,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  // const [open, setOpen] = useState(false);
 
   // console.log("ProductId Received to Buttons", productId);
 
   return (
     <>
-      {buyerId && (
-        <InquiryFormModal
+      {/* {buyerId && (
+        <InquiryFormModal //replace this with bottom drawer
           open={open}
           onOpenChange={setOpen}
           buyerId={buyerId}
@@ -32,14 +35,15 @@ export default function ProductClientActions({
           supplierUserId={supplierUserId}
           productId={productId}
         />
-      )}
+      )} */}
 
       <BottomToolbar
         productId={productId}
         supplierId={supplierId}
         userId={buyerId}
         supplierUserId={supplierUserId}
-        openInquiryClick={() => setOpen(true)} // optional button trigger
+        item={item}
+        // openInquiryClick={() => setOpen(true)} // optional button trigger
       />
     </>
   );

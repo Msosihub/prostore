@@ -135,7 +135,7 @@ export const signUpFormSchema = z
 export const cartItemSchema = z.object({
   productId: z.string().min(1, "product inahitajika"),
   name: z.string().min(1, "product name inahitajika"),
-  slug: z.string().min(1, "product slug inahitajika"),
+  slug: z.string().optional(),
   qty: z.number().int().nonnegative("quantity lazima iwe namba chanya"),
   image: z.string().min(1, "image inahitajika"),
   price: currency,
