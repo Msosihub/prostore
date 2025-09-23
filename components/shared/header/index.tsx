@@ -58,7 +58,7 @@ const Header = () => {
               </Link>
             </div>
 
-            <div className="flex-1 ml-2">
+            <div className="flex-1 ml-4">
               <Search />
             </div>
             <Menu />

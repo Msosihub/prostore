@@ -1,6 +1,6 @@
-import { APP_NAME } from "@/lib/constants";
-import Image from "next/image";
-import Link from "next/link";
+// import { APP_NAME } from "@/lib/constants";
+// import Image from "next/image";
+// import Link from "next/link";
 import Menu from "@/components/shared/header/menu";
 import MainNav from "./main-nav";
 import SupplierSearch from "@/components/supplier/supplier-search";
@@ -41,20 +41,10 @@ export default async function SupplierLayout({
     <>
       <div className="flex flex-col">
         <div className="border-b container mx-auto">
-          <div className="flex items-center h-16 px-4">
-            <div className="p-2 rounded-sm sm:p-2 flex flex-row justify-between gap-1 sm:gap-2 text-xs sm:text-sm bg-blue-50">
-              <SupplierHeader supplier={normalizedSupplier} />
-            </div>
-            <Link href="/" className="w-22">
-              <Image
-                src="/images/logo.svg"
-                height={48}
-                width={48}
-                alt={APP_NAME}
-              />
-            </Link>
-            <MainNav className="mx-6" supplierId={supplierId} />
-            <div className="ml-auto items-center flex space-x-4">
+          <SupplierHeader supplier={normalizedSupplier} />
+          <div className="flex items-center h-16 px-1">
+            <MainNav className="mx-1 md:mx-4" supplierId={supplierId} />
+            <div className="ml-auto items-center flex flex-1 space-x-4 justify-end">
               <SupplierSearch />
               <Menu />
             </div>

@@ -12,9 +12,9 @@ const MainNav = ({ supplierId, className, ...props }: MainNavProps) => {
   // now you can use supplierId to build links
   const links = [
     { title: "Home", href: `/company/${supplierId}/home` },
-    { title: "Products", href: `/company/${supplierId}/products` },
+    { title: "Bidhaa", href: `/company/${supplierId}/products` },
     { title: "Profile", href: `/company/${supplierId}/profile` },
-    { title: "Categories", href: `/company/${supplierId}/categories` },
+    { title: "Jamii", href: `/company/${supplierId}/categories` },
   ];
 
   const pathname = usePathname();

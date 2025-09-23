@@ -20,9 +20,9 @@ const CartPage = async () => {
     : undefined;
 
   return (
-    <>
+    <div className="mb-20">
       <CartTable cart={safeCartData} />
-    </>
+    </div>
   );
 };
 

@@ -158,7 +158,7 @@ export const shippingAddressSchema = z.object({
   city: z.string().min(3, "Jiji lazima liwe zaidi ya herufi 3"),
   postalCode: z
     .string()
-    .min(3, "Nambari ya posta lazima iwe zaidi ya herufi 3"),
+    .min(3, "Nambari ya posta/maelezo lazima iwe zaidi ya herufi 3"),
   country: z.string().min(3, "Nchi lazima iwe zaidi ya herufi 3"),
   lat: z.number().optional(),
   lng: z.number().optional(),

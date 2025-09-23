@@ -66,7 +66,7 @@ const PlaceOrderPage = ({
   // const productIdParam = searchParams?.productId;
   // const qtyParam = searchParams?.qty;
   const params = use(searchParams) as unknown as params;
-  console.log("SearchParams:", params);
+  // console.log("SearchParams:", params);
 
   const isBuyNow = params.buyNow === "1";
   const productId = params.productId;

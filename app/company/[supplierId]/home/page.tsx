@@ -156,7 +156,7 @@ export default async function SupplierHomePage({
         )}
         <div className="flex justify-center mt-4">
           <Link href={`/company/${supplier.id}/products`}>
-            <Button>View All Products</Button>
+            <Button>Angalia Bidhaa zote</Button>
           </Link>
         </div>
       </section>
@@ -165,13 +165,13 @@ export default async function SupplierHomePage({
       <footer className="hidden mt-auto bg-white py-4 border-t">
         <div className="flex justify-center gap-6">
           <Link href={`/company/${supplier.id}/products`}>
-            <Button variant="outline">Products</Button>
+            <Button variant="outline">Bidhaa</Button>
           </Link>
           <Link href={`/company/${supplier.id}/profile`}>
-            <Button variant="outline">Company Profile</Button>
+            <Button variant="outline">Profaili ya Kampuni</Button>
           </Link>
           <Link href={`/company/${supplier.id}/categories`}>
-            <Button variant="outline">Categories</Button>
+            <Button variant="outline">Jamii</Button>
           </Link>
         </div>
       </footer>

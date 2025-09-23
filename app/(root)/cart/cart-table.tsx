@@ -1,7 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { format } from "date-fns";
 import { ArrowRight, Loader } from "lucide-react";
 
 import { Cart } from "@/types";
@@ -18,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+
 //import { AddButton, RemoveButton } from "@/components/shared/cart/cart-buttons";
 import {
   DecrementButton,
@@ -32,22 +32,25 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const estimatedDelivery = format(
-    new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-    "EEEE, MMMM d"
-  );
+  const estimatedDelivery = new Intl.DateTimeFormat("sw", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000));
+
+  console.log(estimatedDelivery); // e.g., "Jumamosi, Septemba 28"
 
   return (
     <>
       <h1 className="py-4 px-4 sm:px-6 lg:px-12 text-2xl font-bold text-gray-800">
-        Shopping Cart
+        Kapu la Manunuzi
       </h1>
 
       {!cart || cart.items.length === 0 ? (
         <div className="px-4 sm:px-6 lg:px-12 text-gray-600">
-          Cart is empty.{" "}
+          Kapu ni tupu.{" "}
           <Link href="/" className="text-blue-600 underline">
-            Go Shopping
+            Nenda Kununua
           </Link>
         </div>
       ) : (
@@ -57,9 +60,9 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="text-center">Quantity</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
+                  <TableHead>Bidhaa</TableHead>
+                  <TableHead className="text-center">Kiasi</TableHead>
+                  <TableHead className="text-right">Bei</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -106,14 +109,14 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
             <Card>
               <CardContent className="p-4 space-y-4">
                 <div className="text-lg font-semibold text-gray-700">
-                  Subtotal ({cart.items.reduce((a, c) => a + c.qty, 0)}):{" "}
+                  Jumla ndogo ({cart.items.reduce((a, c) => a + c.qty, 0)}):{" "}
                   <span className="font-bold text-green-700">
                     {formatCurrency(cart.itemsPrice)}
                   </span>
                 </div>
 
                 <div className="text-sm text-gray-500">
-                  Estimated delivery:{" "}
+                  Mzigo utakufikia:{" "}
                   <span className="font-medium text-gray-700">
                     {estimatedDelivery}
                   </span>

@@ -55,12 +55,12 @@ const PlaceOrderPage = async () => {
   return (
     <div className="mb-20">
       <CheckoutSteps current={3} />
-      <h1 className="py-4 text-2xl">Place Order</h1>
+      <h1 className="py-4 text-2xl">Weka Agizo</h1>
       <div className="grid md:grid-cols-3 md:gap-5">
         <div className="md:col-span-2 overflow-x-auto space-y-4">
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Shipping Address</h2>
+              <h2 className="text-xl pb-4">Anwani ya Usafirishaji</h2>
               <p>{userAddress.fullName}</p>
               <p>
                 {userAddress.streetAddress}, {userAddress.city}{" "}
@@ -68,7 +68,7 @@ const PlaceOrderPage = async () => {
               </p>
               <div className="mt-3">
                 <Link href="/shipping-address">
-                  <Button variant="outline">Edit</Button>
+                  <Button variant="outline">Badili</Button>
                 </Link>
               </div>
             </CardContent>
@@ -76,11 +76,11 @@ const PlaceOrderPage = async () => {
 
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Payment Method</h2>
+              <h2 className="text-xl pb-4">Njia ya malipo</h2>
               <p>{user.paymentMethod}</p>
               <div className="mt-3">
                 <Link href="/payment-method">
-                  <Button variant="outline">Edit</Button>
+                  <Button variant="outline">Badili</Button>
                 </Link>
               </div>
             </CardContent>
@@ -88,13 +88,13 @@ const PlaceOrderPage = async () => {
 
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Order Items</h2>
+              <h2 className="text-xl pb-4">Vitu vya Agizo</h2>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Price</TableHead>
+                    <TableHead>Bidhaa</TableHead>
+                    <TableHead>Kiasi</TableHead>
+                    <TableHead>Bei</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -118,7 +118,7 @@ const PlaceOrderPage = async () => {
                         <span className="px-2">{item.qty}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        ${item.price}
+                        Tsh {item.price}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -131,7 +131,7 @@ const PlaceOrderPage = async () => {
           <Card>
             <CardContent className="p-4 gap-4 space-y-4">
               <div className="flex justify-between">
-                <div>Items</div>
+                <div>Vitu</div>
                 <div>{formatCurrency(safeCartData.itemsPrice)}</div>
               </div>
               <div className="flex justify-between">
@@ -139,11 +139,11 @@ const PlaceOrderPage = async () => {
                 <div>{formatCurrency(safeCartData.taxPrice)}</div>
               </div>
               <div className="flex justify-between">
-                <div>Shipping</div>
+                <div>Usafirishaji</div>
                 <div>{formatCurrency(safeCartData.shippingPrice)}</div>
               </div>
               <div className="flex justify-between">
-                <div>Total</div>
+                <div>Jumla</div>
                 <div>{formatCurrency(safeCartData.totalPrice)}</div>
               </div>
               <PlaceOrderForm />

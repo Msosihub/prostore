@@ -21,17 +21,21 @@ const SupplierSearch = () => {
 
   return (
     <form action={formActionUrl} method="GET">
-      <Input
-        type="search"
-        placeholder="Search..."
-        name="query"
-        value={queryValue}
-        onChange={(e) => setQueryValue(e.target.value)}
-        className="md:w-[100px] lg:w-[300px]"
-      />
-      <button className="sr-only" type="submit">
-        Search
-      </button>
+      <div className="flex w-full  items-center space-x-2">
+        <div className="flex-grow">
+          <Input
+            type="search"
+            placeholder="Tafuta..."
+            name="query"
+            value={queryValue}
+            onChange={(e) => setQueryValue(e.target.value)}
+            className="w-full  transition-all duration-300"
+          />
+        </div>
+        <button className="sr-only" type="submit">
+          Tafuta
+        </button>
+      </div>
     </form>
   );
 };

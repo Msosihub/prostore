@@ -102,9 +102,12 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                   >;
                 }) => (
                   <FormItem className="w-full">
-                    <FormLabel>Address</FormLabel>
+                    <FormLabel>Anuani ya mtaa</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter address" {...field} />
+                      <Input
+                        placeholder="Nyumba namba 21, Bararara Mbosho kariby na Shule.."
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -124,9 +127,9 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                   >;
                 }) => (
                   <FormItem className="w-full">
-                    <FormLabel>City</FormLabel>
+                    <FormLabel>Mji</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter city" {...field} />
+                      <Input placeholder="Ingiza mji mfano Moshi" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -146,9 +149,12 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                   >;
                 }) => (
                   <FormItem className="w-full">
-                    <FormLabel>Postal Code</FormLabel>
+                    <FormLabel>Maelezo ya ziada</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter postal code" {...field} />
+                      <Input
+                        placeholder="Ingiza maelezo ya ziada kama yapo"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -168,9 +174,12 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                   >;
                 }) => (
                   <FormItem className="w-full">
-                    <FormLabel>Country</FormLabel>
+                    <FormLabel>Nchi yako</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter country" {...field} />
+                      <Input
+                        placeholder="Ingiza nchi mfano Tanzania"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -184,7 +193,7 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                 ) : (
                   <ArrowRight className="w-4 h-4" />
                 )}{" "}
-                Continue
+                Endelea
               </Button>
             </div>
           </form>
