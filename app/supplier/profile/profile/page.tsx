@@ -70,6 +70,9 @@ export default function Profile() {
             Array.isArray(data.businessHours) && data.businessHours.length > 0
               ? data.businessHours
               : DEFAULT_WORKING_HOURS,
+          policies: data.SupplierPolicy || [], // ✅ ensure policies are present
+          banner: data.bannerUrl || "",
+          gallery: Array.isArray(data.gallery) ? data.gallery : [],
         };
         console.log("MergedData: ", mergedData);
         form.reset(mergedData);
@@ -98,6 +101,15 @@ export default function Profile() {
       });
       return;
     }
+
+    if (!Array.isArray(data.policies) || data.policies.length === 0) {
+      toast({
+        variant: "destructive",
+        description: "Tafadhali ongeza angalau sera moja ya biashara.",
+      });
+      return;
+    }
+
     setSaving(true);
     setUpdated(false);
     try {
