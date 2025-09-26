@@ -26,6 +26,12 @@ const SupplierHeader = ({ supplier }: { supplier: Supplier }) => {
           >
             {supplier.companyName}
           </Link>
+          <span className="text-xs text-muted-foreground">
+            {supplier.username}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {supplier.rating.toFixed(1)} ★
+          </span>
 
           <div className="flex flex-col md:flex-row text-[11px] sm:text-xs md:text-base text-muted-foreground gap-2">
             <div className="flex items-center gap-1 flex-row">

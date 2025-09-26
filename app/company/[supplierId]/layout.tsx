@@ -28,6 +28,7 @@ export default async function SupplierLayout({
     id: supplier.id,
     logo: supplier.logo ?? undefined,
     companyName: supplier.companyName,
+    username: supplier.username ?? undefined,
     isVerified: supplier.isVerified,
     yearsActive: supplier.yearsActive,
     nation: supplier.nation,

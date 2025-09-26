@@ -36,7 +36,7 @@ export default async function SupplierHomePage({
       {/* Banner */}
       <div className="relative w-full h-56 md:h-72">
         <Image
-          src={supplier.avatar || "/images/banner-1.jpg"}
+          src={supplier.bannerUrl || "/images/banner-1.jpg"}
           alt="Supplier Banner"
           fill
           className="object-cover rounded-b-2xl"
@@ -44,7 +44,7 @@ export default async function SupplierHomePage({
         <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center text-white">
           {
             <Image
-              src={"/images/logo.svg"}
+              src={supplier.logo || "/images/logo.svg"}
               alt="Supplier Logo"
               width={80}
               height={80}
@@ -54,8 +54,8 @@ export default async function SupplierHomePage({
           <h1 className="text-2xl md:text-3xl font-bold">
             {supplier.companyName || supplier.name}
           </h1>
-          {supplier.about && (
-            <p className="text-sm md:text-base max-w-xl">{supplier.about}</p>
+          {supplier.tagLine && (
+            <p className="text-sm md:text-base max-w-xl">{supplier.tagLine}</p>
           )}
         </div>
       </div>

@@ -35,6 +35,7 @@ export type Certifications = {
 export type Supplier = {
   id: string;
   logo?: string;
+  username?: string;
   companyName?: string | null;
   isVerified: boolean;
   yearsActive: number;
