@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
         port: "",
       },
     ],
+    domains: ["fdd5alqxb0.ufs.sh", "uploadthing.com", "utfs.io"],
   },
   // experimental: {
   //   ppr: true,

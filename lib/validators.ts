@@ -246,3 +246,35 @@ export const paymentResultSchema = z.object({
 export const updateProductSchema = insertProductSchema.extend({
   id: z.string().min(1, "Id inahitajika"),
 });
+
+///supplier profile validation schema
+export const businessHoursSchema = z.object({
+  day: z.string(),
+  open: z.string().optional(),
+  close: z.string().optional(),
+});
+
+export const allowedPolicyTypes = [
+  "Sera ya Kurudisha",
+  "Sera ya Usafirishaji",
+  "Masharti ya malipo",
+  "Warranty",
+  "Custom",
+] as const;
+
+const supplierPolicySchema = z.object({
+  type: z.enum(allowedPolicyTypes as unknown as [string, ...string[]]),
+  customLabel: z.string().optional(),
+  content: z.string().min(5),
+});
+
+export const formSchema = z.object({
+  name: z.string().min(2),
+  username: z.string().min(2),
+  about: z.string().optional(),
+  banner: z.string().optional(),
+  logo: z.string().optional(),
+  gallery: z.array(z.string()).max(5).default([]),
+  businessHours: z.array(businessHoursSchema),
+  policies: z.array(supplierPolicySchema),
+});

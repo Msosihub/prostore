@@ -18,6 +18,18 @@ export const ourFileRouter = {
       return { uploadedBy: metadata.userId };
     }),
 
+  galleryImageUploader: f({
+    image: { maxFileSize: "4MB", maxFileCount: 5 },
+  })
+    .middleware(async () => {
+      const session = await auth();
+      if (!session) throw new UploadThingError("Unauthorized");
+      return { userId: session.user.id };
+    })
+    .onUploadComplete(async ({ metadata }) => {
+      return { uploadedBy: metadata.userId };
+    }),
+
   // ✅ New quote attachment uploader (PDFs, docs, etc.)
   quoteAttachment: f({
     pdf: { maxFileSize: "4MB" },

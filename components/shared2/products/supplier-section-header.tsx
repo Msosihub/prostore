@@ -1,11 +1,12 @@
 import { Supplier } from "@/types";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { APP_NAME } from "@/lib/constants";
 // import Image from "next/image";
 
 const SupplierHeader = ({ supplier }: { supplier: Supplier }) => {
   return (
-    <div className="flex items-center gap-2 p-2 bg-white ">
+    <div className="flex items-center gap-2 p-2 ">
       {/* <div className="p-0 hidden">
         <Image
           src={supplier.logo || "/images/logo.svg"}
@@ -34,10 +35,10 @@ const SupplierHeader = ({ supplier }: { supplier: Supplier }) => {
               >
                 Amehakikishwa
               </Badge>
-              <div>• {"Multispecialty Supplier"}</div>
+              <div>• {"Supplier"}</div>
             </div>
             <div className={"pl-0"}>
-              • {supplier.yearsActive}+ yrs on Prostore • {supplier.nation}
+              • {supplier.yearsActive}+ yrs on {APP_NAME} • {supplier.nation}
             </div>
           </div>
         </div>
