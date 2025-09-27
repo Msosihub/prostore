@@ -21,10 +21,10 @@ const links = [
     title: "SMS",
     href: "/supplier/messages",
   },
-  {
-    title: "Users",
-    href: "/supplier/users",
-  },
+  // {
+  //   title: "Users",
+  //   href: "/supplier/users",
+  // },
 ];
 
 const MainNav = ({

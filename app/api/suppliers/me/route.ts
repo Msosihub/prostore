@@ -38,7 +38,11 @@ export async function PUT(req: Request) {
     tagLine,
     banner,
     logo,
+    location,
+    website,
+    nation,
     gallery,
+    businessType,
     businessHours,
     // ❌ exclude policies and other non-Supplier fields
   } = body;
@@ -53,7 +57,11 @@ export async function PUT(req: Request) {
           email,
           phone,
           about,
+          location,
+          website,
+          nation,
           tagLine,
+          businessType,
           bannerUrl: banner,
           logo,
           gallery,

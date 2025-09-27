@@ -11,23 +11,16 @@ const links = [
   },
   {
     title: "Business", //Business → business name, address, contact info, business type, industry
-    href: "/supplier/profile/business",
+    href: "#name",
   },
   {
     title: "Policies", //Policies → return policy, shipping policy, privacy policy, terms of service
-    href: "/supplier/profile/policies",
+    href: "#policies",
   },
-  {
-    title: "Documents", //Documents → business license, tax ID, incorporation documents, certificates, permits, catalog etc(with verification status  )
-    href: "/supplier/profile/documents",
-  },
+
   {
     title: "Gallery", //Gallery → product images, portfolio, showroom images, videos
-    href: "/supplier/profile/gallery",
-  },
-  {
-    title: "About", //About → detailed business description, history, mission statement, team members, awards, locations, website, why us
-    href: "/supplier/profile/about",
+    href: "#gallery",
   },
 ];
 

@@ -97,11 +97,12 @@ const Search = () => {
                 <SelectItem key="All" value="all">
                   Yote
                 </SelectItem>
-                {categories?.map((x) => (
-                  <SelectItem key={x.id} value={x.name_en}>
-                    {x.name_en}
-                  </SelectItem>
-                ))}
+                {categories &&
+                  categories?.map((x) => (
+                    <SelectItem key={x.id} value={x.name_en}>
+                      {x.name_en}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           ) : (
