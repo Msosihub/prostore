@@ -5,6 +5,10 @@ import { APP_NAME } from "@/lib/constants";
 // import Image from "next/image";
 
 const SupplierHeader = ({ supplier }: { supplier: Supplier }) => {
+  supplier = {
+    ...supplier,
+    rating: supplier.rating ? Number(supplier.rating) : 0,
+  };
   return (
     <div className="flex items-center gap-2 p-2 ">
       {/* <div className="p-0 hidden">
