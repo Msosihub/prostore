@@ -327,7 +327,7 @@ model Certification {
   image      String
   label      String
   type       String?
-  certNumber String?
+  certNumber String    @default("") // avoids null
   verified   Boolean   @default(false)
   validUntil DateTime?
   updatedAt  DateTime  @default(now()) @db.Timestamp(6)

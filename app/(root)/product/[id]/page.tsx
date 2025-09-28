@@ -157,6 +157,13 @@ const ProductDetailsPagez = async (props: {
           logo: product.supplier.logo ?? undefined,
           rating: Number(product.supplier.rating),
           username: product.supplier.username || "",
+          certifications: product.supplier.certifications.map((c) => ({
+            id: c.id,
+            label: c.label,
+            image: c.image ?? undefined,
+            certNumber: c.certNumber ?? undefined,
+            validUntil: c.validUntil ?? undefined,
+          })),
         }}
       />
 

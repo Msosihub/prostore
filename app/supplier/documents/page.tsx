@@ -79,7 +79,7 @@ export default function SupplierDocumentsPage() {
         const res = await fetch("/api/suppliers/documents");
         if (!res.ok) throw new Error("Failed to load documents");
         const data = await res.json();
-        console.log("Fetched documents:", data);
+        // console.log("Fetched documents:", data);
         if (mounted) setDocs(data || []);
       } catch (err: unknown) {
         console.error(err);
@@ -121,7 +121,7 @@ export default function SupplierDocumentsPage() {
       });
       return;
     }
-    console.log("Creating document with", payload);
+    // console.log("Creating document with", payload);
     setSubmitting(true);
     try {
       const res = await fetch("/api/suppliers/documents", {
