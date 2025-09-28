@@ -82,7 +82,7 @@ export default function SupplierLayout({
 
               <nav className="space-y-4 flex flex-col  border-b">
                 <Link href="/supplier/profile/profile">Profile</Link>
-                <Link href="/supplier/profile/documents">Documents</Link>
+                <Link href="/supplier/documents">Documents</Link>
               </nav>
               <nav className="space-y-4 flex flex-col  border-b">
                 <Link href="/supplier/users/">User</Link>

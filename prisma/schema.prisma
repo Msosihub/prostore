@@ -319,13 +319,20 @@ model Supplier {
 }
 
 model Certification {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supplierId String   @db.Uuid
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId      String  @db.Uuid
+  documentId      String? @db.Uuid // optional link
+  visibleToBuyers Boolean @default(true)
+
   image      String
   label      String
-  certNumber String
-  validUntil DateTime
-  supplier   Supplier @relation(fields: [supplierId], references: [id])
+  type       String?
+  certNumber String?
+  verified   Boolean   @default(false)
+  validUntil DateTime?
+  updatedAt  DateTime  @default(now()) @db.Timestamp(6)
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
+  supplier   Supplier  @relation(fields: [supplierId], references: [id])
 }
 
 model Conversation {
@@ -457,17 +464,21 @@ model Notification {
 }
 
 model SupplierDocument {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supplierId String   @db.Uuid
-  label      String
-  name       String
-  type       String? // e.g. "Catalog", "License"
-  fileUrl    String
-  files      Json?    @db.Json // Array of file URLs if multiple
-  verified   Boolean  @default(false)
-  uploadedAt DateTime @default(now()) @db.Timestamp(6)
-
-  supplier Supplier @relation(fields: [supplierId], references: [id])
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId      String    @db.Uuid
+  label           String
+  name            String
+  type            String? // e.g. "Catalog", "License", "Certificate",
+  fileUrl         String
+  files           Json?     @db.Json // Array of file URLs if multiple
+  description     String?
+  source          String? // e.g. "Uploaded by user", "Imported from ..."
+  visibleToBuyers Boolean   @default(false) // ✅ new
+  validUntil      DateTime? //can be null for non-expiring docs
+  verified        Boolean   @default(false)
+  uploadedAt      DateTime  @default(now()) @db.Timestamp(6)
+  certNumber      String? // ✅ optional
+  supplier        Supplier  @relation(fields: [supplierId], references: [id])
 }
 
 // model SupplierNote {
