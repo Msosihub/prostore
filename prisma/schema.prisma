@@ -87,6 +87,7 @@ model User {
   ProductComment        ProductComment[]
   Notification          Notification[]
   // SupplierNote          SupplierNote[]
+  Admin                 Admin?
 }
 
 model Cart {
@@ -164,8 +165,11 @@ model Category {
   name_en       String        @unique
   name_sw       String
   image         String?
+  parentId      String?       @db.Uuid
+  updatedAt     DateTime      @default(now()) @db.Timestamp(6)
   createdAt     DateTime      @default(now()) @db.Timestamp(6)
   description   String        @default("")
+  sortOrder     Int           @default(0) // ✅ new
   products      Product[]
   subcategories Subcategory[]
 }
@@ -178,8 +182,23 @@ model Subcategory {
   image       String?
   createdAt   DateTime  @default(now()) @db.Timestamp(6)
   description String?
+  sortOrder   Int       @default(0) // ✅ new
   products    Product[]
   category    Category  @relation(fields: [categoryId], references: [id])
+}
+
+// Audit logs
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String   @db.Uuid
+  action     String // e.g. "DOCUMENT_APPROVED", "DOCUMENT_REJECTED"
+  entityId   String?  @db.Uuid // e.g. documentId or supplierId
+  entityType String? // e.g. "SupplierDocument", "Supplier"
+  reason     String? // rejection reason or note (nullable)
+  details    Json? // store extra metadata
+  createdAt  DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id])
 }
 
 model Product {
@@ -282,6 +301,7 @@ model Attachment {
 model Supplier {
   id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId        String  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label         String? // e.g. "Gold Supplier", "Verified Supplier"
   name          String
   username      String? @unique
   tagLine       String?
@@ -464,21 +484,25 @@ model Notification {
 }
 
 model SupplierDocument {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supplierId      String    @db.Uuid
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId      String         @db.Uuid
   label           String
   name            String
   type            String? // e.g. "Catalog", "License", "Certificate",
   fileUrl         String
-  files           Json?     @db.Json // Array of file URLs if multiple
+  files           Json?          @db.Json // Array of file URLs if multiple
   description     String?
+  status          DocumentStatus @default(PENDING)
   source          String? // e.g. "Uploaded by user", "Imported from ..."
-  visibleToBuyers Boolean   @default(false) // ✅ new
+  visibleToBuyers Boolean        @default(false) // ✅ new
   validUntil      DateTime? //can be null for non-expiring docs
-  verified        Boolean   @default(false)
-  uploadedAt      DateTime  @default(now()) @db.Timestamp(6)
+  verified        Boolean        @default(false)
+  verifiedBy      String?        @db.Uuid
+  verifiedAt      DateTime?
+  rejectionReason String?
+  uploadedAt      DateTime       @default(now()) @db.Timestamp(6)
   certNumber      String? // ✅ optional
-  supplier        Supplier  @relation(fields: [supplierId], references: [id])
+  supplier        Supplier       @relation(fields: [supplierId], references: [id])
 }
 
 // model SupplierNote {
@@ -494,6 +518,18 @@ model SupplierDocument {
 //   buyer    User?    @relation(fields: [buyerId], references: [id])
 // }
 
+// For Admin users (if different from normal users)
+model Admin {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  role      String   @default("ADMIN") // could be SUPERADMIN, MODERATOR etc
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id])
+  AuditLog AuditLog[]
+}
+
 enum UserRole {
   BUYER
   SUPPLIER
@@ -504,4 +540,10 @@ enum InquiryStatus {
   PENDING
   QUOTED
   CLOSED
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

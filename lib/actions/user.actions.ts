@@ -170,6 +170,24 @@ export async function signUpUser(prevState: unknown, formData: FormData) {
           },
         });
       }
+
+      //if admi is created, create admin profile as well-but admin are not created this risky hahaha
+      // if (newUser.role === "ADMIN") {
+      //   await tx.supplier.create({
+      //     data: {
+      //       userId: newUser.id,
+      //       name: newUser.name,
+      //       email: newUser.email || "",
+      //       companyName: "New Supplier Co.",
+      //       location: "Dar es Salaam",
+      //       // nation: newUser.country || "Tanzania",
+      //       yearsActive: 1,
+      //       isVerified: false,
+      //       rating: 0,
+      //       deliveryRate: 0,
+      //     },
+      //   });
+      // }
     });
 
     // await signIn("credentials", {
