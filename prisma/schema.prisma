@@ -190,6 +190,7 @@ model Subcategory {
 // Audit logs
 model AuditLog {
   id         String   @id @default(uuid())
+  name       String   @default("NO_NAME")
   adminId    String   @db.Uuid
   action     String // e.g. "DOCUMENT_APPROVED", "DOCUMENT_REJECTED"
   entityId   String?  @db.Uuid // e.g. documentId or supplierId
@@ -329,6 +330,10 @@ model Supplier {
   banner            String?
   certifications    Certification[]
   gallery           Json? // Array of image/video URLs
+  createdAt         DateTime            @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime            @default(now()) @db.Timestamp(6)
+  verifiedAt        DateTime?           @db.Timestamp(6)
+  verifiedBy        String?             @db.Uuid
   products          Product[]
   Quote             Quote[]
   user              User                @relation(fields: [userId], references: [id])
@@ -501,6 +506,7 @@ model SupplierDocument {
   verifiedAt      DateTime?
   rejectionReason String?
   uploadedAt      DateTime       @default(now()) @db.Timestamp(6)
+  createdAt       DateTime       @default(now()) @db.Timestamp(6)
   certNumber      String? // ✅ optional
   supplier        Supplier       @relation(fields: [supplierId], references: [id])
 }

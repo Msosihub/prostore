@@ -28,7 +28,13 @@ export async function sendSms(to: string, message: string) {
     throw new Error(`Africa's Talking SMS failed: ${res.statusText}`);
   }
 
-  return res.json();
+  //Return the full response for logging if needed
+  const resData = await res;
+  console.log("Africa's Talking response data:", resData);
+  //log the response data
+
+  return resData;
+  // return res.json();
 }
 
 // sendSms("+255760111880", "Hello BM");
