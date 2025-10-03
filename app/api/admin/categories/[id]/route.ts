@@ -5,13 +5,13 @@ import { auth } from "@/auth";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const { id } = params;
+  const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const { name_en, name_sw, description, image, sortOrder } = body;
 
@@ -41,13 +41,13 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const { id } = params;
+  const { id } = await params;
 
   try {
     // Prevent deleting categories that still have subcategories or products

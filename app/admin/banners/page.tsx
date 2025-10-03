@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { UploadButton } from "@/lib/uploadthing";
 import { ImagePlus, Loader2 } from "lucide-react";
+import type { ClientUploadedFileData } from "uploadthing/types";
 
 type Banner = {
   id: string;
@@ -32,6 +33,13 @@ type Banner = {
   isActive: boolean;
   mode: string;
   items?: BannerItem[];
+};
+
+type ExtendedUploadData = ClientUploadedFileData<{
+  uploadedBy?: string;
+}> & {
+  ufsUrl?: string;
+  fileUrl?: string;
 };
 
 type BannerItem = {
@@ -58,7 +66,7 @@ export default function AdminBannersPage() {
     text: "",
     link: "",
     type: "",
-    data: {},
+    // data: {},
     isActive: false,
     mode: "MANUAL",
   });
@@ -102,7 +110,7 @@ export default function AdminBannersPage() {
       text: "",
       link: "",
       type: "",
-      data: {},
+      // data: {},
       isActive: false,
       mode: "MANUAL",
     });
@@ -118,7 +126,7 @@ export default function AdminBannersPage() {
       text: b.text ?? "",
       link: b.link ?? "",
       type: b.type ?? "",
-      data: b.data ?? {},
+      // data: b.data ?? {},
       isActive: b.isActive,
       mode: b.mode,
     });
@@ -288,10 +296,10 @@ export default function AdminBannersPage() {
   }
 
   // helper: UploadThing result URL extractor (robust)
-  function extractUploadUrl(uploadResult: any[] | undefined) {
+  function extractUploadUrl(uploadResult: ExtendedUploadData[]): string {
     if (!uploadResult || uploadResult.length === 0) return "";
     const first = uploadResult[0];
-    return first.url || first.ufsUrl || first.fileUrl || first.file?.url || "";
+    return first.url || first.ufsUrl || first.fileUrl || "";
   }
 
   return (
@@ -468,6 +476,7 @@ export default function AdminBannersPage() {
                     ),
                   }}
                   onClientUploadComplete={(res) => {
+                    setUploading(false);
                     const url = extractUploadUrl(res);
                     if (url) setBannerForm((s) => ({ ...s, image: url }));
                     toast({ description: "Upload complete" });
@@ -486,8 +495,8 @@ export default function AdminBannersPage() {
                     src={bannerForm.image}
                     alt="preview"
                     className="h-12 w-24 object-cover rounded"
-                    width={24}
-                    height={12}
+                    width={128}
+                    height={112}
                   />
                 )}
               </div>
@@ -598,11 +607,40 @@ export default function AdminBannersPage() {
               <div className="flex items-center gap-3">
                 <UploadButton
                   endpoint="imageUploader"
-                  content={{ button: "Upload Image" }}
+                  onUploadBegin={() => setUploading(true)}
+                  disabled={uploading}
+                  content={{
+                    button: uploading ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="animate-spin h-4 w-4" />
+                        Inapakia...
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-1 text-sm">
+                        <ImagePlus className="h-6 w-6 pt-1" color="#2563eb" />
+                        <span className="font-medium text-blue-600">
+                          Bonyeza kupakia document yako
+                        </span>
+                      </div>
+                    ),
+                    allowedContent: (
+                      <span className="text-xs text-muted-foreground">
+                        Isizidi: 4MB
+                      </span>
+                    ),
+                  }}
                   onClientUploadComplete={(res) => {
+                    setUploading(false);
                     const url = extractUploadUrl(res);
                     if (url) setItemForm((s) => ({ ...s, image: url }));
                     toast({ description: "Upload complete" });
+                  }}
+                  onUploadError={(err) => {
+                    setUploading(false);
+                    toast({
+                      variant: "destructive",
+                      description: err?.message || "Upload error",
+                    });
                   }}
                 />
 
@@ -611,8 +649,8 @@ export default function AdminBannersPage() {
                     src={itemForm.image}
                     alt="preview"
                     className="h-12 w-24 object-cover rounded"
-                    width={24}
-                    height={12}
+                    width={128}
+                    height={112}
                   />
                 )}
               </div>

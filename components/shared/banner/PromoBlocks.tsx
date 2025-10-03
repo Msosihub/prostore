@@ -15,7 +15,7 @@ export function PromoBlocks({ banners }: { banners: Banner[] }) {
         <Link key={b.id} href={b.link ?? "#"}>
           <div className="relative h-[180px] sm:h-[220px] lg:h-[260px] rounded-xl overflow-hidden shadow-md group">
             <Image
-              src={b.image}
+              src={b.image || ""}
               alt={b.title ?? "Promo"}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"

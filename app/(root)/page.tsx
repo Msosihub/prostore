@@ -13,7 +13,6 @@ import InfiniteSuppliers from "@/components/shared2/products/infinit-suppliers";
 import DealCountdown from "@/components/deal-countdown";
 import IconBoxes from "@/components/icon-boxes";
 import NoInternet from "@/components/shared/general/no-internet";
-import Homex from "@/components/home/card2";
 import BannerSection from "@/components/banner/BannerSection.server";
 
 export const revalidate = 120;

@@ -4,11 +4,12 @@ import { prisma } from "@/db/prisma";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const body = await req.json();
+  const { id } = await params;
   const banner = await prisma.banner.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       image: body.image,
       title: body.title,
@@ -26,8 +27,9 @@ export async function PUT(
 
 export async function DELETE(
   _: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  await prisma.banner.delete({ where: { id: params.id } });
+  const { id } = await params;
+  await prisma.banner.delete({ where: { id: id } });
   return NextResponse.json({ success: true });
 }

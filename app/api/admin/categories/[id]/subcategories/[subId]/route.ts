@@ -5,13 +5,13 @@ import { auth } from "@/auth";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string; subId: string } }
+  { params }: { params: Promise<{ id: string; subId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const { subId } = params;
+  const { subId } = await params;
   const body = await req.json().catch(() => ({}));
   const { name_en, name_sw, description, image, sortOrder } = body;
 
@@ -35,13 +35,13 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string; subId: string } }
+  { params }: { params: Promise<{ id: string; subId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const { subId } = params;
+  const { subId } = await params;
 
   try {
     // prevent deleting if products exist under subcategory

@@ -1,6 +1,10 @@
 // lib/banners.ts
 import { prisma } from "@/db/prisma";
-import { Banner, BannerItems, Product } from "@/types";
+import {
+  Banner,
+  BannerItems,
+  // Product
+} from "@/types";
 
 /**
  * Shape returned to UI for each banner item
@@ -25,14 +29,14 @@ export type ResolvedBanner = {
   items: BannerItems[];
 };
 
-function productImageFallback(product: Product) {
-  // adapt depending on your product.images shape
-  if (!product) return "/images/placeholder-600x400.png";
-  if (Array.isArray(product.images) && product.images.length)
-    return product.images[0];
-  if (product.images) return product.images;
-  return "/images/placeholder-600x400.png";
-}
+// function productImageFallback(product: Product) {
+//   // adapt depending on your product.images shape
+//   if (!product) return "/images/placeholder-600x400.png";
+//   if (Array.isArray(product.images) && product.images.length)
+//     return product.images[0];
+//   if (product.images) return product.images;
+//   return "/images/placeholder-600x400.png";
+// }
 
 /**
  * Main function: fetch banners and resolve items (manual or auto).
@@ -43,7 +47,7 @@ export async function getResolvedBanners(): Promise<Banner[]> {
     orderBy: { createdAt: "desc" },
   });
 
-  console.log("bANNER CONTENT: ", banners);
+  // console.log("bANNER CONTENT: ", banners);
 
   const resolved = await Promise.all(
     banners.map(async (b) => {
@@ -138,43 +142,43 @@ export async function getResolvedBanners(): Promise<Banner[]> {
           return base;
         }
 
-        if (b.type === "PROMO") {
-          // For promo AUTO: find a product based on data (categoryId or global)
-          const categoryId = data.categoryId || null;
-          const pick = data.pick || "latest"; // 'latest' or 'top' (if you have sales)
+        // if (b.type === "PROMO") {
+        //   // For promo AUTO: find a product based on data (categoryId or global)
+        //   const categoryId = data.categoryId || null;
+        //   // const pick = data.pick || "latest"; // 'latest' or 'top' (if you have sales)
 
-          let product: Product | null = null;
+        //   let product: Product | null = null;
 
-          // If you have real sales metrics, replace this query to sort by that metric.
-          product = await prisma.product.findFirst({
-            where: categoryId ? { categoryId } : undefined,
+        //   // If you have real sales metrics, replace this query to sort by that metric.
+        //   product = await prisma.product.findFirst({
+        //     where: categoryId ? { categoryId } : undefined,
 
-            orderBy: [{ createdAt: "desc" }],
-          });
+        //     orderBy: [{ createdAt: "desc" }],
+        //   });
 
-          if (product) {
-            base.items = [
-              {
-                id: product.id,
-                image: productImageFallback(product),
-                title: product.name ?? null,
-                link: `/product/${product.slug ?? product.id}`,
-              },
-            ];
-            return base;
-          }
+        //   if (product) {
+        //     base.items = [
+        //       {
+        //         id: product.id,
+        //         image: productImageFallback(product),
+        //         title: product.name ?? null,
+        //         link: `/product/${product.slug ?? product.id}`,
+        //       },
+        //     ];
+        //     return base;
+        //   }
 
-          console.log("PROMO Products: ", product);
+        //   console.log("PROMO Products: ", product);
 
-          // fallback to manual items
-          base.items = (b.items ?? []).map((it) => ({
-            id: it.id,
-            image: it.image,
-            title: it.title || undefined,
-            link: it.link,
-          }));
-          return base;
-        }
+        //   // fallback to manual items
+        //   base.items = (b.items ?? []).map((it) => ({
+        //     id: it.id,
+        //     image: it.image,
+        //     title: it.title || undefined,
+        //     link: it.link,
+        //   }));
+        //   return base;
+        // }
 
         // default fallback: manual items
         base.items = (b.items ?? []).map((it) => ({

@@ -5,9 +5,9 @@ import { auth } from "@/auth";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params; // category id
+  const { id } = await params; // category id
   const subs = await prisma.subcategory.findMany({
     where: { categoryId: id },
     orderBy: { sortOrder: "asc" },
@@ -17,13 +17,13 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const { id } = params;
+  const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const { name_en, name_sw, description, image, sortOrder } = body;
   if (!name_en)

@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
  */
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -30,7 +30,8 @@ export async function PUT(
     });
   }
 
-  const docId = params.id;
+  const { id } = await params;
+  const docId = id;
   const body = await req.json().catch(() => ({}));
   const { verified, rejectionReason } = body as {
     verified?: boolean;

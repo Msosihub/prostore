@@ -44,7 +44,7 @@ export default function HeroCarousel({ banners }: { banners: Banner[] }) {
                   priority
                   className="object-cover transition-transform duration-500 hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-black/10 flex flex-col items-center justify-center text-center px-4">
+                <div className="absolute inset-0  flex flex-col items-center justify-center text-start px-4">
                   {b.title && (
                     <h2 className="text-white text-xl sm:text-3xl lg:text-5xl font-bold drop-shadow-md">
                       {b.title}
