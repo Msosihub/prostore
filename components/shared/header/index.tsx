@@ -43,7 +43,7 @@ const Header = () => {
         >
           <div className="flex flex-1 justify-between items-center">
             <div className="hidden md:flex items-center">
-              <Link href="/" className="hidden md:block flex-start ml-4">
+              <Link href="/" className="hidden  flex-start ml-4">
                 <Image
                   src="/images/logo.svg"
                   alt={`${APP_NAME} logo`}
@@ -52,7 +52,7 @@ const Header = () => {
                   priority={true}
                   className="hidden md:block ml-3 justify-center items-center"
                 />
-                <span className="hidden lg:block font-bold text-2xl ml-3">
+                <span className="hidden  font-bold text-2xl ml-3">
                   {APP_NAME}
                 </span>
               </Link>

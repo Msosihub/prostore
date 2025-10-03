@@ -9,6 +9,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        walmartBlue: "#0071CE",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {

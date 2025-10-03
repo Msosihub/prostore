@@ -25,7 +25,7 @@ export default function HeroCarousel({ banners }: { banners: Banner[] }) {
       opts={{ loop: true }}
       plugins={[
         Autoplay({
-          delay: 6000,
+          delay: 4000,
           stopOnInteraction: true,
           stopOnMouseEnter: true,
         }),
@@ -36,7 +36,7 @@ export default function HeroCarousel({ banners }: { banners: Banner[] }) {
         {banners.map((b) => (
           <CarouselItem key={b.id}>
             <Link href={b.link ?? "#"} aria-label={b.title ?? "Banner"}>
-              <div className="relative w-full h-[220px] sm:h-[350px] lg:h-[450px] overflow-hidden rounded-xl shadow-md">
+              <div className="relative w-full h-[50vh] mt-2  sm:h-[350px] lg:h-[50vh] md:mt-4 overflow-hidden rounded-xl shadow-md">
                 <Image
                   src={b.image || ""}
                   alt={b.title ?? "Banner"}

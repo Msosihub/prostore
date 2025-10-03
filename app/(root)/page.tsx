@@ -59,7 +59,7 @@ export default async function Home() {
         {/* PROMO BLOCKS */}
         {promoBanners.length > 0 && <PromoBlocks banners={promoBanners} />}
 
-        <RandomProducts locale={locale} />
+        {/* <RandomProducts locale={locale} /> */}
 
         <InfiniteSuppliers />
 
