@@ -53,6 +53,7 @@ export default function AdminLayout({
               <Link href="/admin/suppliers">Suppliers</Link>
               <Link href="/admin/documents">Documents</Link>
               <Link href="/admin/categories">Categories</Link>
+              <Link href="/admin/banners">Banners</Link>
               <Link href="/admin/audit-logs">Audit Logs</Link>
             </nav>
           </div>

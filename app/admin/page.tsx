@@ -302,11 +302,12 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {recentDocs.length === 0 ? (
+              {recentDocs && recentDocs.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   No pending documents
                 </div>
               ) : (
+                recentDocs &&
                 recentDocs.map((d) => (
                   <li key={d.id} className="flex items-center justify-between">
                     <div>
@@ -339,22 +340,23 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {recentLogs.map((l) => (
-                <li key={l.id} className="flex items-start justify-between">
-                  <div>
-                    <div className="font-medium">{l.action}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {l.entityType ?? "—"} • {l.reason ?? ""}
+              {recentLogs &&
+                recentLogs.map((l) => (
+                  <li key={l.id} className="flex items-start justify-between">
+                    <div>
+                      <div className="font-medium">{l.action}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {l.entityType ?? "—"} • {l.reason ?? ""}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right text-xs">
-                    <div>{l.admin.name}</div>
-                    <div className="text-muted-foreground">
-                      {new Date(l.createdAt).toLocaleString()}
+                    <div className="text-right text-xs">
+                      <div>{l.admin.name}</div>
+                      <div className="text-muted-foreground">
+                        {new Date(l.createdAt).toLocaleString()}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                ))}
             </ul>
           </CardContent>
         </Card>

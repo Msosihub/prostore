@@ -98,6 +98,28 @@ export type Product = {
   };
 };
 
+export type Banner = {
+  id: string;
+  image: string | null | undefined;
+  title?: string;
+  subtitle?: string;
+  link?: string;
+  text?: string;
+  type?: string;
+  data?: JSON;
+  mode: string;
+  items?: BannerItems[];
+  isActive: boolean; // ✅ NEW
+};
+
+export type BannerItems = {
+  id: string;
+  image: string;
+  title?: string;
+  link?: string | "";
+  bannerId?: string;
+};
+
 export type Inquiry = {
   id: string;
   conversationId: string;

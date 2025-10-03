@@ -536,6 +536,41 @@ model Admin {
   AuditLog AuditLog[]
 }
 
+model Banner {
+  id        String       @id @default(uuid()) @db.Uuid
+  image     String // required → banner without image is useless
+  title     String? // short headline (e.g. "Fall Boots under $15")
+  subtitle  String? // optional smaller line (e.g. "Limited Time Offer")
+  text      String?
+  link      String? // where user goes when clicking
+  type      String? // e.g. "hero", "promo", "sidebar"
+  data      Json? // extra flexible config (colors, CTA buttons, etc.)
+  isActive  Boolean      @default(false)
+  mode      BannerMode   @default(MANUAL) // <— NEW
+  items     BannerItem[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model BannerItem {
+  id       String  @id @default(uuid()) @db.Uuid
+  image    String
+  title    String?
+  link     String
+  bannerId String  @db.Uuid
+  banner   Banner  @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+}
+
+enum BannerType {
+  PROMO
+  CATEGORY_GROUP
+}
+
+enum BannerMode {
+  MANUAL // admin picks
+  AUTO // system picks from DB (best sellers, new arrivals, etc.)
+}
+
 enum UserRole {
   BUYER
   SUPPLIER

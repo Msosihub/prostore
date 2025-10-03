@@ -42,7 +42,7 @@ export default function RandomProducts({ locale }: Props) {
       title="Pata kitu kipya"
       limit={6}
       locale={locale}
-      variant="grid"
+      variant="scroll"
     />
   );
 }

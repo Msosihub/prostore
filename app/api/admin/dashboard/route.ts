@@ -14,11 +14,11 @@ export async function GET(req: Request) {
   try {
     // Basic counts
     const [
-      totalSuppliers,
-      verifiedSuppliers,
-      totalProducts,
-      totalCategories,
-      totalUsers,
+      totalSuppliersRaw,
+      verifiedSuppliersRaw,
+      totalProductsRaw,
+      totalCategoriesRaw,
+      totalUsersRaw,
     ] = await Promise.all([
       prisma.supplier.count(),
       prisma.supplier.count({ where: { isVerified: true } }),
@@ -27,10 +27,17 @@ export async function GET(req: Request) {
       prisma.user.count(),
     ]);
 
+    const totalSuppliers = Number(totalSuppliersRaw);
+    const verifiedSuppliers = Number(verifiedSuppliersRaw);
+    const totalProducts = Number(totalProductsRaw);
+    const totalCategories = Number(totalCategoriesRaw);
+    const totalUsers = Number(totalUsersRaw);
+
     // pending documents: verified=false AND rejectionReason IS NULL -> "awaiting review"
     const pendingDocs = await prisma.supplierDocument.count({
       where: { verified: false, rejectionReason: null },
     });
+    console.log("Pending docs count:", pendingDocs);
 
     // Recent audit logs (10)
     const recentLogs = await prisma.auditLog.findMany({
@@ -38,6 +45,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       include: { admin: { include: { user: true } } },
     });
+    console.log("Recent logs fetched:", recentLogs.length);
 
     // Recent pending supplier documents (preview 5)
     const recentDocs = await prisma.supplierDocument.findMany({
@@ -46,9 +54,10 @@ export async function GET(req: Request) {
       take: 5,
       include: { supplier: { select: { id: true, name: true } } },
     });
+    console.log("Recent pending docs fetched:", recentDocs.length);
 
     // Suppliers by month (last 6 months) — returns months even if 0
-    const suppliersByMonth = await prisma.$queryRaw<
+    const rawSuppliersByMonth = await prisma.$queryRaw<
       { month: string; count: number }[]
     >`
       SELECT to_char(months.month, 'YYYY-MM') as month,
@@ -68,6 +77,12 @@ export async function GET(req: Request) {
       ORDER BY months.month;
     `;
 
+    const suppliersByMonth = rawSuppliersByMonth.map((entry) => ({
+      month: entry.month,
+      count:
+        typeof entry.count === "bigint" ? Number(entry.count) : entry.count,
+    }));
+    console.log("Suppliers by month data:", suppliersByMonth);
     // Products by category (top 20)
     const categories = await prisma.category.findMany({
       include: {
@@ -77,10 +92,10 @@ export async function GET(req: Request) {
       },
       take: 20,
     });
-
+    console.log("Categories with counts:", categories);
     const productsByCategory = categories.map((c) => ({
       category: c.name_en,
-      count: c._count.products,
+      count: Number(c._count.products),
     }));
 
     // Top performing suppliers (by rating, then product count)
@@ -97,6 +112,8 @@ export async function GET(req: Request) {
       isVerified: s.isVerified,
     }));
 
+    console.log("Top suppliers fetched:", topSuppliers.length);
+
     // Suppliers by nation (grouped)
     const suppliersByNationRaw = await prisma.supplier.groupBy({
       by: ["nation"],
@@ -107,18 +124,28 @@ export async function GET(req: Request) {
     });
     const suppliersByNation = suppliersByNationRaw.map((r) => ({
       nation: r.nation,
-      count: r._count.id,
+      count: Number(r._count.id),
     }));
 
+    console.log("Suppliers by nation data:", suppliersByNation);
+    //log stats
+    console.log("stats: ", {
+      totalSuppliers,
+      verifiedSuppliers,
+      pendingDocs,
+      totalProducts,
+      totalCategories,
+      totalUsers,
+    });
     // package response
     return NextResponse.json({
       stats: {
-        totalSuppliers,
-        verifiedSuppliers,
-        pendingDocs,
-        totalProducts,
-        totalCategories,
-        totalUsers,
+        totalSuppliers: Number(totalSuppliers),
+        verifiedSuppliers: Number(verifiedSuppliers),
+        pendingDocs: Number(pendingDocs),
+        totalProducts: Number(totalProducts),
+        totalCategories: Number(totalCategories),
+        totalUsers: Number(totalUsers),
       },
       recentLogs: recentLogs.map((l) => ({
         id: l.id,

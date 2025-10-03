@@ -1,41 +1,50 @@
+import HeroCarousel from "@/components/shared/banner/HeroCarousel";
+import { PromoBlocks } from "@/components/shared/banner/PromoBlocks";
+import RandomProducts from "@/components/shared2/products/random-products";
 import ProductList from "@/components/shared/product/product-list";
+import ProductCarousel from "@/components/shared/product/product-carousel";
 import {
   getFeaturedProducts,
   getLatestProducts,
 } from "@/lib/actions/product.actions";
-import IconBoxes from "@/components/icon-boxes";
-import DealCountdown from "@/components/deal-countdown";
-import ProductCarousel from "@/components/shared/product/product-carousel";
+import { prisma } from "@/db/prisma";
 import ViewAllProductsButton from "@/components/view-all-products-button";
-import RandomProducts from "@/components/shared2/products/random-products";
-// import RandomOneSection from "@/components/shared2/products/random-one-section";
-// import RandomOneSectionHeading from "@/components/shared2/products/random-one-section2";
-// import RandomSupplierSection from "@/components/shared2/products/random-supplier-section";
-import NoInternet from "@/components/shared/general/no-internet";
-import { notFound } from "next/navigation";
 import InfiniteSuppliers from "@/components/shared2/products/infinit-suppliers";
+import DealCountdown from "@/components/deal-countdown";
+import IconBoxes from "@/components/icon-boxes";
+import NoInternet from "@/components/shared/general/no-internet";
+import Homex from "@/components/home/card2";
+import BannerSection from "@/components/banner/BannerSection.server";
 
-export const metadata = {
-  title: "Home",
-};
-
-export const revalidate = 120; // refresh related products every 2 min
+export const revalidate = 120;
 
 export default async function Home() {
-  const locale: "en" | "sw" = "sw"; // You can make this dynamic later
+  const locale: "en" | "sw" = "sw";
 
-  // const supplierCount = await suppliersCount();
+  // Get banners from DB
+  const banners = await prisma.banner.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+
+  const heroBanners = banners.filter((b) => b.type === "hero");
+  const promoBanners = banners.filter((b) => b.type === "promo");
+
   const latestProducts = await getLatestProducts();
   const featuredProducts = await getFeaturedProducts();
 
-  if (!latestProducts) return notFound(); //really no product
-  if (!featuredProducts) return notFound();
-  if (latestProducts === null) return <NoInternet />;
-  if (featuredProducts === null) return <NoInternet />;
+  if (!latestProducts || !featuredProducts) return <NoInternet />;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-16">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-16">
       <div className="lg:col-span-3 space-y-6">
+        {/* HERO BANNERS */}
+        {heroBanners.length > 0 && <HeroCarousel banners={heroBanners} />}
+
+        <BannerSection />
+
+        {/* <Homex /> */}
+
+        {/* FEATURED PRODUCTS */}
         {featuredProducts.length > 0 && (
           <ProductCarousel data={featuredProducts} />
         )}
@@ -45,32 +54,18 @@ export default async function Home() {
           title="Mizigo mipya"
           limit={8}
           locale={locale}
-          variant="grid"
+          variant="scroll"
         />
-        {/* Random products now handled client-side (2 categories) */}
+
+        {/* PROMO BLOCKS */}
+        {promoBanners.length > 0 && <PromoBlocks banners={promoBanners} />}
+
         <RandomProducts locale={locale} />
 
-        {/* Featured category */}
-        {/* <RandomOneSectionHeading locale={locale} /> */}
-
-        {/* Spotlight Supplier */}
-        {/* <RandomSupplierSection /> */}
-
-        {/* Infinity Suppliers */}
         <InfiniteSuppliers />
-
-        {/* This section is always a new random category in scroll view */}
-        {/* <RandomOneSection locale={locale} /> */}
-
-        {/* This section is always a new random category in scroll view */}
-        {/* <RandomOneSection locale={locale} /> */}
-
-        {/* Infinite random sections with random category */}
-        {/* <RandomSections locale={locale} /> */}
 
         <ViewAllProductsButton />
         <DealCountdown />
-
         <IconBoxes />
       </div>
     </div>
