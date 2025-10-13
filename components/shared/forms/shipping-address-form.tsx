@@ -61,6 +61,7 @@ const ShippingAddressForm = ({
 
   return (
     <div className="space-y-4">
+      <p>Mzigo unaenda wapi?</p>
       <Form {...form}>
         <form
           method="post"
@@ -93,9 +94,12 @@ const ShippingAddressForm = ({
             name="streetAddress"
             render={({ field }) => (
               <FormItem className="w-full">
-                <FormLabel>Address</FormLabel>
+                <FormLabel>Anuani/location</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter address" {...field} />
+                  <Input
+                    placeholder="mf: Mtaa wa vijana, karibu na shule ya..."
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -107,23 +111,9 @@ const ShippingAddressForm = ({
             name="city"
             render={({ field }) => (
               <FormItem className="w-full">
-                <FormLabel>City</FormLabel>
+                <FormLabel>Mji</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter city" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="postalCode"
-            render={({ field }) => (
-              <FormItem className="w-full">
-                <FormLabel>Postal Code</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter postal code" {...field} />
+                  <Input placeholder="Jina la mji wako.. mf Moshi" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -135,9 +125,9 @@ const ShippingAddressForm = ({
             name="country"
             render={({ field }) => (
               <FormItem className="w-full">
-                <FormLabel>Country</FormLabel>
+                <FormLabel>Nchi</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter country" {...field} />
+                  <Input placeholder="mf: Tanzania" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

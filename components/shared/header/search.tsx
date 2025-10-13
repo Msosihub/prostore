@@ -46,6 +46,7 @@ const Search = () => {
     isLoading,
   } = useSWR<Category[]>("/api/shared/categories", fetcher);
 
+  // console.log("CATEGORIES:=> ", categories);
   useEffect(() => {
     if (isInteracted) return;
 
@@ -97,7 +98,7 @@ const Search = () => {
                 <SelectItem key="All" value="all">
                   Yote
                 </SelectItem>
-                {categories &&
+                {(categories !== undefined || categories !== null) &&
                   categories?.map((x) => (
                     <SelectItem key={x.id} value={x.name_en}>
                       {x.name_en}

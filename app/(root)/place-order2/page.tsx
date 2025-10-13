@@ -111,7 +111,7 @@ const PlaceOrderPage = ({
       itemsPrice: cartData.itemsPrice.toString(),
       totalPrice: cartData.totalPrice.toString(),
       shippingPrice: cartData.shippingPrice.toString(),
-      taxPrice: cartData.taxPrice.toString(),
+      taxPrice: "0", //cartData.taxPrice.toString(),
     };
   }
 
@@ -122,11 +122,12 @@ const PlaceOrderPage = ({
   // if (!user.paymentMethod && !isBuyNow) redirect("/payment-method");
 
   const userAddress = user.address as ShippingAddress | undefined;
+  const paymentMethod = user.paymentMethod as string | undefined;
 
   return (
     <div className="mb-20">
       <CheckoutSteps current={3} />
-      <h1 className="py-4 text-2xl">Place Order</h1>
+      <h1 className="py-4 text-2xl">Agiza Mzigo</h1>
       {shouldOpenDrawer && (
         <ShippingAddressDrawer
           openByDefault
@@ -145,19 +146,19 @@ const PlaceOrderPage = ({
         <div className="md:col-span-2 overflow-x-auto space-y-4">
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Shipping Address</h2>
+              <h2 className="text-xl pb-4">Mzigo unaenda wapi?</h2>
               {userAddress ? (
                 <>
                   <p>{userAddress.fullName}</p>
                   <p>
-                    {userAddress.streetAddress}, {userAddress.city}{" "}
-                    {userAddress.postalCode}, {userAddress.country}
+                    {userAddress.streetAddress}, {userAddress.city} ,{" "}
+                    {userAddress.country}
                   </p>
                   <div className="mt-3">
                     {/* In buyNow we’ll show a Drawer Edit control (client component) */}
                     {isBuyNow ? (
                       <ShippingAddressDrawer
-                        trigger={<Button variant="outline">Edit</Button>}
+                        trigger={<Button variant="outline">Badili</Button>}
                         address={
                           isShippingAddress(user.address)
                             ? user.address
@@ -166,44 +167,66 @@ const PlaceOrderPage = ({
                       />
                     ) : (
                       <Link href="/shipping-address">
-                        <Button variant="outline">Edit</Button>
+                        <Button variant="outline">Badili</Button>
                       </Link>
                     )}
                   </div>
                 </>
               ) : (
-                <p>No shipping address yet</p>
+                // <p>Hakuna anuani bado</p>
+                <ShippingAddressDrawer
+                  openByDefault
+                  trigger={<Button variant="outline">Badili</Button>}
+                  address={
+                    isShippingAddress(user.address)
+                      ? user.address
+                      : shippingAddressDefaultValues
+                  }
+                />
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Payment Method</h2>
-              <p>{user.paymentMethod}</p>
-              <div className="mt-3">
-                {isBuyNow ? (
+              <h2 className="text-xl pb-4">Njia za malipo</h2>
+              {paymentMethod ? (
+                <>
+                  <p>{user.paymentMethod}</p>
+                  <div className="mt-3">
+                    {isBuyNow ? (
+                      <PaymentMethodDrawer
+                        trigger={<Button variant="outline">Badili</Button>}
+                        preferredPaymentMethod={user.paymentMethod ?? null}
+                      />
+                    ) : (
+                      <Link href="/payment-method">
+                        <p>{user.paymentMethod}</p>
+                        <Button variant="outline">Badili</Button>
+                      </Link>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
                   <PaymentMethodDrawer
-                    trigger={<Button variant="outline">Edit</Button>}
+                    openByDefault
+                    trigger={<Button variant="outline">Badili</Button>}
                     preferredPaymentMethod={user.paymentMethod ?? null}
                   />
-                ) : (
-                  <Link href="/payment-method">
-                    <Button variant="outline">Edit</Button>
-                  </Link>
-                )}
-              </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
           {!isBuyNow && (
             <Card>
               <CardContent className="p-4 gap-4">
-                <h2 className="text-xl pb-4">Payment Method</h2>
+                <h2 className="text-xl pb-4">Njia za malipo</h2>
                 <p>{user.paymentMethod}</p>
                 <div className="mt-3">
                   <Link href="/payment-method">
-                    <Button variant="outline">Edit</Button>
+                    <Button variant="outline">Badili</Button>
                   </Link>
                 </div>
               </CardContent>
@@ -212,13 +235,13 @@ const PlaceOrderPage = ({
 
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Order Items</h2>
+              <h2 className="text-xl pb-4">Ulivyochagua</h2>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Price</TableHead>
+                    <TableHead>Bidhaa</TableHead>
+                    <TableHead>Idadi</TableHead>
+                    <TableHead className="text-center">Bei</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,7 +265,7 @@ const PlaceOrderPage = ({
                         <span className="px-2">{item.qty}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        ${item.price}
+                        {formatCurrency(item.price)}Tsh
                       </TableCell>
                     </TableRow>
                   ))}
@@ -256,19 +279,19 @@ const PlaceOrderPage = ({
           <Card>
             <CardContent className="p-4 gap-4 space-y-4">
               <div className="flex justify-between">
-                <div>Items</div>
+                <div>Bidhaa</div>
                 <div>{formatCurrency(cart.itemsPrice)}</div>
               </div>
-              <div className="flex justify-between">
+              {/* <div className="flex justify-between">
                 <div>Tax</div>
                 <div>{formatCurrency(cart.taxPrice)}</div>
-              </div>
+              </div> */}
               <div className="flex justify-between">
-                <div>Shipping</div>
+                <div>Usafiri</div>
                 <div>{formatCurrency(cart.shippingPrice)}</div>
               </div>
               <div className="flex justify-between font-semibold">
-                <div>Total</div>
+                <div>Jumla</div>
                 <div>{formatCurrency(cart.totalPrice)}</div>
               </div>
 

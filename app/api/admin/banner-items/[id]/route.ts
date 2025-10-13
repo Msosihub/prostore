@@ -7,6 +7,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const body = await req.json();
+  // console.log("Body: ", body);
   const { id } = await params;
   const item = await prisma.bannerItem.update({
     where: { id: id },

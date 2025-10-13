@@ -46,7 +46,7 @@ const PlaceOrderForm = ({ isBuyNow, productId, qty }: PlaceOrderFormProps) => {
         ) : (
           <Check className="w-4 h-4" />
         )}{" "}
-        Place Order
+        Bonyeza kuagiza
       </Button>
     );
   };

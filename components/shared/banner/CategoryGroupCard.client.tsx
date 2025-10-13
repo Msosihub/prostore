@@ -8,7 +8,7 @@ import React from "react";
 
 export default function CategoryGroupCard({ banner }: { banner: Banner }) {
   const items: BannerItems[] = banner.items ?? [];
-
+  // console.log("BAnnerItem: ", items);
   return (
     <div className="container mx-auto  ">
       {/* <!-- Main Card Container --> */}
@@ -18,18 +18,28 @@ export default function CategoryGroupCard({ banner }: { banner: Banner }) {
       >
         {/* <!-- Card Header --> */}
         <div className="mx-4 pt-3 border-gray-200">
-          <h2 className="text- text-start font-bold text-gray-800 leading-snug line-clamp-2">
-            {banner.title}
-          </h2>
+          <Link href={`/search?category=${banner.category}`}>
+            <h2 className="text- text-start font-bold text-gray-800 leading-snug line-clamp-2">
+              {banner.title}
+            </h2>
+          </Link>
         </div>
 
         {/* <!-- Grid Container --> */}
         <div className="p-4 flex-grow overflow-hidden h-[250px]">
           <div className="grid grid-cols-2 md:grid-cols-2 gap-4  h-full">
             {items.map((it) => (
-              <div key={it.id} className="group">
-                {/* -- Item 1 -- */}
-                <Link href={it.link || "#"}>
+              <Link
+                href={
+                  `/product/${it.productId}` ||
+                  `/search?category=${banner.category}` ||
+                  "#"
+                }
+                key={it.id}
+              >
+                <div key={it.id} className="group">
+                  {/* -- Item 1 -- */}
+
                   <div className="aspect-square overflow-hidden  bg-gray-100 image-hover transition-all duration-300 cursor-pointer">
                     <Image
                       src={it.image}
@@ -45,8 +55,8 @@ export default function CategoryGroupCard({ banner }: { banner: Banner }) {
                       {it.title}
                     </p>
                   </div>
-                </Link>
-              </div>
+                </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -54,7 +64,7 @@ export default function CategoryGroupCard({ banner }: { banner: Banner }) {
         {/* <!-- Card Footer --> */}
         <div className="text-start px-4 pb-3  ">
           <Link
-            href={banner.link || "#"}
+            href={`/search?category=${banner.category}`}
             className="text-sm font-medium text-blue-600 hover:text-blue-800"
           >
             {banner.subtitle || "Ona zaidi"}{" "}

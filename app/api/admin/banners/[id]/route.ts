@@ -14,6 +14,7 @@ export async function PUT(
       image: body.image,
       title: body.title,
       subtitle: body.subtitle,
+      category: body.category,
       text: body.text,
       link: body.link,
       type: body.type,

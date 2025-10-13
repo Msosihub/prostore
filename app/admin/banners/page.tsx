@@ -18,22 +18,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { UploadButton } from "@/lib/uploadthing";
-import { ImagePlus, Loader2 } from "lucide-react";
+import { ImagePlus, Loader, Loader2 } from "lucide-react";
 import type { ClientUploadedFileData } from "uploadthing/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import useSWR from "swr";
+import { Banner, Category } from "@/types";
 
-type Banner = {
-  id: string;
-  image: string;
-  title?: string | null;
-  subtitle?: string | null;
-  text?: string | null;
-  link?: string | null;
-  type?: string | null;
-  data?: JSON;
-  isActive: boolean;
-  mode: string;
-  items?: BannerItem[];
-};
+export const dynamic = "force-dynamic";
 
 type ExtendedUploadData = ClientUploadedFileData<{
   uploadedBy?: string;
@@ -46,8 +43,15 @@ type BannerItem = {
   id: string;
   image: string;
   title?: string | null;
-  link: string;
-  bannerId: string;
+  link?: string;
+  productId?: string;
+  bannerId?: string;
+};
+
+const fetcher = async (url: string): Promise<Category[]> => {
+  const res = await fetch(url);
+  if (!res) throw new Error("Failed to fetch");
+  return res.json();
 };
 
 export default function AdminBannersPage() {
@@ -78,6 +82,7 @@ export default function AdminBannersPage() {
     image: "",
     title: "",
     link: "",
+    productId: "",
     bannerId: "",
   });
 
@@ -85,11 +90,20 @@ export default function AdminBannersPage() {
     fetchBanners();
   }, []);
 
+  const {
+    data: categories,
+    error,
+    isLoading,
+  } = useSWR<Category[]>("/api/shared/categories", fetcher);
+
+  // console.log("CATEGORIES:=> ", categories);
+
   async function fetchBanners() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/banners");
       const data = await res.json();
+      // console.log("Banners: ", data)
       setBanners(data);
     } catch (err) {
       toast({ variant: "destructive", description: "Failed to load banners" });
@@ -119,11 +133,13 @@ export default function AdminBannersPage() {
 
   function openEditBanner(b: Banner) {
     setEditingBanner(b);
+    // console.log("Banner see: ", b);
     setBannerForm({
       image: b.image,
       title: b.title ?? "",
       subtitle: b.subtitle ?? "",
       text: b.text ?? "",
+      category: b.category ?? "",
       link: b.link ?? "",
       type: b.type ?? "",
       // data: b.data ?? {},
@@ -134,6 +150,7 @@ export default function AdminBannersPage() {
   }
 
   async function saveBanner() {
+    // console.log("Banner Form: ", bannerForm);
     if (!bannerForm.image) {
       toast({ variant: "destructive", description: "Image is required" });
       return;
@@ -229,6 +246,7 @@ export default function AdminBannersPage() {
       image: item.image,
       title: item.title ?? "",
       link: item.link,
+      productId: item.productId,
       bannerId: item.bannerId,
     });
     setShowItemDialog(true);
@@ -503,7 +521,7 @@ export default function AdminBannersPage() {
             </div>
 
             <div>
-              <Label>Title</Label>
+              <Label>Title*</Label>
               <Input
                 value={bannerForm.title || ""}
                 onChange={(e) =>
@@ -513,13 +531,44 @@ export default function AdminBannersPage() {
             </div>
 
             <div>
-              <Label>Subtitle</Label>
+              <Label>Subtitle*</Label>
               <Input
                 value={bannerForm.subtitle || ""}
+                placeholder="See more"
                 onChange={(e) =>
                   setBannerForm((s) => ({ ...s, subtitle: e.target.value }))
                 }
               />
+            </div>
+
+            <div>
+              <Label>Category*</Label>
+              {categories || isLoading || error ? (
+                <Select
+                  name="category"
+                  value={bannerForm.category || ""}
+                  onValueChange={(value) =>
+                    setBannerForm((s) => ({ ...s, category: value }))
+                  }
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem key="All" value="all">
+                      Yote
+                    </SelectItem>
+                    {(categories !== undefined || categories !== null) &&
+                      categories?.map((x) => (
+                        <SelectItem key={x.id} value={x.name_en}>
+                          {x.name_en}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Loader className="w-4 h-4 animate-spin" />
+              )}
             </div>
 
             <div>
@@ -544,14 +593,18 @@ export default function AdminBannersPage() {
 
             <div className="flex items-center gap-4">
               <div>
-                <Label>Type</Label>
-                <Input
-                  value={bannerForm.type || ""}
+                <Label>Type </Label>
+                <select
+                  value={bannerForm.type || "promo"}
                   onChange={(e) =>
                     setBannerForm((s) => ({ ...s, type: e.target.value }))
                   }
-                  placeholder="promo, hero..."
-                />
+                  className="border rounded p-1"
+                >
+                  <option value="promo">Promo</option>
+                  <option value="hero">Hero</option>
+                  <option value="category_group">Category Group</option>
+                </select>
               </div>
 
               <div>
@@ -657,7 +710,7 @@ export default function AdminBannersPage() {
             </div>
 
             <div>
-              <Label>Title</Label>
+              <Label>Title*</Label>
               <Input
                 value={itemForm.title || ""}
                 onChange={(e) =>
@@ -667,11 +720,21 @@ export default function AdminBannersPage() {
             </div>
 
             <div>
-              <Label>Link (required)</Label>
+              <Label>Link</Label>
               <Input
-                value={itemForm.link || ""}
+                value={itemForm.link || "#"}
                 onChange={(e) =>
                   setItemForm((s) => ({ ...s, link: e.target.value }))
+                }
+              />
+            </div>
+
+            <div>
+              <Label>Product ID* (required)</Label>
+              <Input
+                value={itemForm.productId || ""}
+                onChange={(e) =>
+                  setItemForm((s) => ({ ...s, productId: e.target.value }))
                 }
               />
             </div>

@@ -1,18 +1,12 @@
+import { Banner } from "@/types";
 import Image from "next/image";
 import Link from "next/link";
-
-type Banner = {
-  id: string | null;
-  image: string | null;
-  title?: string | null;
-  link?: string | null;
-};
 
 export function PromoBlocks({ banners }: { banners: Banner[] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 my-8">
       {banners.map((b) => (
-        <Link key={b.id} href={b.link ?? "#"}>
+        <Link key={b.id} href={`/search?category=${b.category}` || "#"}>
           <div className="relative h-[180px] sm:h-[220px] lg:h-[260px] rounded-xl overflow-hidden shadow-md group">
             <Image
               src={b.image || ""}

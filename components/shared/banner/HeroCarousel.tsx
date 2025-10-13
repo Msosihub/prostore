@@ -10,14 +10,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-
-type Banner = {
-  id: string | null;
-  image: string | null;
-  title?: string | null;
-  subtitle?: string | null;
-  link?: string | null;
-};
+import { Banner } from "@/types";
 
 export default function HeroCarousel({ banners }: { banners: Banner[] }) {
   return (

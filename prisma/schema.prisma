@@ -543,6 +543,7 @@ model Banner {
   subtitle  String? // optional smaller line (e.g. "Limited Time Offer")
   text      String?
   link      String? // where user goes when clicking
+  category  String       @default("") //category of banner items
   type      String? // e.g. "hero", "promo", "sidebar"
   data      Json? // extra flexible config (colors, CTA buttons, etc.)
   isActive  Boolean      @default(false)
@@ -553,12 +554,13 @@ model Banner {
 }
 
 model BannerItem {
-  id       String  @id @default(uuid()) @db.Uuid
-  image    String
-  title    String?
-  link     String
-  bannerId String  @db.Uuid
-  banner   Banner  @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid()) @db.Uuid
+  image     String
+  title     String?
+  link      String
+  productId String? @default("")
+  bannerId  String  @db.Uuid
+  banner    Banner  @relation(fields: [bannerId], references: [id], onDelete: Cascade)
 }
 
 enum BannerType {

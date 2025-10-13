@@ -101,12 +101,13 @@ export type Product = {
 export type Banner = {
   id: string;
   image: string | null | undefined;
-  title?: string;
-  subtitle?: string;
-  link?: string;
-  text?: string;
-  type?: string;
-  data?: JSON;
+  title?: string | null;
+  subtitle?: string | null;
+  link?: string | null;
+  category?: string;
+  text?: string | null;
+  type?: string | null;
+  // data?: JSON | null;
   mode: string;
   items?: BannerItems[];
   isActive: boolean; // ✅ NEW
@@ -117,6 +118,7 @@ export type BannerItems = {
   image: string;
   title?: string;
   link?: string | "";
+  productId?: string;
   bannerId?: string;
 };
 

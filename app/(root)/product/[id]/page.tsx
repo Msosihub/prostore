@@ -21,9 +21,59 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-description";
 import BuyNow from "@/components/shared/product/buy-now";
+import { Metadata, ResolvingMetadata } from "next";
+import { APP_NAME } from "@/lib/constants";
+// import { Product } from "@/types";
 
 // Re-generate product pages every 60 seconds (fro ISR)
 export const revalidate = 60;
+
+type ProductParams = {
+  id: string;
+};
+
+export async function generateMetadata(
+  { params }: { params: ProductParams },
+  parent?: ResolvingMetadata
+): Promise<Metadata> {
+  const productId = params.id;
+  console.log(parent);
+  // Fetch product data from your backend or API
+  const product = await getProductBySlug(productId);
+
+  // Fallbacks
+  const title = product?.name || "Bidhaa";
+  const description =
+    product?.description.slice(0, 25) ||
+    `Angalia hii bidhaa kutoa ${APP_NAME} .`;
+  const imageUrl =
+    product?.images[0] ||
+    `https://fdd5alqxb0.ufs.sh/f/LUPV9JBgc2WRHhNDXgfqpUVcTir2JAv7t5slwkMz9NPZaLxu`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+      type: "profile",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
 
 const ProductDetailsPagez = async (props: {
   params: Promise<{ id: string }>;
@@ -194,6 +244,21 @@ const ProductDetailsPagez = async (props: {
         supplierUserId={product?.supplier?.userId || ""}
         productId={product.id}
       />
+
+      <script type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org/",
+          "@type": "Product",
+          name: product.name,
+          image: [product.images],
+          description: product.description,
+          sku: product.id,
+          brand: {
+            "@type": "Brand",
+            name: "Prostore",
+          },
+        })}
+      </script>
     </>
   );
 };
@@ -202,8 +267,10 @@ export default function ProductDetailsPage(props: {
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<ProductDescriptionSkeleton />}>
-      <ProductDetailsPagez {...props} />
-    </Suspense>
+    <>
+      <Suspense fallback={<ProductDescriptionSkeleton />}>
+        <ProductDetailsPagez {...props} />
+      </Suspense>
+    </>
   );
 }

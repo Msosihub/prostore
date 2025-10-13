@@ -34,7 +34,7 @@ export async function GET(request: Request) {
         isVerified: true,
       },
     });
-    console.log("suppliers fetched: ", suppliers);
+    // console.log("suppliers fetched: ", suppliers);
 
     // Filter excluded
     if (exclude.length) {

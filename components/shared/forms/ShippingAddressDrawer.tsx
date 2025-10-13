@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  // DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import ShippingAddressForm from "./shipping-address-form";
 import { ShippingAddress } from "@/types";
 
@@ -21,6 +26,7 @@ export default function ShippingAddressDrawer({
   return (
     <Drawer open={open} onOpenChange={setOpen} direction="bottom">
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
+      {/* <DrawerTitle>Mzigo unaenda wapi?</DrawerTitle> */}
       <DrawerContent className="p-4">
         <ShippingAddressForm
           address={address}

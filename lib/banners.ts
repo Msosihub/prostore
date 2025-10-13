@@ -57,6 +57,7 @@ export async function getResolvedBanners(): Promise<Banner[]> {
         subtitle: b.subtitle ?? undefined,
         text: b.text ?? undefined,
         image: b.image ?? null,
+        category: b.category ?? null,
         type: b.type ?? undefined,
         mode: b.mode ?? null,
         isActive: b.isActive,
@@ -64,7 +65,7 @@ export async function getResolvedBanners(): Promise<Banner[]> {
         items: [],
       };
 
-      console.log("MODE: ", b.mode);
+      // console.log("MODE: ", b.mode);
 
       // If manual or no items in DB -> prefer stored items
       if (b.mode === "MANUAL" || !b.items || b.items.length === 0) {
@@ -73,8 +74,9 @@ export async function getResolvedBanners(): Promise<Banner[]> {
           image: it.image,
           title: it.title || undefined,
           link: it.link,
+          productId: it.productId || "",
         }));
-        console.log("BASE: ", base);
+        // console.log("BASE: ", base);
         return base;
       }
 
@@ -93,17 +95,17 @@ export async function getResolvedBanners(): Promise<Banner[]> {
               title: it.title ?? undefined,
               link: it.link,
             }));
-            console.log("Base II: ", base);
+            // console.log("Base II: ", base);
             return base;
           }
 
           // get subcategories for category
-          console.log("CategoryId: ", categoryId);
+          // console.log("CategoryId: ", categoryId);
           const subcats = await prisma.subcategory.findMany({
             where: { categoryId: categoryId },
             select: { id: true, name_en: true, image: true },
           });
-          console.log("SubCategories: ", subcats);
+          // console.log("SubCategories: ", subcats);
 
           // Count products per subcategory (simple approach)
           const subcatsWithCounts = await Promise.all(
@@ -125,7 +127,7 @@ export async function getResolvedBanners(): Promise<Banner[]> {
             })
           );
 
-          console.log("SubCategoriesCount: ", subcatsWithCounts);
+          // console.log("SubCategoriesCount: ", subcatsWithCounts);
 
           // sort by count desc and pick limit
           const limit = Number(4);
@@ -187,7 +189,7 @@ export async function getResolvedBanners(): Promise<Banner[]> {
           title: it.title || undefined,
           link: it.link,
         }));
-        console.log("Promo Base: ", base);
+        // console.log("Promo Base: ", base);
         return base;
       } catch (err) {
         console.error("Error resolving banner items", err);
@@ -201,6 +203,6 @@ export async function getResolvedBanners(): Promise<Banner[]> {
       }
     })
   );
-  console.log("Resolved: ", resolved);
+  // console.log("Resolved: ", resolved);
   return resolved;
 }

@@ -8,14 +8,28 @@ const nextConfig: NextConfig = {
         hostname: "utfs.io",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "fdd5alqxb0.ufs.sh",
+        port: "",
+      },
+      {
+        protocol: "https",
+        hostname: "uploadthing.com",
+        port: "",
+      },
     ],
-    domains: ["fdd5alqxb0.ufs.sh", "uploadthing.com", "utfs.io"],
   },
   // experimental: {
   //   ppr: true,
   //   dynamicIO: true,
   // },
 };
+
+// module.exports = {
+//   outputFileTracingRoot: __dirname,
+//   // other config...
+// };
 
 export default nextConfig;
 // This configuration allows Next.js to load images from the Uploadthing CDN.

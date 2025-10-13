@@ -46,7 +46,6 @@ const OrderDetailsTable = ({
     orderitems,
     itemsPrice,
     shippingPrice,
-    taxPrice,
     totalPrice,
     paymentMethod,
     isDelivered,
@@ -146,43 +145,43 @@ const OrderDetailsTable = ({
         <div className="col-span-2 space-4-y overlow-x-auto">
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Payment Method</h2>
+              <h2 className="text-xl pb-4">Njia za malipo</h2>
               <p className="mb-2">{paymentMethod}</p>
               {isPaid ? (
                 <Badge variant="secondary">
                   Paid at {formatDateTime(paidAt!).dateTime}
                 </Badge>
               ) : (
-                <Badge variant="destructive">Not paid</Badge>
+                <Badge variant="destructive">Haijalipiwa</Badge>
               )}
             </CardContent>
           </Card>
           <Card className="my-2">
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Shipping Address</h2>
+              <h2 className="text-xl pb-4">Anuani ya mzigo</h2>
               <p>{shippingAddress.fullName}</p>
               <p className="mb-2">
                 {shippingAddress.streetAddress}, {shippingAddress.city}
-                {shippingAddress.postalCode}, {shippingAddress.country}
+                {/* {shippingAddress.postalCode} */}, {shippingAddress.country}
               </p>
               {isDelivered ? (
                 <Badge variant="secondary">
                   Delivered at {formatDateTime(deliveredAt!).dateTime}
                 </Badge>
               ) : (
-                <Badge variant="destructive">Not Delivered</Badge>
+                <Badge variant="destructive">Haujafika</Badge>
               )}
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Order Items</h2>
+              <h2 className="text-xl pb-4">Vitu ulivyoagiza</h2>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Price</TableHead>
+                    <TableHead>Bidhaa</TableHead>
+                    <TableHead>Idadi</TableHead>
+                    <TableHead className="text-center">Bei</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -206,7 +205,7 @@ const OrderDetailsTable = ({
                         <span className="px-2">{item.qty}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        ${item.price}
+                        {formatCurrency(item.price)}Tsh
                       </TableCell>
                     </TableRow>
                   ))}
@@ -219,19 +218,19 @@ const OrderDetailsTable = ({
           <Card>
             <CardContent className="p-4 gap-4 space-y-4">
               <div className="flex justify-between">
-                <div>Items</div>
+                <div>Bidhaa</div>
                 <div>{formatCurrency(itemsPrice)}</div>
               </div>
-              <div className="flex justify-between">
+              {/* <div className="flex justify-between">
                 <div>Tax</div>
                 <div>{formatCurrency(taxPrice)}</div>
-              </div>
+              </div> */}
               <div className="flex justify-between">
-                <div>Shipping</div>
+                <div>Anuani</div>
                 <div>{formatCurrency(shippingPrice)}</div>
               </div>
               <div className="flex justify-between">
-                <div>Total</div>
+                <div>Jumla</div>
                 <div>{formatCurrency(totalPrice)}</div>
               </div>
 
