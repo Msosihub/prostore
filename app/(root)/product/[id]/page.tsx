@@ -28,18 +28,18 @@ import { APP_NAME } from "@/lib/constants";
 // Re-generate product pages every 60 seconds (fro ISR)
 export const revalidate = 60;
 
-type ProductParams = {
-  id: string;
-};
+// type ProductParams = {
+//   id: string;
+// };
 
 export async function generateMetadata(
-  { params }: { params: ProductParams },
-  parent?: ResolvingMetadata
+  { params }: { params: Promise<{ id: string }> },
+  parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const productId = params.id;
+  const { id } = await params;
   console.log(parent);
   // Fetch product data from your backend or API
-  const product = await getProductBySlug(productId);
+  const product = await getProductBySlug(id);
 
   // Fallbacks
   const title = product?.name || "Bidhaa";
