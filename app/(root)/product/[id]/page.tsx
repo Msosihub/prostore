@@ -23,6 +23,7 @@ import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-
 import BuyNow from "@/components/shared/product/buy-now";
 import { Metadata, ResolvingMetadata } from "next";
 import { APP_NAME } from "@/lib/constants";
+import ShareButton from "@/components/ShareButton";
 // import { Product } from "@/types";
 
 // Re-generate product pages every 60 seconds (fro ISR)
@@ -44,7 +45,7 @@ export async function generateMetadata(
   // Fallbacks
   const title = product?.name || "Bidhaa";
   const description =
-    product?.description.slice(0, 25) ||
+    product?.description.slice(0, 30) ||
     `Angalia hii bidhaa kutoa ${APP_NAME} .`;
   const imageUrl =
     product?.images[0] ||
@@ -102,9 +103,16 @@ const ProductDetailsPagez = async (props: {
           {/* Details Column */}
           <div className="lg:col-span-3 flex flex-col gap-6">
             <div className="space-y-2">
-              <p className="text-sm text-gray-500 truncate">
-                {product.brand?.name ?? ""} · {product.category?.name_en ?? ""}
-              </p>
+              <div className="flex flex-row items-center  gap-3">
+                <p className="text-sm text-gray-500 truncate">
+                  {product.brand?.name ?? ""} ·{" "}
+                  {product.category?.name_en ?? ""}
+                </p>
+                <ShareButton
+                  title={product.name}
+                  url={`https://nimboya.com/product/${product.id}`}
+                />
+              </div>
               <h1
                 className="text-2xl sm:text-3xl font-bold text-gray-800"
                 title={product.name}
