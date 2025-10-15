@@ -15,7 +15,22 @@ async function fetchSupplierBatch(excludeIds: string[], take = BATCH_SIZE) {
   if (excludeIds.length) params.set("exclude", excludeIds.join(","));
   params.set("take", String(take));
   const res = await fetch(`/api/suppliers/scroll?${params.toString()}`);
-  if (!res.ok) throw new Error("Failed to fetch supplier batch");
+  // const text = await res.text();
+  // console.log("Response URL:", res.url);
+  // console.log("Status:", res.status);
+  if (!res.ok) {
+    // console.error("Fetch failed:", res.status, text);
+    // console.log("Response URL:", res.url);
+    // console.log("Status:", res.status);
+    throw new Error("Failed to fetch supplier batch");
+  }
+  // try {
+  //   return JSON.parse(text);
+  // } catch (err) {
+  //   console.error("Failed to parse JSON:", text);
+  //   throw err;
+  // }
+
   return res.json() as Promise<{ suppliers: SupplierBlock[] }>;
 }
 
@@ -26,6 +41,8 @@ export default function InfiniteSuppliers() {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const fetchingRef = useRef(false);
   // const { toast } = useToast();
+
+  console.log("Here in suppliers");
 
   const loadMore = useCallback(async () => {
     if (fetchingRef.current) return;
@@ -40,6 +57,7 @@ export default function InfiniteSuppliers() {
       const existing = new Set(blocks.map((b) => b.supplier.id));
       const filtered = incoming.filter((b) => !existing.has(b.supplier.id));
 
+      console.log("Filtered Length: ", filtered.length);
       if (filtered.length === 0) {
         setHasMore(false);
       } else {
@@ -66,13 +84,16 @@ export default function InfiniteSuppliers() {
 
   // initial load
   useEffect(() => {
+    console.log("Load more called");
     loadMore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // intersection observer
   useEffect(() => {
+    console.log("Checking SentinelRef: ", sentinelRef.current);
     if (!sentinelRef.current) return;
+    console.log("It passed v");
     const obs = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -81,15 +102,35 @@ export default function InfiniteSuppliers() {
           }
         });
       },
-      { root: null, rootMargin: "300px", threshold: 0.1 }
+      {
+        root: null,
+        rootMargin: "600px", // <-- extend preload zone for mobile from 300 to 600
+        threshold: 0.1,
+      }
     );
 
     obs.observe(sentinelRef.current);
     return () => obs.disconnect();
   }, [loadMore, hasMore]);
 
+  //additional if scroll fail to pull data
+  // useEffect(() => {
+  //   console.log("Scroll backup.");
+  //   const handleScroll = () => {
+  //     const sentinel = sentinelRef.current;
+  //     if (!sentinel || !hasMore || fetchingRef.current) return;
+  //     const rect = sentinel.getBoundingClientRect();
+  //     if (rect.top < window.innerHeight + 300) {
+  //       loadMore();
+  //     }
+  //   };
+
+  //   window.addEventListener("scroll", handleScroll);
+  //   return () => window.removeEventListener("scroll", handleScroll);
+  // }, [hasMore, loadMore]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 justify-center ">
       {blocks.map((b) => (
         <SupplierSection
           key={b.supplier.id}

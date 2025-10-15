@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
         hostname: "uploadthing.com",
         port: "",
       },
+      {
+        protocol: "http",
+        hostname: "static.photos",
+        port: "",
+      },
     ],
   },
   // experimental: {

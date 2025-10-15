@@ -17,12 +17,15 @@ export const authConfig = {
         /\/user\/(.*)/,
         /\/order\/(.*)/,
         /\/admin/,
-        /\/supplier/,
+        /\/supplier(?!s\/scroll)/, // optional: exclude /suppliers/scroll,
         /\/buyer/,
       ];
 
       // Get pathname from the req URL object
       const { pathname } = request.nextUrl;
+      // ✅ Skip protection for public API routes
+      if (pathname.startsWith("/api/suppliers/scroll")) return true;
+
       // Check if user is not authenticated and accessing a protected path
       if (!auth && protectedPaths.some((p) => p.test(pathname))) return false;
 

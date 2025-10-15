@@ -13,7 +13,7 @@ const MainNav = ({ supplierId, className, ...props }: MainNavProps) => {
   const links = [
     { title: "Home", href: `/company/${supplierId}/home` },
     { title: "Bidhaa", href: `/company/${supplierId}/products` },
-    { title: "Profile", href: `/company/${supplierId}/profile` },
+    // { title: "Profile", href: `/company/${supplierId}/profile` },
     { title: "Jamii", href: `/company/${supplierId}/categories` },
   ];
 

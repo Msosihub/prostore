@@ -26,14 +26,14 @@ export default function SupplierSection({
   };
 
   return (
-    <div className="my-10 space-y-3 rounded-sm">
-      <div className="p-2 rounded-sm sm:p-2 flex flex-row justify-between gap-1 sm:gap-2 text-xs sm:text-sm bg-blue-50">
+    <div className="my-10 space-y-3 rounded-sm shadow-md ">
+      <div className="p-2  flex flex-row justify-between gap-1 sm:gap-2 text-xs sm:text-sm bg-gray-100">
         <SupplierHeader supplier={supplier} />
         <Link
           href={`/company/${supplier.id}/home`}
           className="flex items-center gap-1 text-blue-600 hover:underline ml-4"
         >
-          <span>Ona zaidi</span>
+          {/* <span>Ona zaidi</span> */}
           <ChevronRight size={20} />
         </Link>
       </div>

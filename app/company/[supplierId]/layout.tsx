@@ -30,6 +30,7 @@ export default async function SupplierLayout({
     companyName: supplier.companyName,
     username: supplier.username ?? undefined,
     isVerified: supplier.isVerified,
+    location: supplier.location || "",
     yearsActive: supplier.yearsActive,
     nation: supplier.nation,
     rating: Number(supplier.rating), // Prisma Decimal → number
@@ -43,10 +44,13 @@ export default async function SupplierLayout({
       <div className="flex flex-col">
         <div className="border-b container mx-auto">
           <SupplierHeader supplier={normalizedSupplier} />
-          <div className="flex items-center h-16 px-1">
-            <MainNav className="mx-1 md:mx-4" supplierId={supplierId} />
-            <div className="ml-auto items-center flex flex-1 space-x-4 justify-end">
+          <div className="flex items-center flex-1 h-16 px-1 justify-between">
+            <div className="flex items-center flex-col sm:flex-row justify-around gap-4">
+              <MainNav className="mx-1 md:mx-4" supplierId={supplierId} />
+
               <SupplierSearch />
+            </div>
+            <div className="justify-end">
               <Menu />
             </div>
           </div>

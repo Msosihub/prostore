@@ -41,7 +41,9 @@ export type Supplier = {
   yearsActive: number;
   nation?: string | null;
   rating: number;
+  location: string;
   deliveryRate: number;
+
   responseTime: string | null;
   certifications?: {
     id: string;

@@ -28,7 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} antialiased`}>
+      <body
+        className={`${inter.className} antialiased overflow-x-hidden overflow-y-auto w-full max-w-full`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
@@ -36,7 +38,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {/* <div className="max-w-screen-xl mx-auto px-2 sm:px-1  lg:px-8"> */}
-          <div className="max-w-screen-xl mx-auto ">
+          <div className="max-w-screen-xl mx-auto w-full overflow-x-hidden  pl-1 md:px-4  lg:px-8">
             <SessionProvider>{children}</SessionProvider>
             <Toaster /> {/* ✅ required for toast */}
           </div>

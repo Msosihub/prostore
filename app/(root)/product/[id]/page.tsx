@@ -214,6 +214,7 @@ const ProductDetailsPagez = async (props: {
           ...product.supplier,
           logo: product.supplier.logo ?? undefined,
           rating: Number(product.supplier.rating),
+          location: product.supplier.location || "",
           username: product.supplier.username || "",
           certifications: product.supplier.certifications.map((c) => ({
             id: c.id,
