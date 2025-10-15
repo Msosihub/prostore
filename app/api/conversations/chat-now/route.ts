@@ -107,7 +107,7 @@ export async function POST(req: Request) {
     //   newMessage: productMessage, // optional: send it back if client wants it immediately
     // });
 
-    console.log(" in route: ", conversation.id);
+    // console.log(" in route: ", conversation.id);
     return NextResponse.json({
       conversation: fullConversation,
       newMessage: productMessage, // optional: send it back if client wants it immediately

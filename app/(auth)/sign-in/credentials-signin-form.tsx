@@ -22,9 +22,9 @@ const CredentialsSignInForm = () => {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
   const showToast = searchParams.get("showToastFlag") === "true";
-  console.log("Callback URL:", callbackUrl);
-  console.log("Show Toast:", showToast);
-  console.log("searchParams:", searchParams);
+  // console.log("Callback URL:", callbackUrl);
+  // console.log("Show Toast:", showToast);
+  // console.log("searchParams:", searchParams);
 
   useEffect(() => {
     if (data && data.success) {

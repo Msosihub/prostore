@@ -6,19 +6,19 @@ import { hashSync } from "bcrypt-ts-edge";
 export async function POST(req: Request) {
   const { identifier, otp, newPassword } = await req.json();
 
-  console.log("Received data: ", { identifier, otp, newPassword });
+  // console.log("Received data: ", { identifier, otp, newPassword });
 
   // Verify OTP exists
   const record = await prisma.verificationToken.findFirst({
     where: { identifier, token: otp },
   });
 
-  console.log("Verification record: ", record);
+  // console.log("Verification record: ", record);
   if (!record)
     return NextResponse.json({ success: false, message: "Invalid OTP" });
   if (record.expires < new Date())
     return NextResponse.json({ success: false, message: "OTP expired" });
-  console.log("OTP OKAY");
+  // console.log("OTP OKAY");
 
   // Update password
   const updateRes = await prisma.user.updateMany({
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     });
   }
 
-  console.log("Response from update: ", updateRes);
+  // console.log("Response from update: ", updateRes);
 
   // Delete OTP
   await prisma.verificationToken.delete({

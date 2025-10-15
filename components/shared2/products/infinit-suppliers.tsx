@@ -42,7 +42,7 @@ export default function InfiniteSuppliers() {
   const fetchingRef = useRef(false);
   // const { toast } = useToast();
 
-  console.log("Here in suppliers");
+  // console.log("Here in suppliers");
 
   const loadMore = useCallback(async () => {
     if (fetchingRef.current) return;
@@ -57,7 +57,7 @@ export default function InfiniteSuppliers() {
       const existing = new Set(blocks.map((b) => b.supplier.id));
       const filtered = incoming.filter((b) => !existing.has(b.supplier.id));
 
-      console.log("Filtered Length: ", filtered.length);
+      // console.log("Filtered Length: ", filtered.length);
       if (filtered.length === 0) {
         setHasMore(false);
       } else {
@@ -84,16 +84,16 @@ export default function InfiniteSuppliers() {
 
   // initial load
   useEffect(() => {
-    console.log("Load more called");
+    // console.log("Load more called");
     loadMore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // intersection observer
   useEffect(() => {
-    console.log("Checking SentinelRef: ", sentinelRef.current);
+    // console.log("Checking SentinelRef: ", sentinelRef.current);
     if (!sentinelRef.current) return;
-    console.log("It passed v");
+    // console.log("It passed v");
     const obs = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function ForgotPasswordForm() {
   const [identifier, setIdentifier] = useState("");
@@ -52,9 +53,9 @@ export default function ForgotPasswordForm() {
         <>
           <p className="text-gray-500">
             OTP Imetumwa! Nenda{" "}
-            <a href="/reset-password" className="text-blue-600">
+            <Link href="/reset-password" className="text-blue-600">
               Kabadili password
-            </a>
+            </Link>
           </p>
           <Button
             type="button"

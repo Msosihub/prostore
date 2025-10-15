@@ -22,7 +22,7 @@ export default function ChatWindow({
   peerTimezone,
 }: Props) {
   const { id: conversationId, buyer, supplier, messages } = conversation;
-  console.log("SUPPLIER DATA: ", supplier);
+  // console.log("SUPPLIER DATA: ", supplier);
 
   //always visible in header
   const [activeProduct, setActiveProduct] = useState<ProductLite | null>(
@@ -75,10 +75,10 @@ export default function ChatWindow({
           onClearReply={() => setReplyTo(null)}
           // new prop to clear composer product after first use
           onProductUsed={() => {
-            console.log("fx called: ", composerProduct);
+            // console.log("fx called: ", composerProduct);
 
             setComposerProduct(null);
-            console.log("set to null: ", composerProduct);
+            // console.log("set to null: ", composerProduct);
           }}
         />
       </div>

@@ -26,6 +26,13 @@ export async function GET(req: Request) {
           where: { supplierId },
           take: 6, // max 6 per category
           orderBy: { createdAt: "desc" }, // latest products
+          include: {
+            supplier: true,
+            brand: true,
+            category: true,
+            pricingTiers: true,
+            subcategory: true,
+          },
         },
       },
     });

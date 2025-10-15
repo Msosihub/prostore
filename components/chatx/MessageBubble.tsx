@@ -127,8 +127,8 @@ export default function MessageBubble({ meId, message, onReply }: Props) {
               const isImage = att?.mimeType?.startsWith("image/");
               const isPdf = att?.mimeType === "application/pdf";
 
-              console.log("IsImage: ", isImage);
-              console.log("IsPdf: ", isPdf);
+              // console.log("IsImage: ", isImage);
+              // console.log("IsPdf: ", isPdf);
               // console.log("URL: ", att.url);
 
               if (isImage) {

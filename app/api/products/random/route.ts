@@ -44,7 +44,7 @@ export async function GET() {
         },
       },
     });
-    console.log("Products fetched: ", products.length);
+    // console.log("Products fetched: ", products.length);
   } catch (error) {
     console.error("Error fetching random products:", error);
     return NextResponse.json({ products: [] });

@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     const json = await req.json();
     const parsed = startConversationSchema.parse(json);
-    console.log("PARSED", parsed);
+    // console.log("PARSED", parsed);
 
     // Optional: assert the current user is buyer (or allow both sides to open)
     if (
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ conversation });
   } catch (e) {
-    console.log("CONVO", e);
+    // console.log("CONVO", e);
     return NextResponse.json({ error: e ?? "Error" }, { status: 400 });
   }
 }

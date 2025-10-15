@@ -26,8 +26,11 @@ export default async function SupplierLayout({
   // Normalize nulls to undefined
   const normalizedSupplier: Supplier = {
     id: supplier.id,
-    logo: supplier.logo ?? undefined,
+    logo: supplier.logo ?? null,
+    bannerUrl: supplier.bannerUrl,
     companyName: supplier.companyName,
+    about: supplier.about,
+
     username: supplier.username ?? undefined,
     isVerified: supplier.isVerified,
     location: supplier.location || "",

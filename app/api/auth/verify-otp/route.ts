@@ -4,16 +4,16 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const { identifier, token } = await req.json();
-  console.log("Verifying OTP for:", identifier, token);
+  // console.log("Verifying OTP for:", identifier, token);
 
   const record = await prisma.verificationToken.findFirst({
     where: { identifier, token },
   });
-  console.log("OTP Record Found:", record);
+  // console.log("OTP Record Found:", record);
 
   if (record === null) {
     return NextResponse.json({ success: false, message: "OTP si sahihi" });
-    console.log("NO RECORD");
+    // console.log("NO RECORD");
   }
   if (record.expires < new Date())
     return NextResponse.json({
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     console.error("Error deleting OTP record:", error);
     return NextResponse.json({ success: true });
   } finally {
-    console.log("OTP record deletion attempted.");
+    // console.log("OTP record deletion attempted.");
     return NextResponse.json({ success: true });
   }
 

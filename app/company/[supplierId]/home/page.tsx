@@ -22,6 +22,7 @@ import {
   Truck,
 } from "lucide-react";
 import ShareButton from "@/components/ShareButton";
+import { SupplierSchema } from "@/components/seo/supplier-schema";
 
 export default async function SupplierHomePage({
   params,
@@ -48,8 +49,12 @@ export default async function SupplierHomePage({
     );
   }
 
+  const supplierx = JSON.parse(JSON.stringify(supplier));
+
   return (
     <div className="bg-gray-50">
+      {/* 👇 Add this */}
+      <SupplierSchema supplier={supplierx} />
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-6">
         {/* <!-- Supplier Header --> */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden mb-8">
@@ -158,7 +163,7 @@ export default async function SupplierHomePage({
                     </button> */}
                     <ShareButton
                       title={supplier.companyName || ""}
-                      url={`https://nimboya.com/company/${supplier.id}/home`}
+                      url={`https://nimboya.com/${supplier.username}`}
                     />
                   </div>
                 </div>
@@ -221,13 +226,13 @@ export default async function SupplierHomePage({
                       Website
                     </h3>
                   </div>
-                  <a
+                  <Link
                     id="supplier-website"
-                    href="#"
+                    href={`https://nimboya.com/${supplier.username}`}
                     className="mt-1 text-sm text-blue-600 hover:underline"
                   >
                     www.nimboya.com/{supplier.username}
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -323,7 +328,7 @@ export default async function SupplierHomePage({
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-gray-900">
-                      ISO 9001 Certified
+                      TAX Clearance
                     </h3>
                     <p className="text-xs text-gray-500">Quality Management</p>
                   </div>
@@ -334,7 +339,7 @@ export default async function SupplierHomePage({
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-gray-900">
-                      Eco-Friendly
+                      Leseni Biashara
                     </h3>
                     <p className="text-xs text-gray-500">
                       Sustainable Practices
@@ -364,7 +369,7 @@ export default async function SupplierHomePage({
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Monday - Friday</span>
                   <span className="font-medium text-gray-900">
-                    8:00 AM - 5:00 PM
+                    8:00 AM - 6:30 PM
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -375,7 +380,9 @@ export default async function SupplierHomePage({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Sunday</span>
-                  <span className="font-medium text-gray-900">Closed</span>
+                  <span className="font-medium text-gray-900">
+                    Business Chat
+                  </span>
                 </div>
               </div>
             </div>

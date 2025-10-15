@@ -39,13 +39,14 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { id } = await params;
   console.log(parent);
+
   // Fetch product data from your backend or API
   const product = await getProductBySlug(id);
 
   // Fallbacks
   const title = product?.name || "Bidhaa";
   const description =
-    product?.description.slice(0, 30) ||
+    product?.description.slice(0, 100) ||
     `Angalia hii bidhaa kutoa ${APP_NAME} .`;
   const imageUrl =
     product?.images[0] ||
@@ -130,10 +131,10 @@ const ProductDetailsPagez = async (props: {
               </div>
             </div>
 
-            <PricingTable
+            {/* <PricingTable
               tiers={product.pricingTiers}
               fallbackPrice={product.price}
-            />
+            /> */}
 
             <ProductDescription description={product.description} />
 
@@ -160,9 +161,19 @@ const ProductDetailsPagez = async (props: {
                 <div className="flex justify-between items-center text-sm text-gray-700">
                   <span className="truncate">Status</span>
                   {product.stock > 0 ? (
-                    <Badge variant="outline">Mzigo Upo</Badge>
+                    <Badge
+                      variant="outline"
+                      className="bg-green-100 text-green-600"
+                    >
+                      Mzigo Upo
+                    </Badge>
                   ) : (
-                    <Badge variant="destructive">Zimeisha</Badge>
+                    <Badge
+                      variant="destructive"
+                      className="bg-red-100 text-red-600"
+                    >
+                      Zimeisha
+                    </Badge>
                   )}
                 </div>
                 {product.stock > 0 && (
@@ -212,7 +223,7 @@ const ProductDetailsPagez = async (props: {
       <SupplierProfileCard
         supplier={{
           ...product.supplier,
-          logo: product.supplier.logo ?? undefined,
+          logo: product.supplier.logo ?? null,
           rating: Number(product.supplier.rating),
           location: product.supplier.location || "",
           username: product.supplier.username || "",

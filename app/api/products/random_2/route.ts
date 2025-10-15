@@ -21,7 +21,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ sections: [] });
     }
   } catch (error) {
-    console.log("Error fetching Categories in route: ");
+    console.log("Error fetching Categories in ...: ");
     return NextResponse.json({ error });
   }
 

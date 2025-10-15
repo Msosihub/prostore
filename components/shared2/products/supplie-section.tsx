@@ -26,7 +26,7 @@ export default function SupplierSection({
   };
 
   return (
-    <div className="my-10 space-y-3 rounded-sm shadow-md ">
+    <div className="my-10 space-y-3 rounded-md shadow-md overflow-hidden">
       <div className="p-2  flex flex-row justify-between gap-1 sm:gap-2 text-xs sm:text-sm bg-gray-100">
         <SupplierHeader supplier={supplier} />
         <Link

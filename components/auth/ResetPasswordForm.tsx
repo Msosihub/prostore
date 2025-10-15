@@ -29,14 +29,14 @@ export default function ResetPasswordForm() {
   const sendOtp = async () => {
     setError("");
     const phone = normalizePhone(identifier, country);
-    console.log("SendOtp Called");
+    // console.log("SendOtp Called");
     const res = await fetch("/api/auth/send-otp", {
       method: "POST",
       body: JSON.stringify({ identifier: phone }),
     });
-    console.log("Response: ", res);
+    // console.log("Response: ", res);
     if (res.ok) {
-      console.log("Settinf True");
+      // console.log("Settinf True");
       setOtpSent(true);
       setTimer(60);
     } else {
@@ -48,7 +48,7 @@ export default function ResetPasswordForm() {
     e.preventDefault();
     setError("");
 
-    console.log("Form data: ", { otp, identifier, newPassword });
+    // console.log("Form data: ", { otp, identifier, newPassword });
     const phone = normalizePhone(identifier, country);
     const result = resetPasswordSSchema.safeParse({
       newPassword,
@@ -56,7 +56,7 @@ export default function ResetPasswordForm() {
       country,
       identifier: phone,
     });
-    console.log("Results: ", result);
+    // console.log("Results: ", result);
     if (!result.success) {
       // Grab first error
       setError(result.error.errors[0].message);
@@ -71,7 +71,7 @@ export default function ResetPasswordForm() {
       body: JSON.stringify({ identifier: newIdentifier, otp, newPassword }),
     });
 
-    console.log("Reset ROUTE: ", res);
+    // console.log("Reset ROUTE: ", res);
     const data = await res.json();
     if (!data.success) return setError(data.message);
 

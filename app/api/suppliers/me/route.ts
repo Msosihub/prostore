@@ -18,7 +18,7 @@ export async function GET() {
       SupplierPolicy: true, // ✅ include policies
     },
   });
-  console.log("Supplier:", supplier);
+  // console.log("Supplier:", supplier);
 
   return NextResponse.json(supplier);
 }
@@ -28,7 +28,7 @@ export async function PUT(req: Request) {
   if (!session?.user?.id) return NextResponse.json({}, { status: 401 });
 
   const body = await req.json();
-  console.log("Request body:", body);
+  // console.log("Request body:", body);
   const {
     username,
     name,
@@ -90,7 +90,7 @@ export async function PUT(req: Request) {
 
       return updatedSupplier;
     });
-    console.log("Updated supplier:", supplier);
+    // console.log("Updated supplier:", supplier);
 
     return NextResponse.json(supplier);
   } catch (err) {

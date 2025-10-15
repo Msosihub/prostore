@@ -19,6 +19,7 @@ import {
 import { signUpUser } from "@/lib/actions/user.actions";
 import { EA_COUNTRIES } from "@/lib/constants";
 import { normalizePhone } from "@/lib/utils";
+import Link from "next/link";
 
 // very simple EA dial regex (you can harden later)
 const eaPhoneRegex = /^\+?(255|254|256|250|257|211)\d{6,12}$/;
@@ -124,7 +125,7 @@ export default function SignUpForm() {
     const parsed = SignUpSchema.safeParse(toValidate);
     if (!parsed.success) {
       const first = parsed.error.errors[0];
-      console.log(first);
+      // console.log(first);
       setError(first?.message || "Kuna makosa kwenye taarifa zako");
       return;
     }
@@ -133,14 +134,14 @@ export default function SignUpForm() {
     try {
       setSubmitting(true);
 
-      console.log("Sending OTP to:", identifierToVerify);
+      // console.log("Sending OTP to:", identifierToVerify);
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier: identifierToVerify }),
       });
       const data = await res.json();
-      console.log("Send OTP response:", data);
+      // console.log("Send OTP response:", data);
 
       if (!data?.success) {
         setError(data?.message || "Imeshindikana kutuma OTP");
@@ -167,7 +168,7 @@ export default function SignUpForm() {
 
   // ---------- Resend OTP ----------
   async function handleResend() {
-    console.log("Resend OTP clicked");
+    // console.log("Resend OTP clicked");
     if (timer > 0) return;
     if (resendCount >= 3) {
       setError("Umezidisha maombi ya OTP. Jaribu tena baada ya muda.");
@@ -219,7 +220,7 @@ export default function SignUpForm() {
         body: JSON.stringify({ identifier: identifierToVerify, token: otp }),
       });
       const data = await res.json();
-      console.log("OTP verify response:", data);
+      // console.log("OTP verify response:", data);
 
       if (!data?.success) {
         setError(data?.message || "OTP si sahihi au ime-expire");
@@ -233,7 +234,7 @@ export default function SignUpForm() {
       const formData = new FormData(formRef.current!);
 
       signUpUser({}, formData).then((data) => {
-        console.log("SignUp action response:", data);
+        // console.log("SignUp action response:", data);
         if (!data?.success) {
           setError(data.message || "Imeshindikana kusajili");
           setSubmitting(false);
@@ -244,7 +245,7 @@ export default function SignUpForm() {
       });
 
       //formRef.current?.requestSubmit();
-      console.log("Displaying formRef:", formRef.current);
+      // console.log("Displaying formRef:", formRef.current);
       // ✅ OTP verified → now call server action to insert into DB
       //   const formData = new FormData(formRef.current!);
       //   const result = await signUpUser({}, formData);
@@ -252,7 +253,7 @@ export default function SignUpForm() {
       if (!data?.success) {
         setError(data.message || "Imeshindikana kusajili");
       } else {
-        console.log("User signed up ++++++++++++");
+        // console.log("User signed up ++++++++++++");
         //router.push("/sign-in");
         //the user is automatically signed in after sign up
       }
@@ -502,16 +503,16 @@ export default function SignUpForm() {
 
       <div className="text-sm text-center text-muted-foreground">
         Tayari una akaunti?{" "}
-        <a href="/sign-in" className="link">
+        <Link href="/sign-in" className="link">
           <span className="text-blue-700 underline">Ingia</span>
-        </a>
+        </Link>
       </div>
 
       <div className="text-sm text-center text-muted-foreground mb-4">
         Wewe ni supplier?{" "}
-        <a href="/supplier" className="link">
+        <Link href="/supplier" className="link">
           <span className="text-blue-700 underline">Jisajili hapa</span>
-        </a>
+        </Link>
       </div>
     </form>
   );

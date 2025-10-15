@@ -53,7 +53,7 @@ export default function CompanyCategoriesProducts({
           }`}
           limit={6}
           locale={locale}
-          variant="grid"
+          variant="scroll"
         />
       ))}
     </div>

@@ -34,14 +34,17 @@ export type Certifications = {
 
 export type Supplier = {
   id: string;
-  logo?: string;
-  username?: string;
+  logo: string | null;
+  username?: string | null;
   companyName?: string | null;
   isVerified: boolean;
   yearsActive: number;
   nation?: string | null;
   rating: number;
-  location: string;
+  location: string | null;
+  about: string | null;
+  bannerUrl: string | null;
+
   deliveryRate: number;
 
   responseTime: string | null;

@@ -17,25 +17,26 @@ import BannerSection from "@/components/banner/BannerSection.server";
 
 import { Banner } from "@/types";
 import { Metadata } from "next";
+import { APP_NAME } from "@/lib/constants";
 
 export const revalidate = 120;
 
 export const metadata: Metadata = {
-  title: "Prostore | East Africa's Trusted Marketplace",
+  title: `${APP_NAME} | Soko Lako la Kuaminika Afrika Mashariki`,
   description:
-    "Discover trusted suppliers, verified products, and seamless shopping across Tanzania and East Africa.",
+    "Gundua wasambazaji wa kuaminika, bidhaa zilizothibitishwa, na ununuzi rahisi bila usumbufu kote Tanzania na Afrika Mashariki.",
   openGraph: {
-    title: "Prostore | East Africa's Trusted Marketplace",
+    title: `${APP_NAME} | Soko Lako la Kuaminika Afrika Mashariki`,
     description:
-      "Discover trusted suppliers, verified products, and seamless shopping across Tanzania and East Africa.",
-    url: "https://prostore-sage-omega.vercel.app", // ✅ Change this to your actual domain
-    siteName: "Prostore",
+      "Gundua wasambazaji wa kuaminika, bidhaa zilizothibitishwa, na ununuzi rahisi bila usumbufu kote Tanzania na Afrika Mashariki.",
+    url: "https://nimboya.com", // ✅ Change this to your actual domain
+    siteName: `${APP_NAME}`,
     images: [
       {
         url: "https://fdd5alqxb0.ufs.sh/f/LUPV9JBgc2WRHhNDXgfqpUVcTir2JAv7t5slwkMz9NPZaLxu", // ✅ Change this to your actual homepage banner image
         width: 1200,
         height: 630,
-        alt: "Prostore homepage banner",
+        alt: "Nimboya homepage banner",
       },
     ],
     locale: "en_US",
@@ -43,9 +44,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Prostore | East Africa’s Trusted Marketplace",
+    title: `${APP_NAME} | Soko Lako la Kuaminika Afrika Mashariki`,
     description:
-      "Discover trusted suppliers, verified products, and seamless shopping across Tanzania and East Africa.",
+      "Gundua wasambazaji wa kuaminika, bidhaa zilizothibitishwa, na ununuzi rahisi bila usumbufu kote Tanzania na Afrika Mashariki.",
     images: [
       "https://fdd5alqxb0.ufs.sh/f/LUPV9JBgc2WRHhNDXgfqpUVcTir2JAv7t5slwkMz9NPZaLxu",
     ], // ✅ Same image as above
@@ -117,12 +118,11 @@ export default async function Home() {
         {JSON.stringify({
           "@context": "https://schema.org",
           "@type": "WebSite",
-          name: "Prostore",
-          url: "https://prostore-sage-omega.vercel.app", // ✅ Change to your domain
+          name: "Nimboya",
+          url: "https://www.nimboya.com", // ✅ Change to your domain
           potentialAction: {
             "@type": "SearchAction",
-            target:
-              "https://prostore-sage-omega.vercel.app/search?q={search_term_string}", // ✅ Change to your search URL
+            target: "https://www.nimboya.com/search?q={search_term_string}", // ✅ Change to your search URL
             "query-input": "required name=search_term_string",
           },
         })}

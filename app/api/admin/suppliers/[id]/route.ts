@@ -75,13 +75,13 @@ export async function PUT(
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  console.log("PUT Admin user verified:", session.user.id);
+  // console.log("PUT Admin user verified:", session.user.id);
   const adminUserId = session.user.id;
   const adminRecord = await ensureAdminRecord(adminUserId);
 
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
-  console.log("PUT body:", body);
+  // console.log("PUT body:", body);
 
   try {
     // Only allow explicit fields to be updated
@@ -115,7 +115,7 @@ export async function PUT(
       where: { id },
       data: updatable,
     });
-    console.log("Updated supplier:", updated);
+    // console.log("Updated supplier:", updated);
 
     // Audit logging for verification toggle or label change
     const logEntries: AuditLog[] = [];
@@ -183,8 +183,9 @@ export async function DELETE(
     }
 
     // Optionally set user.role back to BUYER or delete the user — we will only delete supplier row
-    const deleted = await prisma.supplier.delete({ where: { id } });
-    console.log("Deleted supplier:", deleted);
+    // const deleted =
+    await prisma.supplier.delete({ where: { id } });
+    // console.log("Deleted supplier:", deleted);
 
     // Audit log
     await prisma.auditLog.create({

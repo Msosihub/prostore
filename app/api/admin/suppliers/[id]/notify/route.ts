@@ -42,8 +42,9 @@ export async function POST(
       : `Akaunti yako ya msambazaji ${supplier.name} imeshindikana kudhibitisha. Tafadhali wasiliana na 0760 111 880 kwa maelezo zaidi. Asante kwa kutumia ${APP_NAME}.`;
 
     if (supplier.phone) {
-      const smsResponse = await sendSms(supplier.phone, message);
-      console.log("SMS sent successfully:", smsResponse);
+      // const smsResponse =
+      await sendSms(supplier.phone, message);
+      // console.log("SMS sent successfully:", smsResponse);
     }
 
     return NextResponse.json(supplier);

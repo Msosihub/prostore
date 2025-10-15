@@ -7,7 +7,7 @@ import { Supplier } from "@/types";
 
 const SupplierProfileCard = ({ supplier }: { supplier: Supplier }) => {
   return (
-    <Card className="shadow-sm border rounded-lg bg-blue-100">
+    <Card className="shadow-md border rounded-lg bg-gray-100">
       <CardHeader className="p-3 sm:p-4 flex flex-col gap-1 sm:gap-2 text-xs sm:text-sm">
         {/* Header */}
         <div className="flex items-center gap-2">

@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
 
-export async function GET(req: Request) {
+export async function GET() {
   // Admin guard (assumes next-auth session contains user.role)
-  console.log("GET /api/admin/dashboard called", req.url);
+  // console.log("GET /api/admin/dashboard called", req.url);
   const session = await auth();
   if (!session?.user?.id || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
     const pendingDocs = await prisma.supplierDocument.count({
       where: { verified: false, rejectionReason: null },
     });
-    console.log("Pending docs count:", pendingDocs);
+    // console.log("Pending docs count:", pendingDocs);
 
     // Recent audit logs (10)
     const recentLogs = await prisma.auditLog.findMany({
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       include: { admin: { include: { user: true } } },
     });
-    console.log("Recent logs fetched:", recentLogs.length);
+    // console.log("Recent logs fetched:", recentLogs.length);
 
     // Recent pending supplier documents (preview 5)
     const recentDocs = await prisma.supplierDocument.findMany({
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
       take: 5,
       include: { supplier: { select: { id: true, name: true } } },
     });
-    console.log("Recent pending docs fetched:", recentDocs.length);
+    // console.log("Recent pending docs fetched:", recentDocs.length);
 
     // Suppliers by month (last 6 months) — returns months even if 0
     const rawSuppliersByMonth = await prisma.$queryRaw<
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
       count:
         typeof entry.count === "bigint" ? Number(entry.count) : entry.count,
     }));
-    console.log("Suppliers by month data:", suppliersByMonth);
+    // console.log("Suppliers by month data:", suppliersByMonth);
     // Products by category (top 20)
     const categories = await prisma.category.findMany({
       include: {
@@ -92,7 +92,7 @@ export async function GET(req: Request) {
       },
       take: 20,
     });
-    console.log("Categories with counts:", categories);
+    // console.log("Categories with counts:", categories);
     const productsByCategory = categories.map((c) => ({
       category: c.name_en,
       count: Number(c._count.products),
@@ -112,7 +112,7 @@ export async function GET(req: Request) {
       isVerified: s.isVerified,
     }));
 
-    console.log("Top suppliers fetched:", topSuppliers.length);
+    // console.log("Top suppliers fetched:", topSuppliers.length);
 
     // Suppliers by nation (grouped)
     const suppliersByNationRaw = await prisma.supplier.groupBy({
@@ -127,16 +127,16 @@ export async function GET(req: Request) {
       count: Number(r._count.id),
     }));
 
-    console.log("Suppliers by nation data:", suppliersByNation);
+    // console.log("Suppliers by nation data:", suppliersByNation);
     //log stats
-    console.log("stats: ", {
-      totalSuppliers,
-      verifiedSuppliers,
-      pendingDocs,
-      totalProducts,
-      totalCategories,
-      totalUsers,
-    });
+    // console.log("stats: ", {
+    //   totalSuppliers,
+    //   verifiedSuppliers,
+    //   pendingDocs,
+    //   totalProducts,
+    //   totalCategories,
+    //   totalUsers,
+    // });
     // package response
     return NextResponse.json({
       stats: {

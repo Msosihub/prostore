@@ -20,9 +20,9 @@ export async function POST(req: Request) {
 
   if (existing && existing.attempts >= 3) {
     const cooldown = new Date(existing.createdAt.getTime() + 15 * 60 * 1000);
-    console.log("In Existing");
+    // console.log("In Existing");
     if (cooldown > new Date()) {
-      console.log("Too many Requests");
+      // console.log("Too many Requests");
       return NextResponse.json({
         success: false,
         message: "Maombi mengi sana. Jaribu tena baadaye.",
@@ -48,13 +48,13 @@ export async function POST(req: Request) {
 
   // send OTP
   if (identifier.includes("@")) {
-    await sendEmail(identifier, `Nambari yako ya uthibitisho ni ${token}`);
+    // await sendEmail(identifier, `Nambari yako ya uthibitisho ni ${token}`);
   } else {
-    console.log("OTP yako ni: ", token);
+    // console.log("OTP yako ni: ", token);
     sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
   }
 
-  console.log("SUccess sent otp");
+  // console.log("SUccess sent otp");
   return NextResponse.json({ success: true, message: "OTP sent successfully" });
 }
 
@@ -65,7 +65,8 @@ export async function POST(req: Request) {
 //   // console.log("SMS provider response:", res);
 // }
 
-async function sendEmail(email: string, message: string) {
-  console.log(`${email} => ${message}`);
-  // integrate real email provider here
-}
+// async function sendEmail() {
+// // email: string, message: string
+//   // console.log(`${email} => ${message}`);
+//   // integrate real email provider here
+// }

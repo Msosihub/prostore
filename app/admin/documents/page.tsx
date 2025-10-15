@@ -84,8 +84,9 @@ export default function AdminDocumentsPage() {
         const err = await res.json().catch(() => null);
         throw new Error(err?.error || "Failed");
       }
-      const updated = await res.json();
-      console.log("Updated doc:", updated);
+      // const updated =
+      await res.json();
+      // console.log("Updated doc:", updated);
       setDocs((d) => d.filter((x) => x.id !== doc.id));
       toast({
         title: "Approved",

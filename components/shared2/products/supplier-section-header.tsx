@@ -10,7 +10,7 @@ const SupplierHeader = ({ supplier }: { supplier: Supplier }) => {
     rating: supplier.rating ? Number(supplier.rating) : 0,
   };
   return (
-    <div className="px-0 ">
+    <div className="px-0 rounded-t-sm">
       <div className="flex flex-row md:flex-row items-center">
         <div className="relative ">
           <Link href={`/company/${supplier.id}/home`}>

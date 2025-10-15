@@ -38,7 +38,7 @@ const CartTable = ({ cart }: { cart?: Cart }) => {
     day: "numeric",
   }).format(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000));
 
-  console.log(estimatedDelivery); // e.g., "Jumamosi, Septemba 28"
+  // console.log(estimatedDelivery); // e.g., "Jumamosi, Septemba 28"
 
   return (
     <>

@@ -62,7 +62,7 @@ const CredentialsSignInForm = () => {
     try {
       // Validate first
       signInFormSchema.parse({ identifier, password });
-      console.log("DATA TO SIGNIN:", { identifier, password });
+      // console.log("DATA TO SIGNIN:", { identifier, password });
 
       const res = await signIn("credentials", {
         redirect: false,

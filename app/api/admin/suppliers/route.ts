@@ -14,7 +14,7 @@ import { Prisma } from "@prisma/client";
  *  - nation
  */
 export async function GET(req: Request) {
-  console.log("GET /api/admin/suppliers called");
+  // console.log("GET /api/admin/suppliers called");
 
   const session = await auth();
   //role
