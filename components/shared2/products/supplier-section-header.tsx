@@ -20,7 +20,7 @@ const SupplierHeader = ({ supplier }: { supplier: Supplier }) => {
               id="supplier-logo"
               src={supplier.logo || "/images/logo.svg"}
               alt="Supplier Logo"
-              className="w-16 h-16  rounded-sm border-1 border-white bg-white object-cover overflow-hidden shadow-md items-center"
+              className="w-10 h-10 md:w-16 md:h-16  rounded-sm border-1 border-white bg-white object-cover overflow-hidden shadow-md items-center"
             />
           </Link>
         </div>

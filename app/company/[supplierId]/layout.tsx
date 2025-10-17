@@ -45,11 +45,14 @@ export default async function SupplierLayout({
   return (
     <>
       <div className="flex flex-col">
-        <div className="border-b container mx-auto">
+        <div className="border-b  container mx-auto">
           <SupplierHeader supplier={normalizedSupplier} />
           <div className="flex items-center flex-1 h-16 px-1 justify-between">
-            <div className="flex items-center flex-col sm:flex-row justify-around gap-4">
-              <MainNav className="mx-1 md:mx-4" supplierId={supplierId} />
+            <div className="flex items-start flex-row justify-around text-sm">
+              <MainNav
+                className="mx-1 mt-4 mb-1  md:mx-4"
+                supplierId={supplierId}
+              />
 
               <SupplierSearch />
             </div>
