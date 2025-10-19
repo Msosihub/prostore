@@ -344,8 +344,8 @@ export default function AdminBannersPage() {
                       src={b.image || ""}
                       alt={b.title || "banner"}
                       className="object-cover w-full h-full"
-                      width={32}
-                      height={20}
+                      width={100}
+                      height={100}
                     />
                   ) : (
                     <div className="text-sm">No image</div>
@@ -412,8 +412,8 @@ export default function AdminBannersPage() {
                                 src={it.image}
                                 alt={it.title || "item"}
                                 className="object-cover w-full h-full"
-                                width={20}
-                                height={12}
+                                width={100}
+                                height={100}
                               />
                             </div>
                             <div className="flex-1">
