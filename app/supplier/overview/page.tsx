@@ -20,9 +20,10 @@ export const metadata: Metadata = {
 };
 
 const SupplierOverviewPage = async () => {
-  await requireSupplier();
+  const { user } = await requireSupplier();
+  const supplierId = user?.id;
 
-  const summary = await getOrderSummary();
+  const summary = await getOrderSummary(supplierId || "");
 
   return (
     <div className="space-y-2">
@@ -36,7 +37,8 @@ const SupplierOverviewPage = async () => {
           <CardContent>
             <div className="text-2xl font-bold">
               {formatCurrency(
-                summary.totalSales._sum.totalPrice?.toString() || 0
+                // summary.totalSales._sum.totalPrice?.toString() || 0
+                summary.totalSales || 0
               )}
             </div>
           </CardContent>

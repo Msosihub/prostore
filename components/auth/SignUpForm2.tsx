@@ -407,9 +407,9 @@ export default function SignUpForm() {
             <SelectValue placeholder="Chagua role" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="BUYER">Mtumiaji</SelectItem>
-            {/* <SelectItem value="SUPPLIER">Supplier</SelectItem>
-            <SelectItem value="ADMIN">Admin</SelectItem> */}
+            <SelectItem value="BUYER">Mnunuaji</SelectItem>
+            <SelectItem value="SUPPLIER">Muuzaji</SelectItem>
+            {/* <SelectItem value="ADMIN">Admin</SelectItem> */}
           </SelectContent>
         </Select>
         {/* Hidden input ensures role is part of formData */}

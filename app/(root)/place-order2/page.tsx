@@ -93,6 +93,7 @@ const PlaceOrderPage = ({
       qty,
       image: product.images?.[0] ?? "",
       price: product.price.toString(),
+      supplierId: product.supplierId,
       slug: product.slug ?? "",
     };
 

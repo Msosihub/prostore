@@ -182,6 +182,7 @@ const ProductDetailsPagez = async (props: {
                       cart={safeCartData}
                       item={{
                         productId: product.id,
+                        supplierId: product.supplierId,
                         name: product.name,
                         slug: product.slug,
                         price: product.price,

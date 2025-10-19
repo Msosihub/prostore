@@ -138,6 +138,7 @@ export const cartItemSchema = z.object({
   slug: z.string().optional(),
   qty: z.number().int().nonnegative("quantity lazima iwe namba chanya"),
   image: z.string().min(1, "image inahitajika"),
+  supplierId: z.string().optional(),
   price: currency,
 });
 
