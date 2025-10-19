@@ -65,7 +65,7 @@ export default function BrandsPage() {
 
     if (res.ok) {
       toast({
-        variant: "destructive",
+        variant: "default",
         description: editing ? "Brand updated" : "Brand created",
       });
       const updated = await fetch("/api/admin/brands").then((r) => r.json());
