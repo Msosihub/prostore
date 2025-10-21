@@ -1,5 +1,5 @@
 import HeroCarousel from "@/components/shared/banner/HeroCarousel";
-import { PromoBlocks } from "@/components/shared/banner/PromoBlocks";
+// import { PromoBlocks } from "@/components/shared/banner/PromoBlocks";
 // import RandomProducts from "@/components/shared2/products/random-products";
 import ProductList from "@/components/shared/product/product-list";
 import ProductCarousel from "@/components/shared/product/product-carousel";
@@ -67,10 +67,10 @@ export default async function Home() {
   }
 
   let heroBanners: Banner[] = [];
-  let promoBanners: Banner[] = [];
+  // let promoBanners: Banner[] = [];
   if (banners) {
     heroBanners = banners.filter((b) => b.type === "hero");
-    promoBanners = banners.filter((b) => b.type === "promo");
+    // promoBanners = banners.filter((b) => b.type === "promo");
   }
 
   const latestProducts = await getLatestProducts();
