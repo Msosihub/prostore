@@ -28,7 +28,7 @@ export default function CompanyCategoriesProducts({
   async function fetchSections() {
     setLoading(true);
     const res = await fetch(
-      `/api/products/company_categories_with_products?supplierId=${supplierId}`
+      `/api/products/company_categories_with_products?supplierId=${supplierId},limit=true`
     );
     const json = await res.json();
     setSections(json.categories); // 👈 directly assign
