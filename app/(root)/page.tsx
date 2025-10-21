@@ -102,10 +102,11 @@ export default async function Home() {
             limit={8}
             locale={locale}
             variant="scroll"
+            notext={true}
           />
 
           {/* PROMO BLOCKS */}
-          {promoBanners.length > 0 && <PromoBlocks banners={promoBanners} />}
+          {/* {promoBanners.length > 0 && <PromoBlocks banners={promoBanners} />} */}
 
           {/* <RandomProducts locale={locale} /> */}
 

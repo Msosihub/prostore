@@ -1,6 +1,7 @@
 "use client";
 import { Product } from "@/types";
 import ProductCard from "./product-card";
+import ProductCardNoText from "./product-card-notext";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef } from "react";
 
@@ -10,6 +11,7 @@ type ProductListProps = {
   limit?: number;
   locale: "en" | "sw";
   variant?: "grid" | "scroll"; // 👈 add this
+  notext?: boolean;
 };
 
 const ProductList = ({
@@ -17,6 +19,7 @@ const ProductList = ({
   title,
   limit,
   variant = "grid",
+  notext,
 }: ProductListProps) => {
   const limitedData = limit ? data.slice(0, limit) : data;
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -69,25 +72,44 @@ const ProductList = ({
 
             <div
               ref={scrollRef}
-              className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-smooth"
+              className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-smooth items-center justify-center"
             >
               {limitedData.map((product) => (
                 <div
                   key={product.slug}
                   className="min-w-[200px] flex-shrink-0  sm:w-[33%] md:w-[29%] lg:w-[25%]"
                 >
-                  <ProductCard
-                    id={product.id}
-                    name={product.name}
-                    brand={product?.brand?.name || ""}
-                    category={product.category?.name_en ?? ""}
-                    subcategory={product?.subcategory?.name_en || ""}
-                    supplier={product?.supplier?.companyName ?? "<no supplier>"}
-                    images={product.images}
-                    price={Number(product.price)}
-                    stock={product.stock}
-                    pricingTiers={product.pricingTiers}
-                  />
+                  {notext ? (
+                    <ProductCardNoText
+                      id={product.id}
+                      name={product.name}
+                      brand={product?.brand?.name || ""}
+                      category={product.category?.name_en ?? ""}
+                      subcategory={product?.subcategory?.name_en || ""}
+                      supplier={
+                        product?.supplier?.companyName ?? "<no supplier>"
+                      }
+                      images={product.images}
+                      price={Number(product.price)}
+                      stock={product.stock}
+                      pricingTiers={product.pricingTiers}
+                    />
+                  ) : (
+                    <ProductCard
+                      id={product.id}
+                      name={product.name}
+                      brand={product?.brand?.name || ""}
+                      category={product.category?.name_en ?? ""}
+                      subcategory={product?.subcategory?.name_en || ""}
+                      supplier={
+                        product?.supplier?.companyName ?? "<no supplier>"
+                      }
+                      images={product.images}
+                      price={Number(product.price)}
+                      stock={product.stock}
+                      pricingTiers={product.pricingTiers}
+                    />
+                  )}
                 </div>
               ))}
             </div>
