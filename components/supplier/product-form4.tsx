@@ -60,18 +60,20 @@ const ProductForm = ({
   const { toast } = useToast();
   // const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [uploading] = useState(false);
-  // console.log("Here are the BEFORE values:", product);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       ...productDefaultValues,
+      ...(product || {}),
+      pricingTiers: product?.pricingTiers?.map((tier) => ({
+        minQty: tier.minQty,
+        price: Number(tier.price), // ✅ Convert Decimal to number
+      })),
       supplierId: supplierId || "",
       id: product?.id || undefined, // only for update
     },
   });
-
-  //console.log("Here are the form values:", form.getValues());
 
   // const addTier = () => {
   //   if (fields.length < 3) append({ minQty: 1, price: 0 });
@@ -459,6 +461,8 @@ const ProductForm = ({
                         <Image
                           src={src}
                           alt={`preview-${idx}`}
+                          width={100}
+                          height={100}
                           className="w-full h-full object-cover"
                         />
                         <button

@@ -327,7 +327,6 @@ export async function getAllProducts({
 
   // Count total matching products
   const dataCount = await prisma.product.count({ where });
-
   return {
     data,
     totalPages: Math.ceil(dataCount / limit),
@@ -464,8 +463,6 @@ export async function suppliersCount() {
         },
       },
     });
-
-    console.log("Suppliers with at least 1 product:", count);
 
     return count;
   } catch (error) {

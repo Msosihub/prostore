@@ -82,8 +82,10 @@ export default async function Home() {
     <>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-16">
         <div className="lg:col-span-3 space-y-6">
-          {/* HERO BANNERS */}
-          {heroBanners.length > 0 && <HeroCarousel banners={heroBanners} />}
+          <div className="hidden md:block">
+            {/* HERO BANNERS */}
+            {heroBanners.length > 0 && <HeroCarousel banners={heroBanners} />}
+          </div>
 
           <BannerSection />
 
