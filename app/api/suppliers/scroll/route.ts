@@ -33,6 +33,7 @@ export async function GET(request: Request) {
         yearsActive: true,
         isVerified: true,
       },
+      where: { isVerified: true },
     });
     // console.log("suppliers fetched: ", suppliers);
 
