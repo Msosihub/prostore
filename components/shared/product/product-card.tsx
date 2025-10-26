@@ -45,7 +45,7 @@ const ProductCard = ({
   // const moqLabel = middleTier ? `${middleTier.minQty}+ pcs` : null;
 
   return (
-    <Card className="w-full max-w-sm min-h-[420px] flex flex-col justify-between overflow-hidden group transition-shadow hover:shadow-lg border border-transparent hover:border-gray-200">
+    <Card className="w-full max-w-sm  overflow-hidden group transition-shadow hover:shadow-lg border border-transparent hover:border-gray-200">
       <CardHeader className="p-0 relative w-full aspect-[4/3] overflow-hidden">
         <Link href={`/product/${id}`}>
           <Image
@@ -58,7 +58,7 @@ const ProductCard = ({
         </Link>
       </CardHeader>
 
-      <CardContent className="p-1 sm:p-4 grid gap-1 sm:gap-2 text-xs sm:text-sm  h-full">
+      <CardContent className="p-1 sm:p-4 grid gap-1 sm:gap-2 text-xs sm:text-sm">
         <div className="text-[11px] sm:text-xs md:text-sm text-muted-foreground">
           {brand} • {category} • {subcategory}
         </div>
