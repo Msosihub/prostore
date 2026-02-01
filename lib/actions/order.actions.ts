@@ -12,6 +12,7 @@ import { PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
 import { paypal } from "../paypal";
 import { PaymentResult } from "@/types";
+import { getPesapalToken } from "../pesapal";
 // import { ShippingAddress } from "@/types";
 //import { sendPurchaseReceipt } from "@/email";
 
@@ -212,6 +213,68 @@ export async function getOrderById(orderId: string) {
   });
 
   return convertToPlainObject(data);
+}
+
+//create PesaPal Order
+export async function createPesapalOrder(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { orderitems: true, user: true },
+  });
+
+  if (!order) return { success: false, message: "Order not found" };
+
+  const { token } = await getPesapalToken();
+  const shipping = order.shippingAddress as {
+    city: string;
+    phone: string;
+    fullName: string;
+  };
+
+  const res = await fetch(
+    `${process.env.PESAPAL_BASE_URL}/Transactions/SubmitOrderRequest`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        id: order.id,
+        currency: "TZS",
+        amount: Number(order.totalPrice),
+        description: `Order ${order.id}`,
+        callback_url: process.env.PESAPAL_CALLBACK_URL,
+        notification_id: process.env.PESAPAL_IPN_ID,
+        billing_address: {
+          email_address: order.user.email,
+          phone_number: shipping.phone || order.user.phone || "",
+          country_code: "TZ",
+          first_name: shipping?.fullName.split(" ")[0],
+          last_name: shipping?.fullName.split(" ")[1] || "",
+          city: shipping.city || "",
+        },
+      }),
+    }
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) return { success: false, message: "Pesapal error" };
+
+  // store tracking id
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      paymentResult: {
+        id: data.order_tracking_id,
+        status: "PENDING",
+      },
+    },
+  });
+
+  return { success: true, redirectUrl: data.redirect_url };
 }
 
 // Create new paypal order
