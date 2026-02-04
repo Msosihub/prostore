@@ -394,13 +394,13 @@ export default function SignUpForm() {
       </div>
 
       {/* Role */}
-      <div className="hidden">
+      <div>
         <Label htmlFor="role">Role</Label>
         <Select
           name="role"
           value={role}
           onValueChange={(v) => setRole(v as UserRole)}
-          disabled={true}
+          // disabled={true}
           required
         >
           <SelectTrigger>
