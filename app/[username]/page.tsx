@@ -38,12 +38,13 @@ export async function generateMetadata({
   return {
     title: `${supplier.name} - Muuzaji Aliyethibitishwa kwenye Nimboya`,
     description:
-      supplier.description || "Pitia bidhaa na ofa kutoka kwa muuzaji huyu.",
+      supplier.description ||
+      "Pitia bidhaa na ofa kutoka kwa muuzaji huyu ndani ya nimboya.com.",
     openGraph: {
       title: `${supplier.name} | ${supplier.username}`,
       description:
         supplier.description ||
-        "Tembelea wasifu wa muuzaji na ununue bidhaa bora.",
+        "Tembelea wasifu wa muuzaji na ununue bidhaa bora ndani ya nimboya.com",
       url: `${siteUrl}/${supplier.username}`,
       siteName: "Nimboya",
       images: [
