@@ -27,37 +27,43 @@ export default function CategoryGroupCard({ banner }: { banner: Banner }) {
 
         {/* <!-- Grid Container --> */}
         <div className="p-4 flex-grow overflow-hidden h-[250px]">
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-4  h-full">
-            {items.map((it) => (
-              <Link
-                href={
-                  `/product/${it.productId}` ||
-                  `/search?category=${banner.category}` ||
-                  "#"
-                }
-                key={it.id}
-              >
-                <div key={it.id} className="group">
-                  {/* -- Item 1 -- */}
+          <div className="grid grid-cols-2 md:grid-cols-2 gap-4 h-full">
+            {items.map((it) => {
+              // console.log("IT:", it);
 
-                  <div className="aspect-square overflow-hidden  bg-gray-100 image-hover transition-all duration-300 cursor-pointer">
-                    <Image
-                      src={it.image}
-                      alt={it.title || ""}
-                      width={280}
-                      height={280}
-                      className="w-full h-full object-cover"
-                      sizes="(max-width: 768px) 100vw, 240px"
-                    />
+              return (
+                <Link
+                  key={it.id}
+                  href={
+                    it.productId
+                      ? `/product/${it.productId}`
+                      : banner?.category
+                        ? `/search?category=${encodeURIComponent(banner.category)}`
+                        : "#"
+                  }
+                >
+                  <div className="group">
+                    {/* Item */}
+                    <div className="aspect-square overflow-hidden bg-gray-100 image-hover transition-all duration-300 cursor-pointer">
+                      <Image
+                        src={it.image}
+                        alt={it.title || ""}
+                        width={280}
+                        height={280}
+                        className="w-full h-full object-cover"
+                        sizes="(max-width: 768px) 100vw, 240px"
+                      />
+                    </div>
+
+                    <div className="pb-2 text-center">
+                      <p className="mt-1 text-xs text-start font-medium text-gray-900 truncate cursor-pointer">
+                        {it.title}
+                      </p>
+                    </div>
                   </div>
-                  <div className="pb-2 text-center">
-                    <p className="mt-1 text-xs  text-start font-medium text-gray-900 truncate cursor-pointer">
-                      {it.title}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
 
