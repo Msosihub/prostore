@@ -24,28 +24,31 @@ export async function generateMetadata({
 
   if (!supplier) {
     return {
-      title: `Supplier not found | ${APP_NAME}`,
-      description: "This supplier page could not be found.",
+      title: `Mtoa huduma hakupatikana | ${APP_NAME}`,
+      description: "Ukurasa huu wa mtoa huduma haukuweza kupatikana.",
     };
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://nimboya.com";
 
+  const ogImage = supplier.bannerUrl?.startsWith("http")
+    ? supplier.bannerUrl
+    : `${siteUrl}${supplier.bannerUrl}`;
+
   return {
-    title: `${supplier.name} | ${supplier.username} | YourBrand`,
+    title: `${supplier.name} - Muuzaji Aliyethibitishwa kwenye Nimboya`,
     description:
-      supplier.description || "Explore products and offers from this supplier.",
+      supplier.description || "Pitia bidhaa na ofa kutoka kwa muuzaji huyu.",
     openGraph: {
       title: `${supplier.name} | ${supplier.username}`,
       description:
-        supplier.description || "Visit supplier profile and shop top products.",
+        supplier.description ||
+        "Tembelea wasifu wa muuzaji na ununue bidhaa bora.",
       url: `${siteUrl}/${supplier.username}`,
-      siteName: "YourBrand",
+      siteName: "Nimboya",
       images: [
         {
-          url: supplier.bannerUrl
-            ? `${siteUrl}${supplier.bannerUrl}`
-            : `${siteUrl}/default-banner.jpg`,
+          url: ogImage,
           width: 1200,
           height: 630,
           alt: supplier.name,
@@ -58,11 +61,7 @@ export async function generateMetadata({
       title: supplier.name,
       description:
         supplier.description || "View supplier products and details.",
-      images: [
-        supplier.bannerUrl
-          ? `${siteUrl}${supplier.bannerUrl}`
-          : `${siteUrl}/default-banner.jpg`,
-      ],
+      images: [ogImage],
     },
     alternates: {
       canonical: `${siteUrl}/${supplier.username}`,

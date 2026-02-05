@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
   const supplierId = searchParams.get("supplierId");
-  const productLimit: boolean = searchParams.get("limit") === "false";
+  const productLimit: boolean = searchParams.get("limit") === "true";
   if (!supplierId) {
     return NextResponse.json({ error: "Missing supplierId" }, { status: 400 });
   }

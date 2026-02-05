@@ -28,10 +28,10 @@ export default function CompanyCategoriesProducts({
   async function fetchSections() {
     setLoading(true);
     const res = await fetch(
-      `/api/products/company_categories_with_products?supplierId=${supplierId},limit=true`
+      `/api/products/company_categories_with_products?supplierId=${supplierId}&limit=false`
     );
     const json = await res.json();
-    setSections(json.categories); // 👈 directly assign
+    setSections(json.categories ?? []); // 👈 directly assign
     setLoading(false);
   }
 
@@ -44,18 +44,19 @@ export default function CompanyCategoriesProducts({
     <div>
       {loading && <SectionSkeleton />}
 
-      {sections.map((section) => (
-        <ProductList
-          key={section.id}
-          data={section.products}
-          title={`Discover in ${
-            locale === "en" ? section.name_en : section.name_sw
-          }`}
-          limit={6}
-          locale={locale}
-          variant="scroll"
-        />
-      ))}
+      {Array.isArray(sections) &&
+        sections.map((section) => (
+          <ProductList
+            key={section.id}
+            data={section.products}
+            title={`Discover in ${
+              locale === "en" ? section.name_en : section.name_sw
+            }`}
+            limit={6}
+            locale={locale}
+            variant="scroll"
+          />
+        ))}
     </div>
   );
 }
