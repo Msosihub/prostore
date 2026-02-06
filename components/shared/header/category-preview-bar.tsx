@@ -29,13 +29,13 @@ export default function CategoryPreviewBar({
   );
   //   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  if (!categories) return null;
+  if (!Array.isArray(categories)) return null;
 
-  const previewCategories = categories.slice(0, 6); // show first 6
+  const previewCategories = categories?.slice(0, 6); // show first 6
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto pb-0">
-      {previewCategories.map((cat) => (
+      {previewCategories?.map((cat) => (
         <Link
           key={cat.id}
           href={`/search?category=${encodeURIComponent(cat.name_en)}`}

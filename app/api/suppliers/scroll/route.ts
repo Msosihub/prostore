@@ -53,10 +53,18 @@ export async function GET(request: Request) {
     // For each supplier, fetch a limited number of products
     const supplierResults = await Promise.all(
       suppliers.map(async (sup) => {
+        const total = await prisma.product.count({
+          where: { supplierId: sup.id },
+        });
+
+        const take = 8;
+        const maxSkip = Math.max(0, total - take);
+        const skip = Math.floor(Math.random() * (maxSkip + 1));
+
         const products = await prisma.product.findMany({
           where: { supplierId: sup.id },
-          take: 8, // adjust number of products shown per supplier
-          orderBy: { createdAt: "desc" },
+          skip,
+          take,
           include: {
             brand: { select: { name: true } },
             category: { select: { name_en: true, name_sw: true } },

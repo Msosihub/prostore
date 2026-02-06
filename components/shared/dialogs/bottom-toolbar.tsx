@@ -119,7 +119,7 @@ export default function BottomToolbar({
             }}
           />
           <Button
-            disabled={isPressed}
+            disabled={true}
             className=" text-xs flex-1 rounded-full px-6 py-2 md:text-sm bg-orange-500"
             onClick={startChat}
           >

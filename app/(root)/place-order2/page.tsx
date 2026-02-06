@@ -188,7 +188,7 @@ const PlaceOrderPage = ({
             </CardContent>
           </Card>
 
-          <Card>
+          {/* <Card>
             <CardContent className="p-4 gap-4">
               <h2 className="text-xl pb-4">Njia za malipo</h2>
               {paymentMethod ? (
@@ -218,9 +218,9 @@ const PlaceOrderPage = ({
                 </>
               )}
             </CardContent>
-          </Card>
+          </Card> */}
 
-          {!isBuyNow && (
+          {/* {!isBuyNow && (
             <Card>
               <CardContent className="p-4 gap-4">
                 <h2 className="text-xl pb-4">Njia za malipo</h2>
@@ -232,7 +232,7 @@ const PlaceOrderPage = ({
                 </div>
               </CardContent>
             </Card>
-          )}
+          )} */}
 
           <Card>
             <CardContent className="p-4 gap-4">

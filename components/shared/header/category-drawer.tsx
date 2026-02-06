@@ -53,7 +53,7 @@ const CategoryDrawer = ({
 
   if (isLoading) return null;
 
-  if (error || !categories) return null;
+  if (error || !Array.isArray(categories)) return null;
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">

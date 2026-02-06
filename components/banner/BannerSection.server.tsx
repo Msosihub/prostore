@@ -24,22 +24,24 @@ export default async function BannerSection() {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
-      {banners.map((b) => {
-        // console.log("b.type: ", b.type);
-        // console.log("b.type items: ", b.items);
+      {banners
+        .filter((b) => b.isActive)
+        .map((b) => {
+          // console.log("b.type: ", b.type);
+          // console.log("b.type items: ", b.items);
 
-        // console.log("Banner: ", b);
-        // heuristics: if banner has multiple items (category-group) => render group card
-        if ((b.type ?? "").toUpperCase() === "CATEGORY_GROUP") {
-          return (
-            <div className="h-full" key={b.id}>
-              <CategoryGroupCard key={b.id} banner={b} />
-            </div>
-          );
-        }
+          // console.log("Banner: ", b);
+          // heuristics: if banner has multiple items (category-group) => render group card
+          if ((b.type ?? "").toUpperCase() === "CATEGORY_GROUP") {
+            return (
+              <div className="h-full" key={b.id}>
+                <CategoryGroupCard key={b.id} banner={b} />
+              </div>
+            );
+          }
 
-        return;
-      })}
+          return;
+        })}
     </div>
   );
 }
