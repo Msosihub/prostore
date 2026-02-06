@@ -123,7 +123,7 @@ const PlaceOrderPage = ({
   // if (!user.paymentMethod && !isBuyNow) redirect("/payment-method");
 
   const userAddress = user.address as ShippingAddress | undefined;
-  const paymentMethod = user.paymentMethod as string | undefined;
+  // const paymentMethod = user.paymentMethod as string | undefined;
 
   return (
     <div className="mb-20">
