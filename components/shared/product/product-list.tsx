@@ -77,7 +77,7 @@ const ProductList = ({
               {limitedData.map((product) => (
                 <div
                   key={product.slug}
-                  className="min-w-[200px] flex-shrink-0  sm:w-[33%] md:w-[29%] lg:w-[25%]"
+                  className="w-1/4 flex-shrink-0  sm:w-[25%] md:w-[20%] lg:w-[16.7%]"
                 >
                   {notext ? (
                     <ProductCardNoText
