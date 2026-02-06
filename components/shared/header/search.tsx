@@ -98,7 +98,8 @@ const Search = () => {
                 <SelectItem key="All" value="all">
                   Yote
                 </SelectItem>
-                {(categories !== undefined || categories !== null) &&
+                {Array.isArray(categories) &&
+                  (categories !== undefined || categories !== null) &&
                   categories?.map((x) => (
                     <SelectItem key={x.id} value={x.name_en}>
                       {x.name_en}

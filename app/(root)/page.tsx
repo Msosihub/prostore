@@ -99,9 +99,9 @@ export default async function Home() {
           <ProductList
             data={latestProducts}
             title="Mizigo mipya"
-            limit={8}
+            limit={4}
             locale={locale}
-            variant="scroll"
+            variant="grid"
             notext={true}
           />
 
