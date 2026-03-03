@@ -32,6 +32,15 @@ export type Certifications = {
   verified: boolean;
 };
 
+export type ZenoBody = {
+  order_id: string;
+  buyer_email: string;
+  buyer_name: string;
+  buyer_phone: string;
+  amount: number;
+  webhook_url: string;
+};
+
 export type Supplier = {
   id: string;
   logo: string | null;

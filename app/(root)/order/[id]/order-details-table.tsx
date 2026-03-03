@@ -14,7 +14,7 @@ import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
 import { Order } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
-import { useToast } from "@/hooks/use-toast";
+// import { useToast } from "@/hooks/use-toast";
 // import { useTransition } from "react";
 // import {
 //   PayPalButtons,
@@ -29,7 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 // } from "@/lib/actions/order.actions";
 // import StripePayment from "./stripe-payment";
 
-import { createPesapalOrder } from "@/lib/actions/order.actions";
+// import { createPesapalOrder } from "@/lib/actions/order.actions";
 
 const OrderDetailsTable = ({
   order,
@@ -56,7 +56,7 @@ const OrderDetailsTable = ({
     deliveredAt,
   } = order;
 
-  const { toast } = useToast();
+  // const { toast } = useToast();
 
   // const PrintLoadingState = () => {
   //   const [{ isPending, isRejected }] = usePayPalScriptReducer();
@@ -91,6 +91,24 @@ const OrderDetailsTable = ({
   //     description: res.message,
   //   });
   // };
+
+  const payWithZenopay = async () => {
+    const res = await fetch("/api/zenopay/create-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderId: order.id }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert(
+        "Maombi ya malipo yametumwa kwenye simu yako. Angalia simu na uweke password yako"
+      );
+    } else {
+      alert("Malipo yameshindikana kuanzishwa");
+    }
+  };
 
   // Button to mark order as paid
   const MarkAsPaidButton = () => {
@@ -238,22 +256,24 @@ const OrderDetailsTable = ({
 
               {/* PESAPAL Payment !isPaid && paymentMethod === "Pesapal" */}
               {true && (
-                <Button
-                  onClick={async () => {
-                    const res = await createPesapalOrder(order.id);
-                    if (res.success) {
-                      window.location.href = res.redirectUrl;
-                    } else {
-                      toast({
-                        variant: "destructive",
-                        description: res.message,
-                      });
-                    }
-                  }}
-                  className="w-full"
-                >
-                  Lipa kwa Pesapal
-                </Button>
+                <Button onClick={payWithZenopay}> Lipa kwa Simu / Bank </Button>
+
+                // <Button
+                //   onClick={async () => {
+                //     const res = await createPesapalOrder(order.id);
+                //     if (res.success) {
+                //       window.location.href = res.redirectUrl;
+                //     } else {
+                //       toast({
+                //         variant: "destructive",
+                //         description: res.message,
+                //       });
+                //     }
+                //   }}
+                //   className="w-full"
+                // >
+                //   Lipa kwa Pesapal
+                // </Button>
               )}
 
               {/* PayPal Payment */}

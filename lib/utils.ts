@@ -206,6 +206,16 @@ export function normalizeIdentifier(identifier: string) {
   return phone;
 }
 
+export function formatTanzaniaPhonetToStarZero(phone: string) {
+  if (phone.startsWith("+255")) {
+    return "0" + phone.slice(4);
+  }
+  if (phone.startsWith("255")) {
+    return "0" + phone.slice(3);
+  }
+  return phone;
+}
+
 import { ShippingAddress } from "@/types";
 
 export function isShippingAddress(value: unknown): value is ShippingAddress {
