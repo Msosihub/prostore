@@ -4,12 +4,12 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/db/prisma";
 import CredentialProvider from "next-auth/providers/credentials";
+import { compareSync } from "bcrypt-ts-edge";
 import type { NextAuthConfig } from "next-auth";
 // import { NextResponse } from "next/server";
 import { authConfig } from "./auth.config";
 import { cookies } from "next/headers";
 import GoogleProvider from "next-auth/providers/google";
-import { normalizeIdentifier } from "./lib/utils";
 
 export const config = {
   pages: {
@@ -22,65 +22,33 @@ export const config = {
   },
   adapter: PrismaAdapter(prisma),
   providers: [
-    // Credentials: phone OR email + otp
+    // Credentials: phone OR email
     CredentialProvider({
-      id: "otp-login",
-      name: "OTP Login",
+      id: "credentials",
+      name: "Credentials",
       credentials: {
         identifier: { label: "Phone or Email", type: "text" },
-        token: { label: "OTP", type: "text" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        let identifier = credentials?.identifier as string | undefined;
-        const token = credentials?.token as string | undefined;
+        const identifier = credentials?.identifier;
+        const password = credentials?.password as string;
+        console.log("👉 Credentials received:", identifier, password);
+        if (!identifier || !password) return null;
 
-        if (!identifier || !token) return null;
-
-        identifier = normalizeIdentifier(identifier);
-
-        // 1️⃣ Find OTP
-        const record = await prisma.verificationToken.findFirst({
-          where: {
-            identifier,
-            token,
-            expires: { gt: new Date() },
-          },
+        const user = await prisma.user.findFirst({
+          where: { OR: [{ phone: identifier }, { email: identifier }] },
         });
+        console.log("👉 User from DB:", user);
 
-        if (!record) return null;
+        if (!user || !user.password) return null;
 
-        // 2️⃣ Delete OTP (one-time use)
-        await prisma.verificationToken.delete({
-          where: {
-            identifier_token: {
-              identifier,
-              token,
-            },
-          },
-        });
+        // Only allow login if verified
+        if (!user.isVerified) return null;
 
-        // 3️⃣ Find user
-        let user = await prisma.user.findFirst({
-          where: {
-            OR: [{ phone: identifier }, { email: identifier }],
-          },
-        });
-
-        // 4️⃣ Auto create if not exists
-        if (!user) {
-          const isEmail = identifier.includes("@");
-
-          user = await prisma.user.create({
-            data: {
-              phone: isEmail ? null : identifier,
-              email: isEmail ? identifier : null,
-              phoneVerified: isEmail ? null : new Date(),
-              emailVerified: isEmail ? new Date() : null,
-              role: "BUYER",
-              onboarded: false,
-            },
-          });
-        }
+        const isMatch = compareSync(password, user.password);
+        console.log("👉 Password match:", isMatch);
+        if (!isMatch) return null;
 
         return {
           id: user.id,
@@ -106,7 +74,6 @@ export const config = {
       session.user.role = token.role;
       session.user.name = token.name;
       session.user.phone = token?.phone;
-      session.user.onboarded = token.onboarded;
 
       // If there is an update, set the user name
       if (trigger === "update") {
@@ -121,7 +88,6 @@ export const config = {
         token.id = user.id;
         token.role = user.role;
         token.phone = user.phone;
-        token.onboarded = user.onboarded;
 
         if (!user.phone) {
           // fetch full user from DB
@@ -136,9 +102,8 @@ export const config = {
         // console.log("User in JWT callback:", user);
         // If user has no name then use the email
         if (user.name === "NO_NAME") {
-          if (user.email && user.email.includes("@")) {
-            token.name = user.email!.split("@")[0];
-          }
+          token.name = user.email!.split("@")[0];
+
           // Update database to reflect the token name
           await prisma.user.update({
             where: { id: user.id },
@@ -172,14 +137,8 @@ export const config = {
       }
 
       // Handle session updates
-      // When session.update() is called
-      if (trigger === "update" && session) {
-        if (session.name !== undefined) {
-          token.name = session.name;
-        }
-        if (session.role !== undefined) {
-          token.role = session.role;
-        }
+      if (session?.user.name && trigger === "update") {
+        token.name = session.user.name;
       }
 
       // console.log("JWT token:", token);

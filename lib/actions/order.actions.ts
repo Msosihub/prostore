@@ -129,13 +129,13 @@ export async function createBuyNowOrder({
         redirectTo: "/shipping-address",
       };
     }
-    if (!user.paymentMethod) {
-      return {
-        success: false,
-        message: "No payment method",
-        redirectTo: "/payment-method",
-      };
-    }
+    // if (!user.paymentMethod) {
+    //   return {
+    //     success: false,
+    //     message: "No payment method",
+    //     redirectTo: "/payment-method",
+    //   };
+    // }
 
     const product = await prisma.product.findUnique({
       where: { id: productId },

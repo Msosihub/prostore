@@ -3,7 +3,7 @@
 import {
   shippingAddressSchema,
   signInFormSchema,
-  signUpFormSchema,
+  // signUpFormSchema,
   paymentMethodSchema,
   updateUserSchema,
 } from "../validators";
@@ -18,7 +18,7 @@ import { PAGE_SIZE } from "../constants";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { getMyCart } from "./cart.actions";
-import { hashSync } from "bcrypt-ts-edge";
+// import { hashSync } from "bcrypt-ts-edge";
 
 // Sign in the user with credentials
 export async function signInWithCredentials(
@@ -82,134 +82,134 @@ export async function signOutUser() {
 }
 
 // Sign up user
-export async function signUpUser(prevState: unknown, formData: FormData) {
-  console.log("In SignUp Action - formData:", formData);
-  console.log(
-    "In SignUp Action - formData email:",
-    formData.get("phoneNormalized")
-  );
-  console.log("In SignUp Action - formData email:", formData.get("role"));
-  // console.log("In SignUp Action - formData email:", formData.get("email"));
-  try {
-    const user = signUpFormSchema.parse({
-      name: formData.get("name"),
-      email: formData.get("email") || "",
-      phone: formData.get("phoneNormalized"),
-      country: formData.get("country"),
-      password: formData.get("password"),
-      confirmPassword: formData.get("confirmPassword"),
-      role: formData.get("role"),
-    });
+// export async function signUpUser(prevState: unknown, formData: FormData) {
+//   console.log("In SignUp Action - formData:", formData);
+//   console.log(
+//     "In SignUp Action - formData email:",
+//     formData.get("phoneNormalized")
+//   );
+//   console.log("In SignUp Action - formData email:", formData.get("role"));
+//   // console.log("In SignUp Action - formData email:", formData.get("email"));
+//   try {
+//     const user = signUpFormSchema.parse({
+//       name: formData.get("name"),
+//       email: formData.get("email") || "",
+//       phone: formData.get("phoneNormalized"),
+//       country: formData.get("country"),
+//       password: formData.get("password"),
+//       confirmPassword: formData.get("confirmPassword"),
+//       role: formData.get("role"),
+//     });
 
-    const plainPassword = user.password;
-    if (user.password !== user.confirmPassword) {
-      return { success: false, message: "Passwords do not match." };
-    }
+//     const plainPassword = user.password;
+//     if (user.password !== user.confirmPassword) {
+//       return { success: false, message: "Passwords do not match." };
+//     }
 
-    const hashedPassword = await hashSync(user.password, 10);
-    user.password = hashedPassword;
+//     const hashedPassword = await hashSync(user.password, 10);
+//     user.password = hashedPassword;
 
-    const phoneNormalized =
-      (formData.get("phoneNormalized") as string | null) ?? user.phone;
-    let emailNormalized =
-      ((formData.get("email") as string) || null) ?? user.email;
-    emailNormalized = emailNormalized.toLowerCase().trim();
+//     const phoneNormalized =
+//       (formData.get("phoneNormalized") as string | null) ?? user.phone;
+//     let emailNormalized =
+//       ((formData.get("email") as string) || null) ?? user.email;
+//     emailNormalized = emailNormalized.toLowerCase().trim();
 
-    const conditions: Prisma.UserWhereInput[] = [];
+//     const conditions: Prisma.UserWhereInput[] = [];
 
-    if (emailNormalized) {
-      conditions.push({ email: emailNormalized });
-    }
+//     if (emailNormalized) {
+//       conditions.push({ email: emailNormalized });
+//     }
 
-    if (phoneNormalized) {
-      conditions.push({ phone: phoneNormalized });
-    }
+//     if (phoneNormalized) {
+//       conditions.push({ phone: phoneNormalized });
+//     }
 
-    // check if user exists by phone OR email
-    const existing = await prisma.user.findFirst({
-      where: {
-        OR: conditions.length > 0 ? conditions : undefined,
-      },
-      select: { id: true, email: true, phone: true },
-    });
+//     // check if user exists by phone OR email
+//     const existing = await prisma.user.findFirst({
+//       where: {
+//         OR: conditions.length > 0 ? conditions : undefined,
+//       },
+//       select: { id: true, email: true, phone: true },
+//     });
 
-    if (existing) {
-      throw new Error(
-        "Akaunti tayari ipo na nambari hii ya simu/barua pepe. Tafadhali ingia badala yake."
-      );
-    }
+//     if (existing) {
+//       throw new Error(
+//         "Akaunti tayari ipo na nambari hii ya simu/barua pepe. Tafadhali ingia badala yake."
+//       );
+//     }
 
-    await prisma.$transaction(async (tx) => {
-      const newUser = await tx.user.create({
-        data: {
-          name: user.name,
-          email: user?.email || "",
-          phone: phoneNormalized,
-          location: user.country || "Tanzania",
-          // country: user.country || "Tanzania",
-          password: hashedPassword,
-          role: user.role,
-          isVerified: true, // OTP already verified on client
-        },
-      });
+//     await prisma.$transaction(async (tx) => {
+//       const newUser = await tx.user.create({
+//         data: {
+//           name: user.name,
+//           email: user?.email || "",
+//           phone: phoneNormalized,
+//           location: user.country || "Tanzania",
+//           // country: user.country || "Tanzania",
+//           password: hashedPassword,
+//           role: user.role,
+//           isVerified: true, // OTP already verified on client
+//         },
+//       });
 
-      //if a supplier is created, create a supplier profile as well
-      if (newUser.role === "SUPPLIER") {
-        await tx.supplier.create({
-          data: {
-            userId: newUser.id,
-            name: newUser.name,
-            email: newUser.email || "",
-            companyName: "New Supplier Co.",
-            location: "Dar es Salaam",
-            // nation: newUser.country || "Tanzania",
-            yearsActive: 1,
-            isVerified: false,
-            rating: 0,
-            deliveryRate: 0,
-          },
-        });
-      }
+//       //if a supplier is created, create a supplier profile as well
+//       if (newUser.role === "SUPPLIER") {
+//         await tx.supplier.create({
+//           data: {
+//             userId: newUser.id,
+//             name: newUser.name,
+//             email: newUser.email || "",
+//             companyName: "New Supplier Co.",
+//             location: "Dar es Salaam",
+//             // nation: newUser.country || "Tanzania",
+//             yearsActive: 1,
+//             isVerified: false,
+//             rating: 0,
+//             deliveryRate: 0,
+//           },
+//         });
+//       }
 
-      //if admi is created, create admin profile as well-but admin are not created this risky hahaha
-      // if (newUser.role === "ADMIN") {
-      //   await tx.supplier.create({
-      //     data: {
-      //       userId: newUser.id,
-      //       name: newUser.name,
-      //       email: newUser.email || "",
-      //       companyName: "New Supplier Co.",
-      //       location: "Dar es Salaam",
-      //       // nation: newUser.country || "Tanzania",
-      //       yearsActive: 1,
-      //       isVerified: false,
-      //       rating: 0,
-      //       deliveryRate: 0,
-      //     },
-      //   });
-      // }
-    });
+//       //if admi is created, create admin profile as well-but admin are not created this risky hahaha
+//       // if (newUser.role === "ADMIN") {
+//       //   await tx.supplier.create({
+//       //     data: {
+//       //       userId: newUser.id,
+//       //       name: newUser.name,
+//       //       email: newUser.email || "",
+//       //       companyName: "New Supplier Co.",
+//       //       location: "Dar es Salaam",
+//       //       // nation: newUser.country || "Tanzania",
+//       //       yearsActive: 1,
+//       //       isVerified: false,
+//       //       rating: 0,
+//       //       deliveryRate: 0,
+//       //     },
+//       //   });
+//       // }
+//     });
 
-    // await signIn("credentials", {
-    //   email: user.email,
-    //   password: plainPassword,
-    // });
+//     // await signIn("credentials", {
+//     //   email: user.email,
+//     //   password: plainPassword,
+//     // });
 
-    // Auto-login (your credentials provider expects "identifier")
-    await signIn("credentials", {
-      identifier: user?.email || phoneNormalized,
-      password: plainPassword,
-      redirect: true, // let client do the redirect using callbackUrl
-    });
+//     // Auto-login (your credentials provider expects "identifier")
+//     await signIn("credentials", {
+//       identifier: user?.email || phoneNormalized,
+//       password: plainPassword,
+//       redirect: true, // let client do the redirect using callbackUrl
+//     });
 
-    return { success: true, message: "User registered successfully" };
-  } catch (error) {
-    if (isRedirectError(error)) {
-      throw error;
-    }
-    return { success: false, message: formatError(error) };
-  }
-}
+//     return { success: true, message: "User registered successfully" };
+//   } catch (error) {
+//     if (isRedirectError(error)) {
+//       throw error;
+//     }
+//     return { success: false, message: formatError(error) };
+//   }
+// }
 
 // Get user by the ID
 export async function getUserById(userId: string) {

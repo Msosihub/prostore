@@ -4,40 +4,64 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const { identifier, token } = await req.json();
-  // console.log("Verifying OTP for:", identifier, token);
 
   const record = await prisma.verificationToken.findFirst({
     where: { identifier, token },
   });
-  // console.log("OTP Record Found:", record);
 
-  if (record === null) {
+  if (!record)
     return NextResponse.json({ success: false, message: "OTP si sahihi" });
-    // console.log("NO RECORD");
-  }
+
   if (record.expires < new Date())
     return NextResponse.json({
       success: false,
       message: "OTP imeisha muda wake",
     });
 
-  //soround with try catch finally
-  try {
-    // OTP valid → just delete the token (so it's one-time)
-    await prisma.verificationToken.delete({
-      where: { identifier_token: { identifier, token } },
-    });
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting OTP record:", error);
-    return NextResponse.json({ success: true });
-  } finally {
-    // console.log("OTP record deletion attempted.");
-    return NextResponse.json({ success: true });
-  }
+  await prisma.verificationToken.delete({
+    where: { identifier_token: { identifier, token } },
+  });
 
   return NextResponse.json({ success: true });
 }
+//commented out on march 2,2026  12:23am when changing to otp
+
+// export async function POST(req: Request) {
+//   const { identifier, token } = await req.json();
+//   // console.log("Verifying OTP for:", identifier, token);
+
+//   const record = await prisma.verificationToken.findFirst({
+//     where: { identifier, token },
+//   });
+//   // console.log("OTP Record Found:", record);
+
+//   if (record === null) {
+//     return NextResponse.json({ success: false, message: "OTP si sahihi" });
+//     // console.log("NO RECORD");
+//   }
+//   if (record.expires < new Date())
+//     return NextResponse.json({
+//       success: false,
+//       message: "OTP imeisha muda wake",
+//     });
+
+//   //soround with try catch finally
+//   try {
+//     // OTP valid → just delete the token (so it's one-time)
+//     await prisma.verificationToken.delete({
+//       where: { identifier_token: { identifier, token } },
+//     });
+//     return NextResponse.json({ success: true });
+//   } catch (error) {
+//     console.error("Error deleting OTP record:", error);
+//     return NextResponse.json({ success: true });
+//   } finally {
+//     // console.log("OTP record deletion attempted.");
+//     return NextResponse.json({ success: true });
+//   }
+
+//   return NextResponse.json({ success: true });
+// }
 
 // import { prisma } from "@/db/prisma";
 // import { NextResponse } from "next/server";

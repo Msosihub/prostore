@@ -29,6 +29,11 @@ export const authConfig = {
       // Check if user is not authenticated and accessing a protected path
       if (!auth && protectedPaths.some((p) => p.test(pathname))) return false;
 
+      // Always allow auth pages
+      if (pathname.startsWith("/sign-in") || pathname.startsWith("/api/auth")) {
+        return true;
+      }
+
       // Check for session cart cookie
       if (!request.cookies.get("sessionCartId")) {
         // Generate new session cart id cookie

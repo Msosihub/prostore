@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { formatNumberWithDecimal } from "./utils";
-import { EA_COUNTRIES, PAYMENT_METHODS } from "./constants";
+import { EA_COUNTRIES } from "./constants";
 // import { UserRole } from "@prisma/client";
 // import Decimal from "decimal.js";
 
@@ -177,14 +177,13 @@ export const insertReviewSchema = z.object({
 });
 
 // Schema for payment method
-export const paymentMethodSchema = z
-  .object({
-    type: z.string().min(1, "Payment method inahitajika"),
-  })
-  .refine((data) => PAYMENT_METHODS.includes(data.type), {
-    path: ["type"],
-    message: "Invalid payment method",
-  });
+export const paymentMethodSchema = z.object({
+  type: z.string().min(1, "Payment method inahitajika"),
+});
+// .refine((data) => PAYMENT_METHODS.includes(data.type), {
+//   path: ["type"],
+//   message: "Invalid payment method",
+// });
 
 // Schema for inserting order
 export const insertOrderSchema = z.object({
@@ -193,9 +192,10 @@ export const insertOrderSchema = z.object({
   shippingPrice: currency,
   taxPrice: currency,
   totalPrice: currency,
-  paymentMethod: z.string().refine((data) => PAYMENT_METHODS.includes(data), {
-    message: "Invalid payment method",
-  }),
+  paymentMethod: z.string(),
+  // .refine((data) => PAYMENT_METHODS.includes(data), {
+  //   message: "Invalid payment method",
+  // }),
   shippingAddress: shippingAddressSchema,
 });
 

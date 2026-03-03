@@ -182,6 +182,29 @@ export function normalizePhone(input: string, countryCode: string) {
   if (raw.startsWith(c.dial)) return `+${raw}`;
   return `+${c.dial}${raw}`;
 }
+//normalize phone number for tanzanian number only - otp way
+export function normalizeIdentifier(identifier: string) {
+  const trimmed = identifier.trim();
+
+  // If email → return lowercase email
+  if (trimmed.includes("@")) {
+    return trimmed.toLowerCase();
+  }
+
+  // Remove spaces
+  let phone = trimmed.replace(/\s+/g, "");
+
+  // Tanzania logic
+  if (phone.startsWith("0")) {
+    phone = "+255" + phone.slice(1);
+  }
+
+  if (phone.startsWith("255") && !phone.startsWith("+255")) {
+    phone = "+" + phone;
+  }
+
+  return phone;
+}
 
 import { ShippingAddress } from "@/types";
 

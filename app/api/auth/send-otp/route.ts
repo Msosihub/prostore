@@ -1,61 +1,70 @@
 // /api/auth/send-otp/route.ts
+
 import { prisma } from "@/db/prisma";
 import { sendSms } from "@/lib/africasTalking";
+import { normalizeIdentifier } from "@/lib/utils";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const { identifier } = await req.json(); // email or phone
-  if (!identifier)
-    return NextResponse.json({
-      success: false,
-      message: "Identifier required",
-    });
+  let { identifier } = await req.json();
+
+  if (!identifier || typeof identifier !== "string") {
+    return NextResponse.json(
+      { success: false, message: "Identifier required" },
+      { status: 400 }
+    );
+  }
+
+  identifier = normalizeIdentifier(identifier);
 
   const token = Math.floor(100000 + Math.random() * 900000).toString();
-  const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+  const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
   const existing = await prisma.verificationToken.findFirst({
     where: { identifier },
   });
 
-  if (existing && existing.attempts >= 3) {
-    const cooldown = new Date(existing.createdAt.getTime() + 15 * 60 * 1000);
-    // console.log("In Existing");
-    if (cooldown > new Date()) {
-      // console.log("Too many Requests");
-      return NextResponse.json({
-        success: false,
-        message: "Maombi mengi sana. Jaribu tena baadaye.",
-      });
+  if (existing) {
+    // 3 attempts max
+    if (existing.attempts >= 3) {
+      const cooldownEnd = new Date(
+        existing.createdAt.getTime() + 15 * 60 * 1000
+      );
+
+      if (cooldownEnd > new Date()) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Umezidisha maombi. Jaribu tena baada ya dakika 15.",
+          },
+          { status: 429 }
+        );
+      }
     }
+
+    // remove old token
+    await prisma.verificationToken.deleteMany({
+      where: { identifier },
+    });
   }
 
-  await prisma.verificationToken.upsert({
-    where: { identifier_token: { identifier, token: existing?.token ?? "" } },
-    update: {
-      token,
-      expires,
-      attempts: existing ? { increment: 1 } : 1,
-      createdAt: new Date(),
-    },
-    create: {
+  await prisma.verificationToken.create({
+    data: {
       identifier,
       token,
       expires,
-      attempts: 1,
+      attempts: existing ? existing.attempts + 1 : 1,
     },
   });
 
-  // send OTP
+  // Send OTP
   if (identifier.includes("@")) {
-    // await sendEmail(identifier, `Nambari yako ya uthibitisho ni ${token}`);
+    // TODO: sendEmail
   } else {
-    // console.log("OTP yako ni: ", token);
-    sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
+    await sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
   }
 
-  // console.log("SUccess sent otp");
-  return NextResponse.json({ success: true, message: "OTP sent successfully" });
+  return NextResponse.json({ success: true });
 }
 
 // async function sendSms(phone: string, message: string) {

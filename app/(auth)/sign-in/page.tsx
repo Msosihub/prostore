@@ -1,5 +1,5 @@
 // "use client";
-import SignInForm from "@/components/auth/SignInForm";
+import SignInFormOTP from "@/components/auth/SignInFormOTP";
 
 // export default function Page() {
 //   return (
@@ -57,13 +57,13 @@ const SignInPage = async (props: {
               priority={true}
             />
           </Link>
-          <CardTitle className="text-center">Ingia</CardTitle>
+          <CardTitle className="text-center">Ingia au Jisajili</CardTitle>
           <CardDescription className="text-center">
-            Ingia katika akaunt yako
+            Ingia au jisajili katika akaunt yako
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <SignInForm />
+          <SignInFormOTP />
         </CardContent>
       </Card>
     </div>
