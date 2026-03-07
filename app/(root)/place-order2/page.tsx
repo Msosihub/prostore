@@ -159,9 +159,9 @@ const PlaceOrderPage = ({
                     {userAddress.streetAddress}, {userAddress.city} ,{" "}
                     {userAddress.country}
                   </p>
-                  <p className="text-xs">
+                  <p className="text-xs text-orange-700">
                     Namba ya malipo:{" "}
-                    <span className="text-gray-800">{paymentPhone}</span>
+                    <span className="text-orange-900">{paymentPhone}</span>
                   </p>
                   <div className="mt-3">
                     {/* In buyNow we’ll show a Drawer Edit control (client component) */}
