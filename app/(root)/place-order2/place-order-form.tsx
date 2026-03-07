@@ -5,14 +5,21 @@ import { Check, Loader } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFormStatus } from "react-dom";
 import { createBuyNowOrder } from "@/lib/actions/order.actions";
+import { toast } from "@/hooks/use-toast";
 
 interface PlaceOrderFormProps {
   isBuyNow?: boolean;
   productId?: string | undefined | null;
   qty?: number;
+  payNumber?: string;
 }
 
-const PlaceOrderForm = ({ isBuyNow, productId, qty }: PlaceOrderFormProps) => {
+const PlaceOrderForm = ({
+  isBuyNow,
+  productId,
+  qty,
+  payNumber,
+}: PlaceOrderFormProps) => {
   const router = useRouter();
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -20,7 +27,15 @@ const PlaceOrderForm = ({ isBuyNow, productId, qty }: PlaceOrderFormProps) => {
 
     if (!isBuyNow || !productId) {
       // defensive: shouldn't happen on buy-now page
-      console.error("PlaceOrderForm: missing productId or not buy-now");
+      //console.error("PlaceOrderForm: missing productId or not buy-now");
+      return;
+    }
+    if (payNumber && payNumber?.length < 1) {
+      alert("");
+      toast({
+        title: "Wka namba ya malipo",
+        description: "Namba ya malipo ni lazima. Badili kwenye anuani",
+      });
       return;
     }
 

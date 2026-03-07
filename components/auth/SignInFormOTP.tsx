@@ -55,8 +55,8 @@ export default function SignInFormOTP() {
     }
 
     toast({
-      title: "OTP imetumwa",
-      description: "Angalia ujumbe wako",
+      title: "OTP imetumwa kwa sms",
+      description: "Utapokeea sms yenye OTP namba.",
     });
 
     setStep("otp");
@@ -92,7 +92,7 @@ export default function SignInFormOTP() {
       {step === "identifier" && (
         <>
           <div>
-            <Label>Simu au Email</Label>
+            <Label>Ingiza namba ya Simu yako</Label>
             <Input
               placeholder="+255xxxx au email"
               value={identifier}
@@ -101,7 +101,7 @@ export default function SignInFormOTP() {
           </div>
 
           <Button className="w-full" onClick={handleSendOtp} disabled={loading}>
-            {loading ? "Inatuma..." : "Tuma OTP"}
+            {loading ? "Inatuma..." : "Tuma OTP kunihakiki"}
           </Button>
         </>
       )}
@@ -109,9 +109,9 @@ export default function SignInFormOTP() {
       {step === "otp" && (
         <>
           <div>
-            <Label>Weka OTP</Label>
+            <Label>Jaza OTP uliyopokea kwa sms</Label>
             <Input
-              placeholder="123456"
+              placeholder="mfano 123456"
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
             />

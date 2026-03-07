@@ -59,7 +59,7 @@ const SignInPage = async (props: {
           </Link>
           <CardTitle className="text-center">Ingia au Jisajili</CardTitle>
           <CardDescription className="text-center">
-            Ingia au jisajili katika akaunt yako
+            Ingia au jisajili kuendelea
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

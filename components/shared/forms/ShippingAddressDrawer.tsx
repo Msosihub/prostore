@@ -28,7 +28,7 @@ export default function ShippingAddressDrawer({
     <Drawer open={open} onOpenChange={setOpen} direction="bottom">
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
       {/* <DrawerTitle>Mzigo unaenda wapi?</DrawerTitle> */}
-      <DrawerContent className="p-4 max-h-[90vh] overflow-y-auto">
+      <DrawerContent className="p-4 max-h-[90vh] overflow-y-auto pb-10 ">
         <ShippingAddressForm
           address={address}
           onSuccess={() => setOpen(false)}
