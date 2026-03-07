@@ -20,14 +20,18 @@ export async function POST(req: Request) {
     phone: string;
     fullName: string;
   };
-  const phoneNumber = formatTanzaniaPhonetToStarZero(
-    shipping.phone || order.user.phone || ""
+  // const phoneNumber = formatTanzaniaPhonetToStarZero(
+  //   shipping.phone || order.user.phone || ""
+  // );
+
+  const paymentPhone = formatTanzaniaPhonetToStarZero(
+    order.user.paymentPhone || ""
   );
   const payload = {
     order_id: order.id,
     buyer_email: order.user.email || "bmproductstz@gmail.com",
     buyer_name: shipping?.fullName,
-    buyer_phone: phoneNumber || "",
+    buyer_phone: paymentPhone || "",
     amount: Number(order.totalPrice),
     webhook_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/api/zenopay/webhook`,
   };

@@ -11,12 +11,12 @@ export default async function RootLayout({
   const session = await auth();
 
   // 🔒 Not logged in → go to sign in
-  if (!session) {
-    redirect("/sign-in");
-  }
+  // if (!session) {
+  //   redirect("/sign-in");
+  // }
 
   // 🧠 Logged in but not onboarded
-  if (!session.user?.name || session.user.name === "NO_NAME") {
+  if (session && session.user?.name === "NO_NAME") {
     redirect("/onboarding");
   }
 

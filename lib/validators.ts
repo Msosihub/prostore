@@ -161,6 +161,8 @@ export const shippingAddressSchema = z.object({
   country: z.string().min(3, "Nchi lazima iwe zaidi ya herufi 3"),
   lat: z.number().optional(),
   lng: z.number().optional(),
+  phone: z.string().min(10, "Ingiza namba sahihi"),
+  paymentPhone: z.string().min(10, "Ingiza namba sahihi"),
 });
 
 // Schema to insert reviews

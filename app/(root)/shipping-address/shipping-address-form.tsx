@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { ShippingAddress } from "@/types";
 import { shippingAddressSchema } from "@/lib/validators";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,6 +32,14 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
   });
 
   const [isPending, startTransition] = useTransition();
+  const [useSamePhone, setUseSamePhone] = useState(true);
+
+  useEffect(() => {
+    if (useSamePhone) {
+      const phone = form.getValues("phone");
+      form.setValue("paymentPhone", phone);
+    }
+  }, [useSamePhone, form]);
 
   const onSubmit: SubmitHandler<z.infer<typeof shippingAddressSchema>> = async (
     values
@@ -47,7 +55,8 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
         return;
       }
 
-      router.push("/payment-method");
+      //router.push("/payment-method");
+      router.push("/place-order");
     });
   };
 
@@ -89,6 +98,68 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                 )}
               />
             </div>
+
+            <div className="flex flex-col md:flex-row gap-5">
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem className="w-full">
+                    <FormLabel>Namba ya Simu (Kwa mawasiliano)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Mfano 07XXXXXXXX"
+                        {...field}
+                        onChange={(e) => {
+                          field.onChange(e);
+                          if (useSamePhone) {
+                            form.setValue("paymentPhone", e.target.value);
+                          }
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={useSamePhone}
+                onChange={(e) => setUseSamePhone(e.target.checked)}
+              />
+              <label className="text-sm text-muted-foreground">
+                Tumia namba hii pia kwa malipo
+              </label>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-5">
+              <FormField
+                control={form.control}
+                name="paymentPhone"
+                render={({ field }) => (
+                  <FormItem className="w-full">
+                    <FormLabel>Namba ya Malipo</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Mfano 07XXXXXXXX"
+                        {...field}
+                        disabled={useSamePhone}
+                      />
+                    </FormControl>
+
+                    <p className="text-xs text-muted-foreground">
+                      Namba hii itatumika kwa malipo ya M-Pesa / TigoPesa
+                    </p>
+
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <div className="flex flex-col md:flex-row gap-5">
               <FormField
                 control={form.control}
@@ -179,6 +250,7 @@ const ShippingAddressForm = ({ address }: { address: ShippingAddress }) => {
                       <Input
                         placeholder="Ingiza nchi mfano Tanzania"
                         {...field}
+                        defaultValue={"Tanzania"}
                       />
                     </FormControl>
                     <FormMessage />

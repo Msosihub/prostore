@@ -52,6 +52,7 @@ model User {
   email                 String?          @unique
   emailVerified         DateTime?        @db.Timestamp(6) //when vrifid us e now()
   phone                 String?          @unique
+  paymentPhone          String?
   phoneVerified         DateTime? //when vrifid us e now()
   whatsapp              String?
   role                  UserRole         @default(BUYER)
