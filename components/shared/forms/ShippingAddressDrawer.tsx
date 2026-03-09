@@ -27,14 +27,18 @@ export default function ShippingAddressDrawer({
   return (
     <Drawer open={open} onOpenChange={setOpen} direction="bottom">
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
-      {/* <DrawerTitle>Mzigo unaenda wapi?</DrawerTitle> */}
-      <DrawerContent className="p-4 max-h-[90vh] overflow-y-auto pb-10 ">
-        <ShippingAddressForm
-          address={address}
-          onSuccess={() => setOpen(false)}
-        />
+
+      <DrawerContent className="h-[90vh] flex flex-col">
+        <DrawerTitle className="px-4 pt-4">Mzigo unaenda wapi?</DrawerTitle>
+
+        {/* scrollable area */}
+        <div className="flex-1 overflow-y-auto px-4 pb-6">
+          <ShippingAddressForm
+            address={address}
+            onSuccess={() => setOpen(false)}
+          />
+        </div>
       </DrawerContent>
-      <DrawerTitle></DrawerTitle>
     </Drawer>
   );
 }

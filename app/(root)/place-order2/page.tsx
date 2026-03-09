@@ -22,6 +22,7 @@ import { formatCurrency, isShippingAddress } from "@/lib/utils";
 import PlaceOrderForm from "./place-order-form";
 import { use } from "react";
 import ShippingAddressDrawer from "@/components/shared/forms/ShippingAddressDrawer";
+// import { toast } from "@/hooks/use-toast";
 // import { Phone } from "lucide-react";
 // import PaymentMethodDrawer from "@/components/shared/forms/payment-form drawer";
 // import type { PageProps } from "next";
@@ -126,7 +127,7 @@ const PlaceOrderPage = ({
   // if (!user.paymentMethod && !isBuyNow) redirect("/payment-method");
 
   const userAddress = user.address as ShippingAddress | undefined;
-  const paymentPhone = user?.paymentPhone;
+  const paymentPhone = user?.paymentPhone || userAddress?.phone;
   // const paymentMethod = user.paymentMethod as string | undefined;
 
   return (
@@ -159,9 +160,9 @@ const PlaceOrderPage = ({
                     {userAddress.streetAddress}, {userAddress.city} ,{" "}
                     {userAddress.country}
                   </p>
-                  <p className="text-xs text-orange-700">
+                  <p className="text-xs text-blue-700">
                     Namba ya malipo:{" "}
-                    <span className="text-orange-900">{paymentPhone}</span>
+                    <span className="text-blue-700">{paymentPhone}</span>
                   </p>
                   <div className="mt-3">
                     {/* In buyNow we’ll show a Drawer Edit control (client component) */}
