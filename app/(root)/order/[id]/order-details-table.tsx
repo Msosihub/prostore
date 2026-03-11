@@ -14,6 +14,8 @@ import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
 import { Order } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
+import { useState } from "react";
+import { Loader } from "lucide-react";
 // import { useToast } from "@/hooks/use-toast";
 // import { useTransition } from "react";
 // import {
@@ -91,22 +93,32 @@ const OrderDetailsTable = ({
   //     description: res.message,
   //   });
   // };
+  const [paying, setPaying] = useState(false);
 
   const payWithZenopay = async () => {
-    const res = await fetch("/api/zenopay/create-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: order.id }),
-    });
+    try {
+      setPaying(true);
 
-    const data = await res.json();
+      const res = await fetch("/api/zenopay/create-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
 
-    if (data.success) {
-      alert(
-        "Maombi ya malipo yametumwa kwenye simu yako. Angalia simu na uweke password yako"
-      );
-    } else {
-      alert("Malipo yameshindikana kuanzishwa");
+      const data = await res.json();
+
+      if (data.success) {
+        alert(
+          "Maombi ya malipo yametumwa kwenye simu yako. Angalia simu na uweke password yako"
+        );
+      } else {
+        alert("Malipo yameshindikana kuanzishwa");
+      }
+    } catch (error) {
+      alert("Tatizo limetokea wakati wa kuanzisha malipo");
+      console.log(error);
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -160,48 +172,61 @@ const OrderDetailsTable = ({
 
   return (
     <>
-      <h1 className="py-4 text-2xl">Order {formatId(id)}</h1>
+      <h1 className="py-4 text-sm  md:text-lg">Order {formatId(id)}</h1>
       <div className="grid md:grid-cols-3 md:gap-5">
         <div className="col-span-2 space-4-y overlow-x-auto">
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Njia za malipo</h2>
-              <p className="mb-2">{paymentMethod}</p>
+              <h2 className="tex-sm md:text-lg pb-4">Njia za malipo</h2>
+              <p className="mb-2 text-xs text-blue-700">
+                {/* {paymentMethod} */}
+                Namba itakayolipa: {shippingAddress.paymentPhone}
+              </p>
               {isPaid ? (
                 <Badge variant="secondary">
                   Paid at {formatDateTime(paidAt!).dateTime}
                 </Badge>
               ) : (
-                <Badge variant="destructive">Haijalipiwa</Badge>
+                <Badge variant="destructive" className="text-xs">
+                  Haijalipiwa
+                </Badge>
               )}
             </CardContent>
           </Card>
           <Card className="my-2">
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Anuani ya mzigo</h2>
-              <p>{shippingAddress.fullName}</p>
-              <p className="mb-2">
+              <h2 className="txt-sm md:text-lg pb-4">Anuani ya mzigo</h2>
+              <p className="text-xs">{shippingAddress.fullName}</p>
+              <p className="mb-2 text-xs">
                 {shippingAddress.streetAddress}, {shippingAddress.city}
                 {/* {shippingAddress.postalCode} */}, {shippingAddress.country}
+              </p>
+              <p className="text-xs text-blue-700">
+                Namba ya malipo:{" "}
+                <span className="text-blue-700">
+                  {shippingAddress.paymentPhone}
+                </span>
               </p>
               {isDelivered ? (
                 <Badge variant="secondary">
                   Delivered at {formatDateTime(deliveredAt!).dateTime}
                 </Badge>
               ) : (
-                <Badge variant="destructive">Haujafika</Badge>
+                <Badge variant="destructive" className="text-xs">
+                  Haujafika
+                </Badge>
               )}
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 gap-4">
-              <h2 className="text-xl pb-4">Vitu ulivyoagiza</h2>
+              <h2 className="text-sm md:text-lg pb-4">Vitu ulivyoagiza</h2>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Bidhaa</TableHead>
-                    <TableHead>Idadi</TableHead>
-                    <TableHead className="text-center">Bei</TableHead>
+                    <TableHead className="text-xs">Bidhaa</TableHead>
+                    <TableHead className="text-xs">Idadi</TableHead>
+                    <TableHead className="text-center text-xs">Bei</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -218,14 +243,14 @@ const OrderDetailsTable = ({
                             width={50}
                             height={50}
                           />
-                          <span className="px-2">{item.name}</span>
+                          <span className="px-2 text-xs">{item.name}</span>
                         </Link>
                       </TableCell>
                       <TableCell>
-                        <span className="px-2">{item.qty}</span>
+                        <span className="px-2 text-xs">{item.qty}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        {formatCurrency(item.price)}Tsh
+                        {formatCurrency(item.price)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -234,29 +259,42 @@ const OrderDetailsTable = ({
             </CardContent>
           </Card>
         </div>
-        <div>
+        <div className="mt-2 md:mt-4">
           <Card>
             <CardContent className="p-4 gap-4 space-y-4">
               <div className="flex justify-between">
-                <div>Bidhaa</div>
-                <div>{formatCurrency(itemsPrice)}</div>
+                <div className="text-xs">Bidhaa</div>
+                <div className="text-xs">{formatCurrency(itemsPrice)}</div>
               </div>
               {/* <div className="flex justify-between">
                 <div>Tax</div>
                 <div>{formatCurrency(taxPrice)}</div>
               </div> */}
               <div className="flex justify-between">
-                <div>Anuani</div>
+                <div className="text-xs">Usafiri</div>
                 <div>{formatCurrency(shippingPrice)}</div>
               </div>
               <div className="flex justify-between">
-                <div>Jumla</div>
-                <div>{formatCurrency(totalPrice)}</div>
+                <div className="text-xs">Jumla</div>
+                <div className="text-xs">{formatCurrency(totalPrice)}</div>
               </div>
 
               {/* PESAPAL Payment !isPaid && paymentMethod === "Pesapal" */}
               {true && (
-                <Button onClick={payWithZenopay}> Lipa kwa Simu / Bank </Button>
+                <Button
+                  onClick={payWithZenopay}
+                  disabled={paying}
+                  className="w-full bg-green-600"
+                >
+                  {paying ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin mr-2" />
+                      Subiri kidogo ...
+                    </>
+                  ) : (
+                    <>Lipa kwa Simu</>
+                  )}
+                </Button>
 
                 // <Button
                 //   onClick={async () => {

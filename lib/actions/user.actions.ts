@@ -236,7 +236,7 @@ export async function updateUserAddress(data: ShippingAddress) {
     await prisma.user.update({
       where: { id: currentUser.id },
       data: {
-        address: addressData,
+        address: { ...addressData, paymentPhone },
         paymentPhone: paymentPhone,
       },
     });

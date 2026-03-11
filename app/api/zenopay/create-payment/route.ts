@@ -6,6 +6,8 @@ import { formatTanzaniaPhonetToStarZero } from "@/lib/utils";
 export async function POST(req: Request) {
   const { orderId } = await req.json();
 
+  console.log("ORDER ID CREAYTED: ", orderId);
+
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: { orderitems: true, user: true },
@@ -27,6 +29,8 @@ export async function POST(req: Request) {
   const paymentPhone = formatTanzaniaPhonetToStarZero(
     order.user.paymentPhone || ""
   );
+
+  console.log("paymeent number: ", paymentPhone);
   const payload = {
     order_id: order.id,
     buyer_email: order.user.email || "bmproductstz@gmail.com",

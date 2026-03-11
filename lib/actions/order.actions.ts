@@ -137,9 +137,13 @@ export async function createBuyNowOrder({
     //   };
     // }
 
+    console.log("There we are creating order");
+
     const product = await prisma.product.findUnique({
       where: { id: productId },
     });
+    console.log("Product: ", product);
+
     if (!product) return { success: false, message: "Product not found" };
     if (Number(product.stock) < qty)
       return { success: false, message: "Not enough stock" };
@@ -160,6 +164,7 @@ export async function createBuyNowOrder({
       taxPrice: "0",
       totalPrice: (Number(product.price) * qty).toString(),
     };
+    console.log("Usser: ", user);
 
     const order = insertOrderSchema.parse({
       userId,
@@ -186,6 +191,7 @@ export async function createBuyNowOrder({
           },
         });
       }
+      console.log("Inserted order id: ", insertedOrder.id);
       return insertedOrder.id;
     });
 
@@ -195,6 +201,7 @@ export async function createBuyNowOrder({
       redirectTo: `/order/${insertedOrderId}`,
     };
   } catch (error) {
+    console.log("The error: ", error);
     if (isRedirectError(error)) throw error;
     return { success: false, message: formatError(error) };
   }
