@@ -68,6 +68,10 @@ const Header = () => {
         </div>
         <CategoryDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
       </div>
+      <meta
+        name="facebook-domain-verification"
+        content="dtkvz6zwyad5k4ajwu03ig48hkxcxn"
+      />
     </header>
   );
 };

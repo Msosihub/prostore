@@ -17,6 +17,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
+  // // 🚨 Prevent duplicate mobile money requests
+  // if (order.paymentStatus === "PENDING") {
+  //   return NextResponse.json({
+  //     success: true,
+  //     message: "Payment already pending. Check your phone.",
+  //   });
+  // }
+
   const shipping = order.shippingAddress as {
     city: string;
     phone: string;

@@ -289,7 +289,7 @@ const OrderDetailsTable = ({
                   {paying ? (
                     <>
                       <Loader className="w-4 h-4 animate-spin mr-2" />
-                      Subiri kidogo ...
+                      Inasubiri uthibitisho wa malipo... Angalia simu yako.
                     </>
                   ) : (
                     <>Lipa kwa Simu</>
