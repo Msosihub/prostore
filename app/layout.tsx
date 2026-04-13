@@ -19,6 +19,9 @@ export const metadata: Metadata = {
   },
   description: APP_DESCRIPTION,
   metadataBase: new URL(SERVER_URL),
+  other: {
+    "facebook-domain-verification": "dtkvz6zwyad5k4ajwu03ig48hkxcxn",
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +31,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta
+          name="facebook-domain-verification"
+          content="dtkvz6zwyad5k4ajwu03ig48hkxcxn"
+        />
+      </head>
       <body
         className={`${inter.className} antialiased overflow-x-hidden overflow-y-auto w-full max-w-full`}
       >
