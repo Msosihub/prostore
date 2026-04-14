@@ -1,6 +1,8 @@
+import { SYSTEM_PROMPT } from "@/lib/constants";
 import { NextResponse } from "next/server";
 
-const VERIFY_TOKEN = "bm_verify_token_123";
+// 👉 YOU WILL ADD THIS
+// const SYSTEM_PROMPT = SYSTEM_PROMPT;
 
 type Steps = {
   step: string;
@@ -17,7 +19,7 @@ type LeadData = {
   location?: string;
 };
 
-// 🧠 TEMP MEMORY (we upgrade later)
+// 🧠 TEMP MEMORY
 const userState: Record<string, Steps> = {};
 
 // 🔹 VERIFY WEBHOOK
@@ -28,7 +30,7 @@ export async function GET(req: Request) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN) {
+  if (mode === "subscribe" && token === process.env.VERIFY_TOKEN) {
     return new Response(challenge, { status: 200 });
   }
 
@@ -62,70 +64,56 @@ export async function POST(req: Request) {
 // 🧠 BOT LOGIC
 async function handleMessage(from: string, text: string) {
   if (!userState[from]) {
-    userState[from] = { step: "menu" };
-
-    return sendMessage(
-      from,
-      `Karibu BM Contractors 👷‍♂️
-
-Chagua huduma:
-1️⃣ CCTV Installation
-2️⃣ Solar Cameras
-3️⃣ Electric Fence
-4️⃣ Access Control
-5️⃣ Get Quotation
-6️⃣ Ongea na Muhudumu wetu`
-    );
+    userState[from] = { step: "collecting" };
   }
 
   const state = userState[from];
 
-  // MAIN MENU
-  if (state.step === "menu") {
-    if (text === "1") {
-      state.step = "cctv_type";
+  // 🧠 SINGLE AI CALL (parse + reply)
+  const ai = await processMessage(text);
 
-      return sendMessage(
-        from,
-        `Umechagua CCTV 📹
+  if (!ai) {
+    return sendMessage(from, "Samahani, nieleze tena tafadhali 🙏");
+  }
 
-1️⃣ Nyumbani
-2️⃣ Biashara`
-      );
+  // 🔧 Normalize service
+  const service = normalizeService(ai.service);
+
+  // 🧠 STORE DATA
+  if (service && service !== "Unknown") {
+    state.step = service;
+  }
+
+  if (ai.type && ai.type !== "Unknown") {
+    state.type = ai.type;
+  }
+
+  if (ai.quantity) {
+    state.quantity = ai.quantity.toString();
+  }
+
+  // 📍 SIMPLE LOCATION DETECTION
+  if (!state.location && text.length > 2 && !ai.quantity) {
+    if (text.length < 30) {
+      state.location = text;
     }
-
-    if (text === "6") {
-      return sendMessage(
-        from,
-        "Tafadhali subiri, tunakuunganisha na muhudumu wetu 🙏"
-      );
-    }
   }
 
-  // CCTV TYPE
-  if (state.step === "cctv_type") {
-    state.type = text === "1" ? "Home" : "Business";
-    state.step = "cctv_quantity";
+  // 📤 SEND AI REPLY (ONLY ONCE)
+  await sendMessage(from, ai.reply);
 
-    return sendMessage(from, "Ni cameras ngapi unahitaji?");
-  }
-
-  // QUANTITY
-  if (state.step === "cctv_quantity") {
-    state.quantity = text;
-    state.step = "location";
-
-    return sendMessage(from, "Location yako ni wapi?");
-  }
-
-  // LOCATION
-  if (state.step === "location") {
-    state.location = text;
-    state.step = "done";
-
+  // 🎯 CREATE LEAD IF COMPLETE
+  if (
+    state.step &&
+    state.type &&
+    state.quantity &&
+    state.location &&
+    state.step !== "collecting" &&
+    state.step !== "done"
+  ) {
     const leadData = {
       phone: from,
-      service: "CCTV",
+      service: state.step,
       type: state.type,
       quantity: state.quantity,
       location: state.location,
@@ -133,18 +121,29 @@ Chagua huduma:
 
     await createFrappeLead(leadData);
 
+    state.step = "done";
+
     setTimeout(() => {
       sendMessage(
         from,
-        "Bado unahitaji huduma? Tunaweza kukusaidia kuchagua solution sahihi 👍"
+        "Bado unahitaji msaada wowote? Nipo hapa kukusaidia 👍"
       );
-    }, 20 * 1000); //  hour 60*60*1000
-
-    return sendMessage(
-      from,
-      "Asante! Tumepokea maombi yako. Tutakutumia quotation hivi karibuni 🙏"
-    );
+    }, 20000);
   }
+}
+
+// 🔧 NORMALIZE SERVICE
+function normalizeService(service?: string) {
+  if (!service) return undefined;
+
+  const s = service.toLowerCase();
+
+  if (s.includes("cctv")) return "CCTV";
+  if (s.includes("solar")) return "Solar Camera";
+  if (s.includes("fence")) return "Electric Fence";
+  if (s.includes("access")) return "Access Control";
+
+  return "Unknown";
 }
 
 // 📤 SEND MESSAGE
@@ -164,7 +163,7 @@ async function sendMessage(to: string, message: string) {
   });
 }
 
-//this sends lead data to Frappe
+// 📥 CREATE FRAPPE LEAD
 async function createFrappeLead(data: LeadData) {
   const response = await fetch(
     "https://kojean.bmsounds.online/api/resource/Lead",
@@ -185,9 +184,9 @@ async function createFrappeLead(data: LeadData) {
         source: "WhatsApp",
 
         description: `
-CCTV Request
+Service: ${data.service}
 Type: ${data.type}
-Cameras: ${data.quantity}
+Quantity: ${data.quantity}
 Location: ${data.location}
         `,
       }),
@@ -196,4 +195,39 @@ Location: ${data.location}
 
   const result = await response.json();
   console.log("Frappe Lead:", result);
+}
+
+// 🤖 AI (SINGLE CALL: PARSE + REPLY)
+async function processMessage(text: string) {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: SYSTEM_PROMPT,
+        },
+        {
+          role: "user",
+          content: text,
+        },
+      ],
+    }),
+  });
+
+  const data = await res.json();
+  const output = data.choices[0].message.content;
+
+  try {
+    return JSON.parse(output);
+  } catch (e) {
+    console.error("AI Parse Error:", output);
+    console.error("AI Parse Error Full: ", e);
+    return null;
+  }
 }
