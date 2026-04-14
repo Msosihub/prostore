@@ -170,7 +170,7 @@ async function createFrappeLead(data: LeadData) {
       body: JSON.stringify({
         lead_name: "WhatsApp Lead",
         mobile_no: data.phone,
-        notes: `
+        description: `
 Service: ${data.service}
 Type: ${data.type}
 Quantity: ${data.quantity}
