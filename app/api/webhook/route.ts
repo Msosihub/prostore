@@ -133,6 +133,13 @@ Chagua huduma:
 
     await createFrappeLead(leadData);
 
+    setTimeout(() => {
+      sendMessage(
+        from,
+        "Bado unahitaji huduma? Tunaweza kukusaidia kuchagua solution sahihi 👍"
+      );
+    }, 20 * 1000); //  hour 60*60*1000
+
     return sendMessage(
       from,
       "Asante! Tumepokea maombi yako. Tutakutumia quotation hivi karibuni 🙏"
