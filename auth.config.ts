@@ -25,6 +25,7 @@ export const authConfig = {
       const { pathname } = request.nextUrl;
       // ✅ Skip protection for public API routes
       if (pathname.startsWith("/api/suppliers/scroll")) return true;
+      if (pathname.startsWith("/api/webhook")) return true;
 
       // Check if user is not authenticated and accessing a protected path
       if (!auth && protectedPaths.some((p) => p.test(pathname))) return false;
