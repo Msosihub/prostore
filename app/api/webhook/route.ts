@@ -145,7 +145,7 @@ async function sendMessage(to: string, message: string) {
   await fetch("https://graph.facebook.com/v19.0/1024384557431480/messages", {
     method: "POST",
     headers: {
-      Authorization: `Bearer EAANT0qchFYgBRO7tLotddagfyTKdnCD0pVhmUJ34HHPKQGUXDV6h6froytQbzhMYr8QT0NHna7ojZAfLZB5HOrw25gHu49N66LjQUzHQfjNhOiJkctEaCU9tYZCPRHdhksgCONjusk2xrzz7ILSvAvEFDWFWD9tLVClOmh7kBCeRpgqNFAOo2LV3odZCRc83ZADaz5R0faw87znVp9lkdWZAWSvJAyjBZB4fNHHITC6`,
+      Authorization: `Bearer ${process.env.METTA_ACCESS_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -165,7 +165,7 @@ async function createFrappeLead(data: LeadData) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `token ddb76402a39fde2:2fffc0d530a1fc5`,
+        Authorization: `token  ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_API_SECRET}`,
       },
       body: JSON.stringify({
         lead_name: "WhatsApp Lead",
