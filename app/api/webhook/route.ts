@@ -170,10 +170,17 @@ async function createFrappeLead(data: LeadData) {
       body: JSON.stringify({
         lead_name: "WhatsApp Lead",
         mobile_no: data.phone,
+
+        custom_service: data.service,
+        custom_service_type: data.type,
+        custom_quantity: parseInt(data.quantity || "0"),
+        custom_location: data.location,
+        source: "WhatsApp",
+
         description: `
-Service: ${data.service}
+CCTV Request
 Type: ${data.type}
-Quantity: ${data.quantity}
+Cameras: ${data.quantity}
 Location: ${data.location}
         `,
       }),
