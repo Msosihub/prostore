@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 
 const VERIFY_TOKEN = "bm_verify_token_123";
 
+type Steps = {
+  step: string;
+  type?: string;
+  location?: string;
+  quantity?: string;
+};
+
 // 🧠 TEMP MEMORY (we upgrade later)
-const userState: Record<string, any> = {};
+const userState: Record<string, Steps> = {};
 
 // 🔹 VERIFY WEBHOOK
 export async function GET(req: Request) {
