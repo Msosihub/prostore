@@ -9,6 +9,14 @@ type Steps = {
   quantity?: string;
 };
 
+type LeadData = {
+  phone?: string;
+  service?: string;
+  type?: string;
+  quantity?: string;
+  location?: string;
+};
+
 // 🧠 TEMP MEMORY (we upgrade later)
 const userState: Record<string, Steps> = {};
 
@@ -115,9 +123,20 @@ Chagua huduma:
     state.location = text;
     state.step = "done";
 
-    console.log("🔥 LEAD CAPTURED:", state);
+    const leadData = {
+      phone: from,
+      service: "CCTV",
+      type: state.type,
+      quantity: state.quantity,
+      location: state.location,
+    };
 
-    return sendMessage(from, "Asante! Tutakutumia quotation hivi karibuni 🙏");
+    await createFrappeLead(leadData);
+
+    return sendMessage(
+      from,
+      "Asante! Tumepokea maombi yako. Tutakutumia quotation hivi karibuni 🙏"
+    );
   }
 }
 
@@ -136,4 +155,31 @@ async function sendMessage(to: string, message: string) {
       text: { body: message },
     }),
   });
+}
+
+//this sends lead data to Frappe
+async function createFrappeLead(data: LeadData) {
+  const response = await fetch(
+    "https://kojean.bmsounds.online/api/resource/Lead",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `token ddb76402a39fde2:2fffc0d530a1fc5`,
+      },
+      body: JSON.stringify({
+        lead_name: "WhatsApp Lead",
+        mobile_no: data.phone,
+        notes: `
+Service: ${data.service}
+Type: ${data.type}
+Quantity: ${data.quantity}
+Location: ${data.location}
+        `,
+      }),
+    }
+  );
+
+  const result = await response.json();
+  console.log("Frappe Lead:", result);
 }
