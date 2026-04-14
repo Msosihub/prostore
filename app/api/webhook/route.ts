@@ -165,7 +165,7 @@ async function createFrappeLead(data: LeadData) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `token  ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_API_SECRET}`,
+        Authorization: `token ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_API_SECRET}`,
       },
       body: JSON.stringify({
         lead_name: "WhatsApp Lead",
