@@ -278,6 +278,10 @@ async function detectIntent(phone: string) {
                   }
 
                   Rules:
+                  - NO greetings
+                  - NO explanations
+                  - NO Swahili replies
+                  - ONLY JSON
                   - confirmed = true ONLY if user clearly decided
                   - If unsure → confirmed = false
                   - If no action → intent = none
