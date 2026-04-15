@@ -1,15 +1,10 @@
+import { prisma } from "@/db/prisma";
+import { sendSms } from "@/lib/africasTalking";
 import { SYSTEM_PROMPT } from "@/lib/constants";
 import { NextResponse } from "next/server";
 
 // 👉 YOU WILL ADD THIS
 // const SYSTEM_PROMPT = SYSTEM_PROMPT;
-
-type Steps = {
-  step: string;
-  type?: string;
-  location?: string;
-  quantity?: string;
-};
 
 type LeadData = {
   phone?: string;
@@ -18,9 +13,6 @@ type LeadData = {
   quantity?: string;
   location?: string;
 };
-
-// 🧠 TEMP MEMORY
-const userState: Record<string, Steps> = {};
 
 // 🔹 VERIFY WEBHOOK
 export async function GET(req: Request) {
@@ -56,6 +48,11 @@ export async function POST(req: Request) {
 
   console.log("User:", from, "Message:", text);
 
+  if (!text) {
+    //incase user sends imaes and such that is not text
+    return sendMessage(from, "Tafadhali tuma ujumbe wa maandishi 🙏");
+  }
+
   await handleMessage(from, text);
 
   return NextResponse.json({ status: "ok" });
@@ -63,87 +60,75 @@ export async function POST(req: Request) {
 
 // 🧠 BOT LOGIC
 async function handleMessage(from: string, text: string) {
-  if (!userState[from]) {
-    userState[from] = { step: "collecting" };
-  }
-
-  const state = userState[from];
-
   // 🧠 SINGLE AI CALL (parse + reply)
-  const ai = await processMessage(text);
+  const reply = await processMessage(from, text);
 
-  if (!ai) {
+  if (!reply) {
     return sendMessage(from, "Samahani, nieleze tena tafadhali 🙏");
   }
 
-  // 🔧 Normalize service
-  const service = normalizeService(ai.service);
+  await sendMessage(from, reply);
 
-  // 🧠 STORE DATA
-  if (service && service !== "Unknown") {
-    state.step = service;
-  }
+  // 🔍 Detect intent (hidden)
+  const intentData = await detectIntent(from);
 
-  if (ai.type && ai.type !== "Unknown") {
-    state.type = ai.type;
-  }
+  if (!intentData) return;
 
-  if (ai.quantity) {
-    state.quantity = ai.quantity.toString();
-  }
+  console.log("Intent:", intentData);
 
-  // 📍 SIMPLE LOCATION DETECTION
-  if (!state.location && text.length > 2 && !ai.quantity) {
-    if (text.length < 30) {
-      state.location = text;
-    }
-  }
+  // 🚫 Only act if CONFIRMED
+  if (!intentData.confirmed) return;
 
-  // 📤 SEND AI REPLY (ONLY ONCE)
-  await sendMessage(from, ai.reply);
+  const service = intentData.service;
+  if (!service || service === "Unknown") return;
 
-  // 🎯 CREATE LEAD IF COMPLETE
-  if (
-    state.step &&
-    state.type &&
-    state.quantity &&
-    state.location &&
-    state.step !== "collecting" &&
-    state.step !== "done"
-  ) {
+  // 🔎 Check if lead exists
+  const existing = await getLeadLink(from, service);
+
+  // 🆕 CREATE NEW LEAD
+  if (intentData.intent === "new_lead" && !existing) {
     const leadData = {
       phone: from,
-      service: state.step,
-      type: state.type,
-      quantity: state.quantity,
-      location: state.location,
+      service,
+      quantity: intentData.changes?.quantity?.toString(),
+      location: intentData.changes?.location,
     };
 
-    await createFrappeLead(leadData);
+    const res = await createFrappeLead(leadData);
 
-    state.step = "done";
+    if (res?.data?.name) {
+      await saveLeadLink(from, service, res.data.name);
+    }
 
-    setTimeout(() => {
-      sendMessage(
-        from,
-        "Bado unahitaji msaada wowote? Nipo hapa kukusaidia 👍"
-      );
-    }, 20000);
+    await notifyTeam({
+      phone: from,
+      service,
+      quantity: intentData.changes?.quantity,
+      location: intentData.changes?.location,
+    });
   }
-}
 
-// 🔧 NORMALIZE SERVICE
-function normalizeService(service?: string) {
-  if (!service) return undefined;
+  // 🔁 UPDATE LEAD
+  if (intentData.intent === "update_lead" && existing) {
+    await updateFrappeLead(existing.leadName, intentData.changes);
+  }
 
-  const s = service.toLowerCase();
+  // ❌ CANCEL LEAD
+  if (intentData.intent === "cancel" && existing) {
+    await cancelFrappeLead(existing.leadName);
+  }
 
-  if (s.includes("cctv")) return "CCTV";
-  if (s.includes("solar")) return "Solar Camera";
-  if (s.includes("fence")) return "Electric Fence";
-  if (s.includes("access")) return "Access Control";
+  const qty = intentData.changes?.quantity || 0;
 
-  return "Unknown";
+  const isHot =
+    intentData.intent === "new_lead" && intentData.confirmed && qty >= 4;
+
+  if (isHot) {
+    await sendMessage(
+      from,
+      "Sawa Boss 👍 nakupangia fundi wetu akupigie muda si mrefu"
+    );
+  }
 }
 
 // 📤 SEND MESSAGE
@@ -195,10 +180,17 @@ Location: ${data.location}
 
   const result = await response.json();
   console.log("Frappe Lead:", result);
+  return result;
 }
 
-// 🤖 AI (SINGLE CALL: PARSE + REPLY)
-async function processMessage(text: string) {
+async function processMessage(phone: string, text: string) {
+  // 1. Save user message
+  await saveMessage(phone, "user", text);
+
+  // 2. Load history
+  const history = await getConversation(phone);
+
+  // 3. Send to AI
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -212,22 +204,159 @@ async function processMessage(text: string) {
           role: "system",
           content: SYSTEM_PROMPT,
         },
-        {
-          role: "user",
-          content: text,
-        },
+        ...history,
       ],
     }),
   });
 
   const data = await res.json();
-  const output = data.choices[0].message.content;
+  const reply = data.choices?.[0]?.message?.content;
+
+  if (!reply) return null;
+
+  // 4. Save assistant reply
+  await saveMessage(phone, "assistant", reply);
+
+  return reply;
+}
+
+async function saveMessage(
+  phone: string,
+  role: "user" | "assistant",
+  content: string
+) {
+  await prisma.botMessage.create({
+    data: {
+      phone,
+      role,
+      content,
+    },
+  });
+}
+
+async function getConversation(phone: string) {
+  const messages = await prisma.botMessage.findMany({
+    where: { phone },
+    orderBy: { createdAt: "asc" },
+    take: 20, // last 20 messages
+  });
+
+  return messages.map((msg) => ({
+    role: msg.role,
+    content: msg.content,
+  }));
+}
+
+//👉 This is a SECOND AI call (hidden) — not for replying, only for decision making.
+async function detectIntent(phone: string) {
+  const history = await getConversation(phone);
+
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4.1-mini",
+      messages: [
+        {
+          role: "system",
+          content: `
+                  You analyze WhatsApp conversations for a security company.
+
+                  Return JSON ONLY no words before it or after it ina any way, no "ok" no nothing, STRICTLY:
+
+                  {
+                    "intent": "new_lead | update_lead | cancel | none",
+                    "service": "CCTV | Solar Camera | Electric Fence | Access Control | Unknown",
+                    "confirmed": true | false,
+                    "changes": {
+                      "quantity": number | null,
+                      "location": string | null
+                    }
+                  }
+
+                  Rules:
+                  - confirmed = true ONLY if user clearly decided
+                  - If unsure → confirmed = false
+                  - If no action → intent = none
+                  Return JSON ONLY no words before it or after it ina any way, no "ok" no nothing, STRICTLY
+          `,
+        },
+        ...history,
+      ],
+    }),
+  });
+
+  const data = await res.json();
+  const output = data.choices?.[0]?.message?.content;
 
   try {
     return JSON.parse(output);
-  } catch (e) {
-    console.error("AI Parse Error:", output);
-    console.error("AI Parse Error Full: ", e);
+  } catch {
+    console.log("Intent parse failed:", output);
     return null;
   }
+}
+
+async function saveLeadLink(phone: string, service: string, leadName: string) {
+  await prisma.leadLink.create({
+    data: {
+      phone,
+      service,
+      leadName,
+    },
+  });
+}
+
+async function getLeadLink(phone: string, service: string) {
+  return prisma.leadLink.findFirst({
+    where: { phone, service },
+  });
+}
+
+async function updateFrappeLead(
+  leadName: string,
+  changes: { quantity?: number; location?: string }
+) {
+  await fetch(`https://kojean.bmsounds.online/api/resource/Lead/${leadName}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `token ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_API_SECRET}`,
+    },
+    body: JSON.stringify({
+      custom_quantity: changes.quantity ?? undefined,
+      custom_location: changes.location,
+    }),
+  });
+}
+
+async function cancelFrappeLead(leadName: string) {
+  await fetch(`https://kojean.bmsounds.online/api/resource/Lead/${leadName}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `token ${process.env.FRAPPE_API_KEY}:${process.env.FRAPPE_API_SECRET}`,
+    },
+    body: JSON.stringify({
+      status: "Lost",
+    }),
+  });
+}
+
+async function notifyTeam(data: {
+  phone: string;
+  service: string;
+  quantity?: number;
+  location?: string;
+}) {
+  const message = `NEW LEAD
+  Service: ${data.service}
+  Qty: ${data.quantity || "-"}
+  Location: ${data.location || "-"}
+  Phone: ${data.phone}`;
+
+  await sendSms("+255760111880", message);
 }

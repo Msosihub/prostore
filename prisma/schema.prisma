@@ -587,3 +587,20 @@ enum DocumentStatus {
   APPROVED
   REJECTED
 }
+
+//Chat AI Models
+model BotMessage {
+  id        String   @id @default(uuid())
+  phone     String
+  role      String // "user" | "assistant"
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model LeadLink {
+  id        String   @id @default(uuid())
+  phone     String
+  service   String
+  leadName  String // Frappe Lead ID
+  createdAt DateTime @default(now())
+}
