@@ -71,6 +71,7 @@ async function handleMessage(from: string, text: string) {
 
   // 🔍 Detect intent (hidden)
   const intentData = await detectIntent(from);
+  console.log("STEP 1: intentData", intentData);
 
   if (!intentData) return;
 
