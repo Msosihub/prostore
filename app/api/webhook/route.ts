@@ -120,29 +120,31 @@ async function handleMessage(from: string, text: string) {
 
   const qty = intentData.changes?.quantity || 0;
 
+  const leadLink = existing || (await getLeadLink(from, service));
+
   if (
     intentData.intent === "new_lead" &&
     intentData.confirmed &&
     qty >= 4 &&
-    existing &&
-    !existing.notified
+    leadLink &&
+    !leadLink.notified
   ) {
     await sendMessage(
       from,
       "Sawa 👍 nakupangia fundi wetu akupigie muda si mrefu"
     );
 
-    // notify team (SMS)
-    await notifyTeam({
-      phone: from,
-      service,
-      quantity: qty,
-      location: intentData.changes?.location,
-    });
+    // // notify team (SMS)
+    // await notifyTeam({
+    //   phone: from,
+    //   service,
+    //   quantity: qty,
+    //   location: intentData.changes?.location,
+    // });
 
     // mark as notified
     await prisma.leadLink.update({
-      where: { id: existing.id },
+      where: { id: existing?.id },
       data: { notified: true },
     });
   }
