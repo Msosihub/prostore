@@ -86,26 +86,51 @@ async function handleMessage(from: string, text: string) {
   const existing = await getLeadLink(from, service);
 
   // 🆕 CREATE NEW LEAD
-  if (intentData.intent === "new_lead" && !existing) {
-    const leadData = {
-      phone: from,
-      service,
-      quantity: intentData.changes?.quantity?.toString(),
-      location: intentData.changes?.location,
-    };
+  if (intentData.intent === "new_lead") {
+    let leadLink = await getLeadLink(from, service);
 
-    const res = await createFrappeLead(leadData);
+    // 👉 CREATE if not exists
+    if (!leadLink) {
+      const leadData = {
+        phone: from,
+        service,
+        quantity: intentData.changes?.quantity?.toString(),
+        location: intentData.changes?.location,
+      };
 
-    if (res?.data?.name) {
-      await saveLeadLink(from, service, res.data.name);
+      const res = await createFrappeLead(leadData);
+
+      if (res?.data?.name) {
+        leadLink = await prisma.leadLink.create({
+          data: {
+            phone: from,
+            service,
+            leadName: res.data.name,
+            notified: false,
+          },
+        });
+      }
     }
 
-    await notifyTeam({
-      phone: from,
-      service,
-      quantity: intentData.changes?.quantity,
-      location: intentData.changes?.location,
-    });
+    // 👉 NOTIFY ONLY ONCE
+    if (leadLink && !leadLink.notified) {
+      await sendMessage(
+        from,
+        "Sawa 👍 nakupangia fundi wetu akupigie muda si mrefu"
+      );
+
+      await notifyTeam({
+        phone: from,
+        service,
+        quantity: intentData.changes?.quantity,
+        location: intentData.changes?.location,
+      });
+
+      await prisma.leadLink.update({
+        where: { id: leadLink.id },
+        data: { notified: true },
+      });
+    }
   }
 
   // 🔁 UPDATE LEAD
@@ -116,37 +141,6 @@ async function handleMessage(from: string, text: string) {
   // ❌ CANCEL LEAD
   if (intentData.intent === "cancel" && existing) {
     await cancelFrappeLead(existing.leadName);
-  }
-
-  const qty = intentData.changes?.quantity || 0;
-
-  const leadLink = existing || (await getLeadLink(from, service));
-
-  if (
-    intentData.intent === "new_lead" &&
-    intentData.confirmed &&
-    qty >= 4 &&
-    leadLink &&
-    !leadLink.notified
-  ) {
-    await sendMessage(
-      from,
-      "Sawa 👍 nakupangia fundi wetu akupigie muda si mrefu"
-    );
-
-    // // notify team (SMS)
-    // await notifyTeam({
-    //   phone: from,
-    //   service,
-    //   quantity: qty,
-    //   location: intentData.changes?.location,
-    // });
-
-    // mark as notified
-    await prisma.leadLink.update({
-      where: { id: existing?.id },
-      data: { notified: true },
-    });
   }
 }
 
@@ -323,15 +317,15 @@ async function detectIntent(phone: string) {
   }
 }
 
-async function saveLeadLink(phone: string, service: string, leadName: string) {
-  await prisma.leadLink.create({
-    data: {
-      phone,
-      service,
-      leadName,
-    },
-  });
-}
+// async function saveLeadLink(phone: string, service: string, leadName: string) {
+//   await prisma.leadLink.create({
+//     data: {
+//       phone,
+//       service,
+//       leadName,
+//     },
+//   });
+// }
 
 async function getLeadLink(phone: string, service: string) {
   return prisma.leadLink.findFirst({
