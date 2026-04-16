@@ -180,7 +180,7 @@ async function createFrappeLead(data: LeadData) {
         custom_service_type: data.type,
         custom_quantity: parseInt(data.quantity || "0"),
         custom_location: data.location,
-        source: "WhatsApp",
+        //source: "WhatsApp",
 
         description: `
 Service: ${data.service}
