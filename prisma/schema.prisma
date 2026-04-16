@@ -602,5 +602,6 @@ model LeadLink {
   phone     String
   service   String
   leadName  String // Frappe Lead ID
+  notified  Boolean  @default(false)
   createdAt DateTime @default(now())
 }
