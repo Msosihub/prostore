@@ -169,7 +169,7 @@ export async function createBuyNowOrder({
     const order = insertOrderSchema.parse({
       userId,
       shippingAddress: user.address,
-      paymentMethod: user.paymentMethod,
+      paymentMethod: user.paymentMethod || "Mobile",
       itemsPrice: cartLike.itemsPrice,
       shippingPrice: cartLike.shippingPrice,
       taxPrice: cartLike.taxPrice,
