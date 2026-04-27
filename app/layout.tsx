@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants/index.js";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
+import MarketplaceFooter from "@/components/footerx";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -53,6 +54,7 @@ export default function RootLayout({
           </div>
           <Toaster />
         </ThemeProvider>
+        <MarketplaceFooter />
       </body>
     </html>
   );
