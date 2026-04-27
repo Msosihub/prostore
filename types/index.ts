@@ -215,3 +215,14 @@ export type MessageLite = {
 
   moderated?: boolean;
 };
+
+export type CategorySummary = {
+  id: string;
+  name_en: string;
+  name_sw: string;
+  _count: {
+    products: number;
+  };
+};
+
+// Assuming your Product type is already defined in your types file
