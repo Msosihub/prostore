@@ -26,7 +26,7 @@ const SupplierProfileCard = ({ supplier }: { supplier: Supplier }) => {
           <div className="flex items-center justify-between">
             <div className="flex flex-col items-start gap-1">
               <Link
-                href={supplier.id ?? "#"}
+                href={`https://nimboya.com/${supplier.username}`}
                 className="font-bold underline  text-sm sm:text-base md:text-lg line-clamp-2"
               >
                 {supplier.companyName}

@@ -17,7 +17,8 @@ export default function CategoryTabs({
   locale,
 }: CategoryTabsProps) {
   return (
-    <div className="sticky top-[120px] md:top-[144px] z-40 bg-white border-b overflow-x-auto no-scrollbar">
+    <div className="sticky z-40 bg-white border-b overflow-x-auto no-scrollbar">
+      {/* top-[120px] md:top-[144px]  */}
       <div className="flex px-4 gap-6">
         {categories.map((cat: CategorySummary) => (
           <button

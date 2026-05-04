@@ -151,7 +151,7 @@ export default async function SupplierHomePage({
                 About Us
               </h2>
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed mb-6">
-                {supplier.about} ...
+                {supplier.about}
               </p>
 
               {/* Stats Grid: Tighter and cleaner for mobile */}
