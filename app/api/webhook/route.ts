@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const from = msg.from;
   const text = msg.text?.body;
 
-  await sendSms("+255760111880", msg);
+  await sendSms("+255760111880", text);
   console.log("User:", from, "Message:", text);
 
   if (!text) {
