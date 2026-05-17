@@ -1,4 +1,5 @@
 "use client";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -14,36 +15,16 @@ import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
 import { Order } from "@/types";
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
-import { Loader } from "lucide-react";
-// import { useToast } from "@/hooks/use-toast";
-// import { useTransition } from "react";
-// import {
-//   PayPalButtons,
-//   PayPalScriptProvider,
-//   usePayPalScriptReducer,
-// } from "@paypal/react-paypal-js";
-// import {
-//   createPayPalOrder,
-//   approvePayPalOrder,
-//   updateOrderToPaidCOD,
-//   deliverOrder,
-// } from "@/lib/actions/order.actions";
-// import StripePayment from "./stripe-payment";
+import { useState, useTransition } from "react";
+import { Loader2, RefreshCw, PackageCheck } from "lucide-react";
+import { markOrderAsDelivered } from "@/lib/actions/order.actions";
+import PaymentLoadingScreen from "@/components/payment-loading-screen";
 
-// import { createPesapalOrder } from "@/lib/actions/order.actions";
-
-const OrderDetailsTable = ({
-  order,
-  // paypalClientId,
-  isAdmin,
-  // stripeClientSecret,
-}: {
+interface OrderDetailsTableProps {
   order: Omit<Order, "paymentResult">;
-  paypalClientId: string;
-  isAdmin: boolean;
-  // stripeClientSecret: string | null;
-}) => {
+}
+
+const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
   const {
     id,
     shippingAddress,
@@ -51,182 +32,136 @@ const OrderDetailsTable = ({
     itemsPrice,
     shippingPrice,
     totalPrice,
-    paymentMethod,
     isDelivered,
     isPaid,
     paidAt,
     deliveredAt,
   } = order;
 
-  // const { toast } = useToast();
+  // State management for payment re-initialization animations
+  const [paymentStage, setPaymentStage] = useState<
+    "idle" | "creating" | "push_sent" | "completed"
+  >("idle");
 
-  // const PrintLoadingState = () => {
-  //   const [{ isPending, isRejected }] = usePayPalScriptReducer();
-  //   let status = "";
+  // Transition management for delivery button state updates
+  const [isPending, startTransition] = useTransition();
 
-  //   if (isPending) {
-  //     status = "Loading PayPal...";
-  //   } else if (isRejected) {
-  //     status = "Error Loading PayPal";
-  //   }
-  //   return status;
-  // };
-
-  // const handleCreatePayPalOrder = async () => {
-  //   const res = await createPayPalOrder(order.id);
-
-  //   if (!res.success) {
-  //     toast({
-  //       variant: "destructive",
-  //       description: res.message,
-  //     });
-  //   }
-
-  // return res.data;
-  // };
-
-  // const handleApprovePayPalOrder = async (data: { orderID: string }) => {
-  //   const res = await approvePayPalOrder(order.id, data);
-
-  //   toast({
-  //     variant: res.success ? "default" : "destructive",
-  //     description: res.message,
-  //   });
-  // };
-  const [paying, setPaying] = useState(false);
-
-  const payWithZenopay = async () => {
+  const handleReinitializePayment = async () => {
     try {
-      setPaying(true);
+      setPaymentStage("creating");
 
       const res = await fetch("/api/zenopay/create-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({ orderId: id }),
       });
 
       const data = await res.json();
 
       if (data.success) {
-        alert(
-          "Maombi ya malipo yametumwa kwenye simu yako. Angalia simu na uweke password yako"
-        );
+        setPaymentStage("push_sent");
+        // Allow a 6 second window for phone popup and user interaction buffer
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        setPaymentStage("completed");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
-        alert("Malipo yameshindikana kuanzishwa");
+        alert("Imeshindikana kuanzisha malipo ya Zenopay.");
       }
     } catch (error) {
-      alert("Tatizo limetokea wakati wa kuanzisha malipo");
-      console.log(error);
+      console.error(error);
+      alert("Tatizo limetokea wakati wa kuwasiliana na mfumo wa malipo.");
     } finally {
-      setPaying(false);
+      setPaymentStage("idle");
     }
   };
 
-  // Button to mark order as paid
-  const MarkAsPaidButton = () => {
-    // const [isPending, startTransition] = useTransition();
-    // const { toast } = useToast();
+  const handleConfirmDelivery = () => {
+    if (!confirm("Je, una uhakika umepokea mzigo wako salama?")) return;
 
-    return (
-      <Button
-        type="button"
-        // disabled={isPending}
-        // onClick={() =>
-        //   startTransition(async () => {
-        //     const res = await updateOrderToPaidCOD(order.id);
-        //     toast({
-        //       variant: res.success ? "default" : "destructive",
-        //       description: res.message,
-        //     });
-        //   })
-        // }
-      >
-        {/* {isPending ? "processing..." : "Mark As Paid"} */}
-      </Button>
-    );
-  };
-
-  // Button to mark order as delivered
-  const MarkAsDeliveredButton = () => {
-    //   const [isPending, startTransition] = useTransition();
-    //   const { toast } = useToast();
-
-    return (
-      <Button
-        type="button"
-        // disabled={isPending}
-        // onClick={() =>
-        //   startTransition(async () => {
-        //     const res = await deliverOrder(order.id);
-        //     toast({
-        //       variant: res.success ? "default" : "destructive",
-        //       description: res.message,
-        //     });
-        //   })
-        // }
-      >
-        {/* {isPending ? "processing..." : "Mark As Delivered"} */}
-      </Button>
-    );
+    startTransition(async () => {
+      const res = await markOrderAsDelivered(id);
+      alert(res.message);
+    });
   };
 
   return (
     <>
-      <h1 className="py-4 text-sm  md:text-lg">Order {formatId(id)}</h1>
+      {/* 🟢 Full screen payment re-initialization overlay setup */}
+      {paymentStage !== "idle" && <PaymentLoadingScreen stage={paymentStage} />}
+
+      <h1 className="py-4 text-sm font-semibold md:text-lg">
+        Usimamizi wa Agizo {formatId(id)}
+      </h1>
       <div className="grid md:grid-cols-3 md:gap-5">
-        <div className="col-span-2 space-4-y overlow-x-auto">
+        <div className="col-span-2 space-y-4 overflow-x-auto">
+          {/* Payment Card Info */}
           <Card>
-            <CardContent className="p-4 gap-4">
-              <h2 className="tex-sm md:text-lg pb-4">Njia za malipo</h2>
-              <p className="mb-2 text-xs text-blue-700">
-                {/* {paymentMethod} */}
-                Namba itakayolipa: {shippingAddress.paymentPhone}
-              </p>
-              {isPaid ? (
-                <Badge variant="secondary">
-                  Paid at {formatDateTime(paidAt!).dateTime}
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="text-xs">
-                  Haijalipiwa
-                </Badge>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="my-2">
-            <CardContent className="p-4 gap-4">
-              <h2 className="txt-sm md:text-lg pb-4">Anuani ya mzigo</h2>
-              <p className="text-xs">{shippingAddress.fullName}</p>
-              <p className="mb-2 text-xs">
-                {shippingAddress.streetAddress}, {shippingAddress.city}
-                {/* {shippingAddress.postalCode} */}, {shippingAddress.country}
-              </p>
+            <CardContent className="p-4 flex flex-col gap-2">
+              <h2 className="text-sm font-medium md:text-base">
+                Hali ya Malipo
+              </h2>
               <p className="text-xs text-blue-700">
-                Namba ya malipo:{" "}
-                <span className="text-blue-700">
-                  {shippingAddress.paymentPhone}
-                </span>
+                Namba inayohusika: {shippingAddress.paymentPhone}
               </p>
-              {isDelivered ? (
-                <Badge variant="secondary">
-                  Delivered at {formatDateTime(deliveredAt!).dateTime}
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="text-xs">
-                  Haujafika
-                </Badge>
-              )}
+              <div>
+                {isPaid ? (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs bg-green-100 text-green-800 hover:bg-green-100"
+                  >
+                    Imelipiwa mnamo {formatDateTime(paidAt!).dateTime}
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="text-xs">
+                    Haijalipiwa bado
+                  </Badge>
+                )}
+              </div>
             </CardContent>
           </Card>
+
+          {/* Delivery Target Location Card */}
           <Card>
-            <CardContent className="p-4 gap-4">
-              <h2 className="text-sm md:text-lg pb-4">Vitu ulivyoagiza</h2>
+            <CardContent className="p-4 flex flex-col gap-2">
+              <h2 className="text-sm font-medium md:text-base">
+                Mpokeaji & Sehemu ya Mzigo
+              </h2>
+              <p className="text-xs font-semibold">
+                {shippingAddress.fullName}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {shippingAddress.streetAddress}, {shippingAddress.city},{" "}
+                {shippingAddress.country}
+              </p>
+              <div>
+                {isDelivered ? (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-100"
+                  >
+                    Imewasilishwa mnamo {formatDateTime(deliveredAt!).dateTime}
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="text-xs">
+                    Mzigo haujafika bado
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Table list of Items ordered */}
+          <Card>
+            <CardContent className="p-4">
+              <h2 className="text-sm font-medium md:text-base pb-4">
+                Vitu Vilivyomo
+              </h2>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Bidhaa</TableHead>
-                    <TableHead className="text-xs">Idadi</TableHead>
-                    <TableHead className="text-center text-xs">Bei</TableHead>
+                    <TableHead className="text-xs text-center">Idadi</TableHead>
+                    <TableHead className="text-right text-xs">Bei</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -234,22 +169,25 @@ const OrderDetailsTable = ({
                     <TableRow key={item.slug}>
                       <TableCell>
                         <Link
-                          href={`/product/{item.slug}`}
-                          className="flex items-center"
+                          href={`/product/${item.slug}`}
+                          className="flex items-center gap-3 hover:underline"
                         >
                           <Image
                             src={item.image}
                             alt={item.name}
                             width={50}
                             height={50}
+                            className="rounded-md object-cover"
                           />
-                          <span className="px-2 text-xs">{item.name}</span>
+                          <span className="text-xs max-w-[180px] md:max-w-xs truncate">
+                            {item.name}
+                          </span>
                         </Link>
                       </TableCell>
-                      <TableCell>
-                        <span className="px-2 text-xs">{item.qty}</span>
+                      <TableCell className="text-center text-xs">
+                        {item.qty}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right text-xs">
                         {formatCurrency(item.price)}
                       </TableCell>
                     </TableRow>
@@ -259,88 +197,55 @@ const OrderDetailsTable = ({
             </CardContent>
           </Card>
         </div>
-        <div className="mt-2 md:mt-4">
+
+        {/* Financial Sidebar Context Summary and Actions */}
+        <div className="mt-4 md:mt-0">
           <Card>
-            <CardContent className="p-4 gap-4 space-y-4">
-              <div className="flex justify-between">
-                <div className="text-xs">Bidhaa</div>
-                <div className="text-xs">{formatCurrency(itemsPrice)}</div>
+            <CardContent className="p-4 space-y-4">
+              <h2 className="text-sm font-medium md:text-base border-b pb-2">
+                Muhtasari wa Gharama
+              </h2>
+              <div className="flex justify-between items-center text-xs">
+                <div className="text-muted-foreground">Bidhaa</div>
+                <div>{formatCurrency(itemsPrice)}</div>
               </div>
-              {/* <div className="flex justify-between">
-                <div>Tax</div>
-                <div>{formatCurrency(taxPrice)}</div>
-              </div> */}
-              <div className="flex justify-between">
-                <div className="text-xs">Usafiri</div>
+              <div className="flex justify-between items-center text-xs">
+                <div className="text-muted-foreground">Usafiri</div>
                 <div>{formatCurrency(shippingPrice)}</div>
               </div>
-              <div className="flex justify-between">
-                <div className="text-xs">Jumla</div>
-                <div className="text-xs">{formatCurrency(totalPrice)}</div>
+              <div className="flex justify-between items-center text-xs font-semibold border-t pt-2">
+                <div>Jumla Kuu</div>
+                <div className="text-green-700">
+                  {formatCurrency(totalPrice)}
+                </div>
               </div>
 
-              {/* PESAPAL Payment !isPaid && paymentMethod === "Pesapal" */}
-              {true && (
+              {/* Action 1: If order is unpaid, offer payment retry loop mechanism */}
+              {!isPaid && (
                 <Button
-                  onClick={payWithZenopay}
-                  disabled={paying}
-                  className="w-full bg-green-600"
+                  onClick={handleReinitializePayment}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm flex items-center justify-center gap-2"
                 >
-                  {paying ? (
-                    <>
-                      <Loader className="w-4 h-4 animate-spin mr-2" />
-                      Inasubiri uthibitisho wa malipo... Angalia simu yako.
-                    </>
-                  ) : (
-                    <>Lipa kwa Simu</>
-                  )}
+                  <RefreshCw className="w-4 h-4" />
+                  Jaribu Tena Kulipa
                 </Button>
-
-                // <Button
-                //   onClick={async () => {
-                //     const res = await createPesapalOrder(order.id);
-                //     if (res.success) {
-                //       window.location.href = res.redirectUrl;
-                //     } else {
-                //       toast({
-                //         variant: "destructive",
-                //         description: res.message,
-                //       });
-                //     }
-                //   }}
-                //   className="w-full"
-                // >
-                //   Lipa kwa Pesapal
-                // </Button>
               )}
 
-              {/* PayPal Payment */}
-              {/* {!isPaid && paymentMethod === "PayPal" && (
-                <div>
-                  <PayPalScriptProvider options={{ clientId: paypalClientId }}>
-                    <PrintLoadingState />
-                    <PayPalButtons
-                      createOrder={handleCreatePayPalOrder}
-                      onApprove={handleApprovePayPalOrder}
-                    />
-                  </PayPalScriptProvider>
-                </div>
-              )} */}
-
-              {/* Stripe Payment */}
-              {/* {!isPaid && paymentMethod === "Stripe" && stripeClientSecret && (
-                <StripePayment
-                  priceInCents={Number(order.totalPrice) * 100}
-                  orderId={order.id}
-                  clientSecret={stripeClientSecret}
-                />
-              )} */}
-
-              {/* Cash On Delivery */}
-              {isAdmin && !isPaid && paymentMethod === "CashOnDelivery" && (
-                <MarkAsPaidButton />
+              {/* Action 2: If order is paid but not yet delivered, offer the confirmation button */}
+              {isPaid && !isDelivered && (
+                <Button
+                  onClick={handleConfirmDelivery}
+                  disabled={isPending}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  {isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <PackageCheck className="w-4 h-4" />
+                  )}
+                  Nimepokea Mzigo huu
+                </Button>
               )}
-              {isAdmin && isPaid && !isDelivered && <MarkAsDeliveredButton />}
             </CardContent>
           </Card>
         </div>

@@ -99,6 +99,9 @@ export async function createOrder() {
       success: true,
       message: "Order created",
       redirectTo: `/order/${insertedOrderId}`,
+      orderData: {
+        id: insertedOrderId,
+      },
     };
   } catch (error) {
     if (isRedirectError(error)) throw error;
@@ -199,6 +202,9 @@ export async function createBuyNowOrder({
       success: true,
       message: "Order created",
       redirectTo: `/order/${insertedOrderId}`,
+      orderData: {
+        id: insertedOrderId,
+      },
     };
   } catch (error) {
     console.log("The error: ", error);
@@ -220,6 +226,27 @@ export async function getOrderById(orderId: string) {
   });
 
   return convertToPlainObject(data);
+}
+
+export async function markOrderAsDelivered(orderId: string) {
+  try {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        isDelivered: true,
+        deliveredAt: new Date(),
+      },
+    });
+
+    revalidatePath(`/order/${orderId}`);
+    return { success: true, message: "Agizo limesasishwa kuwa limefika!" };
+  } catch (error) {
+    console.error(error);
+    return {
+      success: false,
+      message: "Imeshindikana kusasisha hali ya mzigo.",
+    };
+  }
 }
 
 //create PesaPal Order

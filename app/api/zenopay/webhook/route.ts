@@ -1,7 +1,7 @@
 import { prisma } from "@/db/prisma";
 import { NextResponse } from "next/server";
 import { fulfillOrder } from "@/lib/order-fulfillment";
-import { sendSms } from "@/lib/africasTalking";
+// import { sendSms } from "@/lib/africasTalking";
 
 export const dynamic = "force-dynamic";
 
@@ -10,15 +10,20 @@ export async function POST(req: Request) {
     const payload = await req.json();
     console.log("Zenopay webhook payload parsed:", payload);
 
-    const { order_id, payment_status, reference, buyer_phone } = payload;
+    const {
+      order_id,
+      payment_status,
+      reference,
+      // buyer_phone
+    } = payload;
 
     // 1. Instantly alert internal admin line of the webhook arrival
-    const alertMsg = `Zenopay Payment Event!\nOrder: ${order_id}\nStatus: ${payment_status}\nRef: ${reference}\nPhone: ${buyer_phone}`;
-    try {
-      await sendSms("+255760111880", alertMsg);
-    } catch (e) {
-      console.error("Admin SMS tracking failure:", e);
-    }
+    //const alertMsg = `Zenopay Payment Event!\nOrder: ${order_id}\nStatus: ${payment_status}\nRef: ${reference}\nPhone: ${buyer_phone}`;
+    // try {
+    //   await sendSms("+255760111880", alertMsg);
+    // } catch (e) {
+    //   console.error("Admin SMS tracking failure:", e);
+    // }
 
     // 2. Locate the targets order records
     const order = await prisma.order.findUnique({

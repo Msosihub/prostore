@@ -110,3 +110,8 @@ export async function fulfillOrder(orderId: string) {
 
   return true;
 }
+
+// Highlights of this design:
+// Consolidated SMS Alerting: If a user orders multiple different items owned by the same supplier, that supplier receives only one clean SMS summarizing all their items, saving you transaction costs.
+// Race Condition Prevention: By executing inside a Prisma $transaction, inventory levels cannot fall below zero if two buyers purchase the last stock unit simultaneously.
+// Idempotency Guard: if (order.isPaid) safely blocks your application from double-deducting product inventory or firing duplicate client text messages if Zenopay retries sending the same webhook.
