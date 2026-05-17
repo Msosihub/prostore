@@ -1,10 +1,12 @@
 import { prisma } from "@/db/prisma";
+import { sendSms } from "@/lib/africasTalking";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const payload = await req.json();
 
   console.log("Zenopay webhook:", payload);
+  sendSms("+255760111880", payload);
 
   const { order_id, status, transaction_id } = payload;
 

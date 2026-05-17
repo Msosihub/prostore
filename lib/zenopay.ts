@@ -6,7 +6,7 @@ export async function zenopayRequest(endpoint: string, body: ZenoBody) {
   if (!process.env.ZENOPAY_API_KEY) {
     throw new Error("Missing ZENOPAY_API_KEY environment variable");
   }
-  console.log("ZENO API KEY: ", process.env.ZENOPAY_API_KEY);
+  //console.log("ZENO API KEY: ", process.env.ZENOPAY_API_KEY);
 
   const response = await fetch(`${ZENOPAY_BASE_URL}${endpoint}`, {
     method: "POST",
