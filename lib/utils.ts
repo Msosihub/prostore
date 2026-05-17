@@ -80,39 +80,42 @@ export function formatNumber(number: number) {
   return NUMBER_FORMATTER.format(number);
 }
 
-// Format date and times
-export const formatDateTime = (dateString: Date) => {
+// Format date and times specifically targeted for East African Users (EAT)
+export const formatDateTime = (dateString: Date | string) => {
   const dateTimeOptions: Intl.DateTimeFormatOptions = {
-    month: "short", // abbreviated month name (e.g., 'Oct')
-    year: "numeric", // abbreviated month name (e.g., 'Oct')
-    day: "numeric", // numeric day of the month (e.g., '25')
-    hour: "numeric", // numeric hour (e.g., '8')
-    minute: "numeric", // numeric minute (e.g., '30')
-    hour12: true, // use 12-hour clock (true) or 24-hour clock (false)
+    timeZone: "Africa/Nairobi", // 🟢 Forces East Africa Time zone conversion
+    month: "short",
+    year: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
   };
+
   const dateOptions: Intl.DateTimeFormatOptions = {
-    weekday: "short", // abbreviated weekday name (e.g., 'Mon')
-    month: "short", // abbreviated month name (e.g., 'Oct')
-    year: "numeric", // numeric year (e.g., '2023')
-    day: "numeric", // numeric day of the month (e.g., '25')
+    timeZone: "Africa/Nairobi", // 🟢 Forces East Africa Time zone conversion
+    weekday: "short",
+    month: "short",
+    year: "numeric",
+    day: "numeric",
   };
+
   const timeOptions: Intl.DateTimeFormatOptions = {
-    hour: "numeric", // numeric hour (e.g., '8')
-    minute: "numeric", // numeric minute (e.g., '30')
-    hour12: true, // use 12-hour clock (true) or 24-hour clock (false)
+    timeZone: "Africa/Nairobi", // 🟢 Forces East Africa Time zone conversion
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
   };
-  const formattedDateTime: string = new Date(dateString).toLocaleString(
+
+  const dateObj = new Date(dateString);
+
+  const formattedDateTime: string = dateObj.toLocaleString(
     "en-US",
     dateTimeOptions
   );
-  const formattedDate: string = new Date(dateString).toLocaleString(
-    "en-US",
-    dateOptions
-  );
-  const formattedTime: string = new Date(dateString).toLocaleString(
-    "en-US",
-    timeOptions
-  );
+  const formattedDate: string = dateObj.toLocaleString("en-US", dateOptions);
+  const formattedTime: string = dateObj.toLocaleString("en-US", timeOptions);
+
   return {
     dateTime: formattedDateTime,
     dateOnly: formattedDate,
