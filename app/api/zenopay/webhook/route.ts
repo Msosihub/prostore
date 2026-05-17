@@ -13,8 +13,8 @@ export async function POST(req: Request) {
 
     // 🟢 SOLUTION: Safely parse and strip the unique retry timestamp suffix away
     // Example: "66d89181-...-17159740" -> "66d89181-..."
-    const cleanOrderId = order_id.includes("-")
-      ? order_id.split("-")[0]
+    const cleanOrderId = order_id.includes("=")
+      ? order_id.split("=")[0]
       : order_id;
 
     // Locate the targets order record using the original clean UUID

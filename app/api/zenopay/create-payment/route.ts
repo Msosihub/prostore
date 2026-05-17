@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   console.log("payment number: ", paymentPhone);
 
   // 🟢 SOLUTION: Append a dynamic timestamp suffix to bypass Selcom unique constraint blocks
-  const uniqueZenopayOrderId = `${order.id}-${Date.now()}`;
+  const uniqueZenopayOrderId = `${order.id}=${Date.now()}`;
 
   const payload = {
     order_id: uniqueZenopayOrderId, // Sent dynamically to Zenopay
