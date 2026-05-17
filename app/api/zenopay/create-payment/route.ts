@@ -6,7 +6,7 @@ import { formatTanzaniaPhonetToStarZero } from "@/lib/utils";
 export async function POST(req: Request) {
   const { orderId } = await req.json();
 
-  console.log("ORDER ID CREAYTED: ", orderId);
+  console.log("ORDER ID SUBMITTED FOR PAYMENT: ", orderId);
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -17,30 +17,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  // // 🚨 Prevent duplicate mobile money requests
-  // if (order.paymentStatus === "PENDING") {
-  //   return NextResponse.json({
-  //     success: true,
-  //     message: "Payment already pending. Check your phone.",
-  //   });
-  // }
-
   const shipping = order.shippingAddress as {
     city: string;
     phone: string;
     fullName: string;
   };
-  // const phoneNumber = formatTanzaniaPhonetToStarZero(
-  //   shipping.phone || order.user.phone || ""
-  // );
 
   const paymentPhone = formatTanzaniaPhonetToStarZero(
     order.user.paymentPhone || ""
   );
 
-  console.log("paymeent number: ", paymentPhone);
+  console.log("payment number: ", paymentPhone);
+
+  // 🟢 SOLUTION: Append a dynamic timestamp suffix to bypass Selcom unique constraint blocks
+  const uniqueZenopayOrderId = `${order.id}-${Date.now()}`;
+
   const payload = {
-    order_id: order.id,
+    order_id: uniqueZenopayOrderId, // Sent dynamically to Zenopay
     buyer_email: order.user.email || "bmproductstz@gmail.com",
     buyer_name: shipping?.fullName,
     buyer_phone: paymentPhone || "",
@@ -55,21 +48,19 @@ export async function POST(req: Request) {
     payload
   );
 
-  // Zenopay returns JSON like:
-  // { status: "success", resultcode: "000", message: "...", order_id: "..." }
-
   if (response.status !== "success") {
     console.error("Zenopay error response:", response);
     return NextResponse.json({ error: response.message }, { status: 400 });
   }
 
-  // Save pending state
+  // Save pending state under the core clean order ID
   await prisma.order.update({
     where: { id: order.id },
     data: {
       paymentMethod: "ZENOPAY",
       paymentStatus: "PENDING",
       paymentResult: {
+        zenopay_order_id: uniqueZenopayOrderId, // Track the exact suffix reference used for safety
         reference: response.reference,
         raw: response,
       },

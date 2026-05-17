@@ -1,7 +1,6 @@
 import { prisma } from "@/db/prisma";
 import { NextResponse } from "next/server";
 import { fulfillOrder } from "@/lib/order-fulfillment";
-// import { sendSms } from "@/lib/africasTalking";
 
 export const dynamic = "force-dynamic";
 
@@ -10,32 +9,25 @@ export async function POST(req: Request) {
     const payload = await req.json();
     console.log("Zenopay webhook payload parsed:", payload);
 
-    const {
-      order_id,
-      payment_status,
-      reference,
-      // buyer_phone
-    } = payload;
+    const { order_id, payment_status, reference } = payload;
 
-    // 1. Instantly alert internal admin line of the webhook arrival
-    //const alertMsg = `Zenopay Payment Event!\nOrder: ${order_id}\nStatus: ${payment_status}\nRef: ${reference}\nPhone: ${buyer_phone}`;
-    // try {
-    //   await sendSms("+255760111880", alertMsg);
-    // } catch (e) {
-    //   console.error("Admin SMS tracking failure:", e);
-    // }
+    // 🟢 SOLUTION: Safely parse and strip the unique retry timestamp suffix away
+    // Example: "66d89181-...-17159740" -> "66d89181-..."
+    const cleanOrderId = order_id.includes("-")
+      ? order_id.split("-")[0]
+      : order_id;
 
-    // 2. Locate the targets order records
+    // Locate the targets order record using the original clean UUID
     const order = await prisma.order.findUnique({
-      where: { id: order_id },
+      where: { id: cleanOrderId },
     });
 
     if (!order) {
-      console.error(`Order ${order_id} not found in database.`);
+      console.error(`Order ${cleanOrderId} not found in database.`);
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    // 3. Process database statuses safely
+    // Process database statuses safely
     if (payment_status === "COMPLETED") {
       // Avoid duplicate executions if webhook delivers multiple times
       if (order.isPaid) {
@@ -60,21 +52,25 @@ export async function POST(req: Request) {
         },
       });
 
-      // 4. Trigger our new reusable multi-party fulfillment workflow
+      // Trigger our new reusable multi-party fulfillment workflow
       await fulfillOrder(order.id);
-      console.log(`Order ${order_id} successfully fulfilled.`);
+      console.log(`Order ${order.id} successfully fulfilled.`);
     } else {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          paymentStatus: "FAILED",
-          paymentResult: {
-            status: payment_status,
-            raw: payload,
+      // 🚨 ONLY update status to FAILED if the order isn't ALREADY successfully paid
+      // (This prevents an old retry callback from accidentally breaking a successful payment row)
+      if (!order.isPaid) {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            paymentStatus: "FAILED",
+            paymentResult: {
+              status: payment_status,
+              raw: payload,
+            },
           },
-        },
-      });
-      console.log(`Order ${order_id} was marked as FAILED.`);
+        });
+        console.log(`Order ${order.id} was marked as FAILED.`);
+      }
     }
 
     return NextResponse.json({ received: true });
