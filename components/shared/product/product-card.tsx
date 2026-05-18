@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
 import ProductPrice from "./product-price";
@@ -16,12 +16,10 @@ type ProductCardProps = {
   images: string[];
   price: number;
   stock: number;
-  pricingTiers?:
-    | {
-        minQty: number;
-        price: Decimal;
-      }[]
-    | undefined;
+  pricingTiers?: {
+    minQty: number;
+    price: Decimal;
+  }[];
 };
 
 const ProductCard = ({
@@ -36,52 +34,66 @@ const ProductCard = ({
   stock,
   pricingTiers,
 }: ProductCardProps) => {
+  // Extract intermediate bulk wholesale calculations
   const middleTier =
     pricingTiers && pricingTiers.length >= 2
       ? pricingTiers[Math.floor(pricingTiers.length / 2)]
       : null;
 
-  // const displayPrice = middleTier?.price ?? price;
-  // const moqLabel = middleTier ? `${middleTier.minQty}+ pcs` : null;
-
   return (
-    <Card className="w-full max-w-sm  overflow-hidden group transition-shadow hover:shadow-lg border border-transparent hover:border-gray-200">
-      <CardHeader className="p-0 relative w-full aspect-[4/3] overflow-hidden">
-        <Link href={`/product/${id}`}>
+    <Card className="w-full bg-white rounded-xl shadow-sm overflow-hidden group transition-all duration-300 hover:shadow-md border border-slate-100 hover:border-slate-200 flex flex-col h-full">
+      {/* Product Image Wrapper - Fixed Aspect Ratio ensures consistent grids */}
+      <div className="relative w-full aspect-square overflow-hidden bg-slate-50 border-b border-slate-50 shrink-0">
+        <Link href={`/product/${id}`} className="block w-full h-full">
           <Image
             src={images?.[0] || "/images/sample-products/p3-1.jpg"}
             alt={name}
             fill
-            priority
-            className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 250px"
+            priority={false}
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
         </Link>
-      </CardHeader>
+      </div>
 
-      <CardContent className="p-1 sm:p-4 grid gap-1 sm:gap-2 text-xs sm:text-sm">
-        <div className="text-[11px] sm:text-xs md:text-sm text-muted-foreground">
-          {brand} • {category} • {subcategory}
-        </div>
-
-        <Link href={`/product/${id}`}>
-          <h2 className="font-medium text-sm sm:text-base md:text-lg line-clamp-2">
-            {name}
-          </h2>
-        </Link>
-
-        <div className="text-[11px] sm:text-xs text-muted-foreground">
-          Muuzaji: <span className="font-medium">{supplier}</span>
-        </div>
-
-        <div className="flex flex-col gap-1 sm:gap-2 mt-1">
-          <div className="flex items-center space-x-2 text-[11px] sm:text-xs md:text-sm">
-            <div className="scale-90 sm:scale-100">
-              <Rating value={4.5} />
-              {/** Replace with actual rating */}
-            </div>
+      {/* Item Body Metrics Container */}
+      <CardContent className="p-2.5 flex flex-col justify-between flex-grow gap-1">
+        <div className="space-y-1">
+          {/* Metadata Path Tags */}
+          <div className="text-[10px] md:text-xs text-slate-400 font-medium tracking-tight truncate">
+            {brand && `${brand} • `}
+            {category} • {subcategory}
           </div>
 
-          <div className="text-sm sm:text-base md:text-lg font-semibold">
+          {/* Item Core Name */}
+          <Link
+            href={`/product/${id}`}
+            className="block group-hover:text-orange-600 transition-colors"
+          >
+            <h3 className="font-semibold text-xs sm:text-sm text-slate-800 tracking-tight leading-tight line-clamp-2 h-8 sm:h-9">
+              {name}
+            </h3>
+          </Link>
+
+          {/* Wholesaler Label */}
+          <div className="text-[10px] sm:text-xs text-slate-500 truncate">
+            Muuzaji:{" "}
+            <span className="font-semibold text-slate-700">{supplier}</span>
+          </div>
+        </div>
+
+        {/* Dynamic Pricing Matrix Blocks */}
+        <div className="space-y-1.5 pt-1 mt-auto">
+          {/* Rating Block (Scaled down appropriately for dense styling) */}
+          <div className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
+            <Rating value={4.5} />
+            <span className="text-slate-400 font-normal text-[9px] pt-0.5">
+              (12)
+            </span>
+          </div>
+
+          {/* Price Layout Element Layer */}
+          <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-baseline">
             {stock > 0 ? (
               <ProductPrice
                 value={middleTier ? Number(middleTier.price) : price}
@@ -89,11 +101,18 @@ const ProductCard = ({
                 label={middleTier ? `${middleTier.minQty}+ pcs` : undefined}
               />
             ) : (
-              <p className="text-destructive">Zimeisha</p>
+              <span className="text-rose-600 font-bold text-xs sm:text-sm bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
+                Zimeisha
+              </span>
             )}
           </div>
 
-          {stock > 0 && <StockBadge stock={stock} />}
+          {/* Availability Badge */}
+          {stock > 0 && (
+            <div className="pt-0.5 transform scale-95 origin-left">
+              <StockBadge stock={stock} />
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

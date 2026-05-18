@@ -1,84 +1,62 @@
 "use client";
-import DOMPurify from "dompurify"; // ✅ install it if you haven't
+
+import DOMPurify from "dompurify";
 import { MAX_DESCRIPTION_LENGTH } from "@/lib/constants";
 import { useState } from "react";
-// import sanitizeHtml from "sanitize-html";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
-const ProductDescription = ({ description }: { description: string }) => {
+interface ProductDescriptionProps {
+  description: string;
+}
+
+const ProductDescription = ({ description }: ProductDescriptionProps) => {
   const [descExpanded, setDescExpanded] = useState(false);
 
-  // Sanitize description
-  // const sanitizedDescription = sanitizeHtml(description, {
-  //   allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
-  //   allowedAttributes: {
-  //     ...sanitizeHtml.defaults.allowedAttributes,
-  //     img: ["src", "alt", "width", "height"],
-  //   },
-  // });
+  const cleanDescription = description || "";
+  const isLongDescription = cleanDescription.length > MAX_DESCRIPTION_LENGTH;
 
-  const isLongDescription = description.length > MAX_DESCRIPTION_LENGTH;
-
-  // const shortSanitized = sanitizeHtml(
-  //   description.slice(0, MAX_DESCRIPTION_LENGTH),
-  //   {
-  //     allowedTags: sanitizeHtml.defaults.allowedTags.concat(["img"]),
-  //     allowedAttributes: {
-  //       ...sanitizeHtml.defaults.allowedAttributes,
-  //       img: ["src", "alt", "width", "height"],
-  //     },
-  //   }
-  // );
-
+  // Split string safely if threshold constraints apply
   const shownDescription = descExpanded
-    ? description
-    : description.slice(0, MAX_DESCRIPTION_LENGTH) +
+    ? cleanDescription
+    : cleanDescription.slice(0, MAX_DESCRIPTION_LENGTH) +
       (isLongDescription ? "..." : "");
-  // const cleanedDescription = shownDescription
-  //   .replace(/<li>\s*<p>/g, "<li>")
-  //   .replace(/<\/p>\s*<\/li>/g, "</li>");
-  const sanitizedDescription = DOMPurify.sanitize(shownDescription);
-  //   , {
-  //   ALLOWED_TAGS: [
-  //     "h1",
-  //     "h2",
-  //     "h3",
-  //     "h4",
-  //     "h5",
-  //     "h6",
-  //     "strong",
-  //     "em",
-  //     "p",
-  //     "br",
-  //     "ul",
-  //     "ol",
-  //     "li",
-  //   ],
-  //   ALLOWED_ATTR: [],
-  // });
+
+  const sanitizedDescription =
+    typeof window !== "undefined"
+      ? DOMPurify.sanitize(shownDescription)
+      : shownDescription;
+
   return (
-    <>
-      <div className="mt-2 space-y-2">
-        <p className="font-semibold text-gray-700">Maelezo</p>
+    <div className="w-full space-y-2">
+      {/* Sanitize and inject HTML strings safely */}
+      <div
+        className="text-xs sm:text-sm text-slate-600 leading-relaxed tracking-wide font-normal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_p]:mb-1.5 break-words"
+        dangerouslySetInnerHTML={{
+          __html:
+            sanitizedDescription ||
+            "<p class='text-slate-400 italic text-xs'>Hakuna maelezo ya ziada yaliyowekwa.</p>",
+        }}
+      />
 
-        <div
-          className="text-gray-600 leading-relaxed [&_ul]:list-disc [&_ul]:pl-6 [&_li]:mb-1"
-          dangerouslySetInnerHTML={{
-            __html:
-              sanitizedDescription ||
-              "<p class='text-gray-400'>No description</p>",
-          }}
-        />
-
-        {isLongDescription && (
-          <button
-            className="ml-2 text-blue-600 underline text-xs"
-            onClick={() => setDescExpanded((prev) => !prev)}
-          >
-            {descExpanded ? "Show less" : "Show more"}
-          </button>
-        )}
-      </div>
-    </>
+      {/* 🟢 Premium Swahili text expansion actionable control button grid element */}
+      {isLongDescription && (
+        <button
+          type="button"
+          onClick={() => setDescExpanded((prev) => !prev)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 active:opacity-80 pt-0.5 border-b border-transparent hover:border-blue-600 transition-all"
+        >
+          {descExpanded ? (
+            <>
+              Ona Chache <ChevronUp className="w-3.5 h-3.5" />
+            </>
+          ) : (
+            <>
+              Ona Zaidi <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
+            </>
+          )}
+        </button>
+      )}
+    </div>
   );
 };
 

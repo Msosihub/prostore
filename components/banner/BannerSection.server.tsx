@@ -27,10 +27,6 @@ export default async function BannerSection() {
       {banners
         .filter((b) => b.isActive)
         .map((b) => {
-          // console.log("b.type: ", b.type);
-          // console.log("b.type items: ", b.items);
-
-          // console.log("Banner: ", b);
           // heuristics: if banner has multiple items (category-group) => render group card
           if ((b.type ?? "").toUpperCase() === "CATEGORY_GROUP") {
             return (
@@ -39,7 +35,6 @@ export default async function BannerSection() {
               </div>
             );
           }
-
           return;
         })}
     </div>

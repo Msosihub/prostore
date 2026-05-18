@@ -1,5 +1,5 @@
 "use client";
-// import { useState } from "react";
+
 import { ChevronDown } from "lucide-react";
 import useSWR from "swr";
 import Link from "next/link";
@@ -27,21 +27,22 @@ export default function CategoryPreviewBar({
     "/api/shared/categories",
     fetcher
   );
-  //   const [drawerOpen, setDrawerOpen] = useState(false);
 
   if (!Array.isArray(categories)) return null;
 
-  const previewCategories = categories?.slice(0, 6); // show first 6
+  // Show the first 6 categories as fast action access buttons
+  const previewCategories = categories.slice(0, 6);
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto pb-0">
-      {previewCategories?.map((cat) => (
+    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 pt-0.5 w-full">
+      {previewCategories.map((cat) => (
         <Link
           key={cat.id}
           href={`/search?category=${encodeURIComponent(cat.name_en)}`}
-          className="text-sm px-3 py-1 rounded-full bg-orange-100 hover:bg-orange-200 whitespace-nowrap"
+          className="text-xs font-medium px-3 py-1 rounded-full bg-slate-100 text-slate-700 hover:bg-orange-100 hover:text-orange-700 transition-colors whitespace-nowrap"
         >
-          {cat.name_en}
+          {cat.name_sw || cat.name_en}{" "}
+          {/* 🟢 Natively switches to Swahili text display */}
         </Link>
       ))}
 
@@ -50,20 +51,11 @@ export default function CategoryPreviewBar({
         variant="ghost"
         size="sm"
         onClick={onOpenDrawer}
-        className="flex items-center gap-1 text-sm"
+        className="flex items-center gap-1 text-xs text-slate-600 hover:text-orange-600 font-medium shrink-0 h-7 px-2 rounded-full"
       >
-        <ChevronDown size={16} />
+        <ChevronDown size={14} />
         Zaidi
       </Button>
-
-      {/* Hidden drawer trigger */}
-      {/* <input
-        type="checkbox"
-        checked={drawerOpen}
-        onChange={() => setDrawerOpen(!drawerOpen)}
-        className="hidden"
-        id="category-drawer-toggle"
-      /> */}
     </div>
   );
 }

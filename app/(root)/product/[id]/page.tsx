@@ -1,9 +1,7 @@
 import { Badge } from "@/components/ui/badge";
-// import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getProductBySlug } from "@/lib/actions/product.actions";
 import { notFound } from "next/navigation";
-// import ProductPrice from "@/components/shared/product/product-price";
 import ProductImages from "@/components/shared/product/product-images";
 import AddToCart from "@/components/shared/product/add-to-cart";
 import { getMyCart } from "@/lib/actions/cart.actions";
@@ -18,39 +16,30 @@ import ProductClientActions from "@/components/product-action";
 import NoInternet from "@/components/shared/general/no-internet";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-description";
+import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import BuyNow from "@/components/shared/product/buy-now";
 import { Metadata, ResolvingMetadata } from "next";
 import { APP_NAME } from "@/lib/constants";
 import ShareButton from "@/components/ShareButton";
-// import { Product } from "@/types";
+// import { formatCurrency, formatDateTime } from "@/lib/utils";
 
-// Re-generate product pages every 60 seconds (fro ISR)
 export const revalidate = 60;
-
-// type ProductParams = {
-//   id: string;
-// };
 
 export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> },
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const { id } = await params;
-  console.log(parent);
-
-  // Fetch product data from your backend or API
   const product = await getProductBySlug(id);
 
-  // Fallbacks
+  console.log("abc: ", parent);
+
   const title = product?.name || "Bidhaa";
   const description =
     product?.description.slice(0, 100) ||
-    `Angalia hii bidhaa kutoa ${APP_NAME} .`;
-  const imageUrl =
-    product?.images[0] ||
-    `https://fdd5alqxb0.ufs.sh/f/LUPV9JBgc2WRHhNDXgfqpUVcTir2JAv7t5slwkMz9NPZaLxu`;
+    `Angalia hii bidhaa kutoka ${APP_NAME}.`;
+  const imageUrl = product?.images[0] || `https://ufs.sh`;
 
   return {
     title,
@@ -58,14 +47,7 @@ export async function generateMetadata(
     openGraph: {
       title,
       description,
-      images: [
-        {
-          url: imageUrl,
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
+      images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
       type: "profile",
     },
     twitter: {
@@ -82,123 +64,113 @@ const ProductDetailsPagez = async (props: {
 }) => {
   const { id } = await props.params;
   const product = await getProductBySlug(id);
-
   const safeCartData = await getMyCart();
 
-  if (!product) return notFound(); //product Not Found
-  if (product === null) return <NoInternet />; // DB/server/network issue
+  if (!product) return notFound();
+  if (product === null) return <NoInternet />;
 
   const session = await auth();
   const userId = session?.user?.id;
 
+  const cartItem = {
+    productId: product.id,
+    supplierId: product.supplierId,
+    name: product.name,
+    slug: product.slug,
+    price: product.price,
+    qty: 1,
+    image: product.images![0],
+  };
+
+  const buyNowItem = {
+    productId: product.id,
+    name: product.name,
+    price: product.price,
+    qty: 1,
+    image: product.images![0],
+  };
+
   return (
-    <>
-      {/* Product Section */}
-      <section className="px-4 py-6 sm:px-6 lg:px-6">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-8 lg:gap-4">
-          {/* Images Column */}
-          <div className="lg:col-span-3">
+    <div className="w-full pb-24 md:pb-12 space-y-6">
+      {/* 🟢 SECTION 1: CORE PRODUCT GRID SUMMARY */}
+      <section className="w-full px-2 py-4 sm:px-4 lg:px-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-8 lg:gap-8">
+          {/* Media Images Display Block */}
+          <div className="lg:col-span-3 w-full">
             <ProductImages images={product.images} />
           </div>
 
-          {/* Details Column */}
-          <div className="lg:col-span-3 flex flex-col gap-6">
-            <div className="space-y-2">
-              <div className="flex flex-row items-center  gap-3">
-                <p className="text-sm text-gray-500 truncate">
+          {/* Descriptive Information Context Details Area */}
+          <div className="lg:col-span-3 flex flex-col gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider truncate">
                   {product.brand?.name ?? ""} ·{" "}
-                  {product.category?.name_en ?? ""}
+                  {product.category?.name_en || product.category?.name_en || ""}
                 </p>
                 <ShareButton
                   title={product.name}
-                  url={`https://nimboya.com/product/${product.id}`}
+                  url={`https://nimboya.com{product.id}`}
                 />
               </div>
-              <h1
-                className="text-2xl sm:text-3xl font-bold text-gray-800"
-                title={product.name}
-              >
+              <h1 className="text-lg md:text-2xl font-bold text-slate-900 leading-tight">
                 {product.name}
               </h1>
-              <div className="flex flex-row gap-2 items-center">
+              <div className="flex items-center gap-2">
                 <Rating value={Number(product.rating)} />
-                <p className="text-sm text-zinc-600">
-                  {Number(product?.rating)}/5
+                <p className="text-xs font-semibold text-slate-700 pt-0.5">
+                  {Number(product?.rating).toFixed(1)}/5
                 </p>
-                <p className="text-sm text-gray-600">
-                  (maoni {product?.numReviews})
+                <span className="text-slate-300 text-xs">|</span>
+                <p className="text-xs text-slate-500 pt-0.5">
+                  (Maoni {product?.numReviews})
                 </p>
               </div>
             </div>
 
-            {/* <PricingTable
-              tiers={product.pricingTiers}
-              fallbackPrice={product.price}
-            /> */}
+            {/* 🟢 PRICING TABLE POSITION */}
+            <div className="border-y border-slate-100 py-3">
+              <PricingTable
+                tiers={product.pricingTiers}
+                fallbackPrice={product.price}
+              />
+            </div>
 
-            <ProductDescription description={product.description} />
-
-            {/* //Share & Save
-      <div className="flex gap-3 pt-4">
-        <Button variant="outline" size="sm" onClick={() => {}}>
-          Share
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => {}}>
-          Save
-        </Button>
-      </div>*/}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Maelezo ya Bidhaa
+              </h3>
+              <ProductDescription description={product.description} />
+            </div>
           </div>
 
-          {/* Action Column */}
-          <div className="w-full lg:col-span-2">
-            <Card className="shadow-md min-w-[180px]">
-              <CardContent className="p-2 space-y-4">
-                <PricingTable
-                  tiers={product.pricingTiers}
-                  fallbackPrice={product.price}
-                />
-
-                <div className="flex justify-between items-center text-sm text-gray-700">
-                  <span className="truncate">Status</span>
+          {/* Action Column Side Panel Summary (Visible on Web Desktop layout screens only) */}
+          <div className="hidden lg:block lg:col-span-2">
+            <Card className="shadow-sm border-slate-100 rounded-xl bg-white sticky top-24">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex justify-between items-center text-xs font-medium border-b pb-2.5 border-slate-50">
+                  <span className="text-slate-500">Hali ya Mzigo</span>
                   {product.stock > 0 ? (
                     <Badge
                       variant="outline"
-                      className="bg-green-100 text-green-600"
+                      className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-medium rounded-full px-2.5 py-0"
                     >
-                      Mzigo Upo
+                      Mzigo Upo ({product.stock})
                     </Badge>
                   ) : (
                     <Badge
                       variant="destructive"
-                      className="bg-red-100 text-red-600"
+                      className="bg-rose-50 text-rose-700 border-rose-200 text-[11px] font-medium rounded-full px-2.5 py-0"
                     >
                       Zimeisha
                     </Badge>
                   )}
                 </div>
+
                 {product.stock > 0 && (
-                  <div className="pt-2 space-y-2">
-                    <AddToCart
-                      cart={safeCartData}
-                      item={{
-                        productId: product.id,
-                        supplierId: product.supplierId,
-                        name: product.name,
-                        slug: product.slug,
-                        price: product.price,
-                        qty: 1,
-                        image: product.images![0],
-                      }}
-                    />
-                    <BuyNow
-                      item={{
-                        productId: product.id,
-                        name: product.name,
-                        price: product.price,
-                        qty: 1,
-                        image: product.images![0],
-                      }}
-                    />
+                  <div className="space-y-2.5 pt-1">
+                    <AddToCart cart={safeCartData} item={cartItem} />
+                    <BuyNow item={buyNowItem} />
                   </div>
                 )}
               </CardContent>
@@ -207,42 +179,35 @@ const ProductDetailsPagez = async (props: {
         </div>
       </section>
 
-      {/* Reviews Section */}
-      <section className="px-4 py-6 sm:px-6 lg:px-12">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">
-          Maoni ya Wateja
-        </h2>
-        <Suspense fallback={<Skeleton className="h-32 w-full" />}>
-          <ReviewList
-            userId={userId || ""}
-            productId={product.id}
-            productSlug={product.slug}
-          />
-        </Suspense>
-      </section>
+      {/* 🟢 SECTION 2: VERIFIED SUPPLIER PROFILE */}
+      {product.supplier && (
+        <section className="px-2 sm:px-4 lg:px-6">
+          <div className="border-t border-slate-100 pt-6">
+            <SupplierProfileCard
+              supplier={{
+                ...product.supplier,
+                logo: product.supplier.logo ?? null,
+                rating: Number(product.supplier.rating),
+                location: product.supplier.location || "",
+                username: product.supplier.username || "",
+                certifications: product.supplier.certifications.map((c) => ({
+                  id: c.id,
+                  label: c.label,
+                  image: c.image ?? undefined,
+                  certNumber: c.certNumber ?? undefined,
+                  validUntil: c.validUntil ? new Date(c.validUntil) : undefined,
+                })),
+              }}
+            />
+          </div>
+        </section>
+      )}
 
-      <SupplierProfileCard
-        supplier={{
-          ...product.supplier,
-          logo: product.supplier.logo ?? null,
-          rating: Number(product.supplier.rating),
-          location: product.supplier.location || "",
-          username: product.supplier.username || "",
-          certifications: product.supplier.certifications.map((c) => ({
-            id: c.id,
-            label: c.label,
-            image: c.image ?? undefined,
-            certNumber: c.certNumber ?? undefined,
-            validUntil: c.validUntil ?? undefined,
-          })),
-        }}
-      />
-
-      {/* Related Products */}
-      {/* <section className="px-4 py-6 sm:px-6 lg:px-12"> */}
-      <section className="mb-16">
-        <h2 className="text-xl mt-6 sm:text-2xl font-bold text-gray-800 mb-2">
-          Zaidi katika {product.category?.name_en ?? ""}
+      {/* 🟢 SECTION 3: RELATED PRODUCTS GRID */}
+      <section className="px-2 sm:px-4 lg:px-6 space-y-3">
+        <h2 className="text-sm font-bold md:text-lg text-slate-900 tracking-tight">
+          Zaidi katika{" "}
+          {product.category?.name_en || product.category?.name_en || ""}
         </h2>
         <Suspense fallback={<SkeletonProduct />}>
           <RelatedProducts
@@ -251,7 +216,28 @@ const ProductDetailsPagez = async (props: {
           />
         </Suspense>
       </section>
-      {/* {console.log("ProductId Passed to Buttons", product.id)} */}
+
+      {/* 🟢 SECTION 4: CLIENT FEEDBACK REVIEWS */}
+      <section className="px-2 sm:px-4 lg:px-6 space-y-4">
+        <h2 className="text-sm font-bold md:text-lg text-slate-900 tracking-tight">
+          Maoni ya Wateja ({product?.numReviews})
+        </h2>
+        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+          <Suspense
+            fallback={
+              <Skeleton className="h-24 w-full rounded-xl bg-slate-50" />
+            }
+          >
+            <ReviewList
+              userId={userId || ""}
+              productId={product.id}
+              productSlug={product.slug}
+            />
+          </Suspense>
+        </div>
+      </section>
+
+      {/* 🟢 SECTION 5: FLOATING BACKGROUND MESSENGER ACTIONS */}
       <ProductClientActions
         item={{
           productId: product.id,
@@ -260,27 +246,39 @@ const ProductDetailsPagez = async (props: {
           qty: 1,
           image: product.images![0],
         }}
-        buyerId={session?.user?.id || ""}
+        buyerId={userId || ""}
         supplierId={product?.supplierId || ""}
         supplierUserId={product?.supplier?.userId || ""}
         productId={product.id}
+        cartCount={safeCartData?.items ? safeCartData.items.length : 0}
       />
 
-      <script type="application/ld+json">
-        {JSON.stringify({
-          "@context": "https://schema.org/",
-          "@type": "Product",
-          name: product.name,
-          image: [product.images],
-          description: product.description,
-          sku: product.id,
-          brand: {
-            "@type": "Brand",
-            name: "Prostore",
-          },
-        })}
-      </script>
-    </>
+      {/* 🟢 SCHEMA.ORG JSON-LD FOR MASTER SEARCH ENGINES */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org/",
+            "@type": "Product",
+            name: product.name,
+            image: product.images,
+            description: product.description,
+            sku: product.id,
+            brand: {
+              "@type": "Brand",
+              name: product.brand?.name || "Nimboya",
+            },
+            offers: {
+              "@type": "Offer",
+              priceCurrency: "TZS",
+              price: Number(product.price),
+              availability:
+                product.stock > 0 ? "https://schema.org" : "https://schema.org",
+            },
+          }),
+        }}
+      />
+    </div>
   );
 };
 
@@ -288,10 +286,8 @@ export default function ProductDetailsPage(props: {
   params: Promise<{ id: string }>;
 }) {
   return (
-    <>
-      <Suspense fallback={<ProductDescriptionSkeleton />}>
-        <ProductDetailsPagez {...props} />
-      </Suspense>
-    </>
+    <Suspense fallback={<ProductDescriptionSkeleton />}>
+      <ProductDetailsPagez {...props} />
+    </Suspense>
   );
 }

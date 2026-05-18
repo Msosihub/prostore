@@ -103,9 +103,11 @@ export type Product = {
   brand?: { name: string };
   category?: {
     name_en: string;
+    name_sw?: string;
   };
   subcategory?: {
     name_en: string;
+    name_sw?: string;
   };
   supplier?: {
     companyName: string | null;

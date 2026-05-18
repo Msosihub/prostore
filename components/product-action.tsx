@@ -11,6 +11,7 @@ type Props = {
   productId: string;
   supplierUserId: string;
   item: CartItem;
+  cartCount?: number;
 };
 
 export default function ProductClientActions({
@@ -19,6 +20,7 @@ export default function ProductClientActions({
   productId,
   supplierUserId,
   item,
+  cartCount,
 }: Props) {
   // const [open, setOpen] = useState(false);
 
@@ -43,6 +45,7 @@ export default function ProductClientActions({
         userId={buyerId}
         supplierUserId={supplierUserId}
         item={item}
+        cartCount={cartCount}
         // openInquiryClick={() => setOpen(true)} // optional button trigger
       />
     </>

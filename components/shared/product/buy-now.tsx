@@ -1,9 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Check, Loader } from "lucide-react";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Loader2, Zap } from "lucide-react";
 import { CartItem } from "@/types";
 
 const BuyNow = ({ item }: { item: CartItem & { qty?: number } }) => {
@@ -22,16 +22,16 @@ const BuyNow = ({ item }: { item: CartItem & { qty?: number } }) => {
 
   return (
     <Button
-      className="w-full bg-green-600"
+      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-11 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
       type="button"
       onClick={handleBuyNow}
       disabled={isPending}
     >
       {isPending ? (
-        <Loader className="w-4 h-4 animate-spin" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
       ) : (
-        <Check className="w-4 h-4" />
-      )}{" "}
+        <Zap className="w-3.5 h-3.5 fill-white" />
+      )}
       Nunua Sasa
     </Button>
   );
