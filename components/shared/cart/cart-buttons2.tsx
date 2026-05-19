@@ -1,67 +1,76 @@
+"use client";
+
+import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
 import { CartItem } from "@/types";
-import { Loader, ChevronDownCircle, ChevronUpCircle } from "lucide-react";
-import { useTransition } from "react";
+import { Loader2, Plus, Minus } from "lucide-react";
 
-const IncrementButton = ({ item }: { item: CartItem }) => {
+interface CartButtonProps {
+  item: CartItem;
+}
+
+const IncrementButton = ({ item }: CartButtonProps) => {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   return (
     <Button
+      type="button"
       disabled={isPending}
-      variant="ghost"
+      variant="outline"
       size="icon"
-      className="text-green-600 hover:text-green-800"
+      className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-white border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all shadow-sm shrink-0"
       onClick={() =>
         startTransition(async () => {
+          // Passes data down to your upgraded server action checking dynamic wholesale tiers
           const res = await addItemToCart(item);
           if (!res.success) {
             toast({
               variant: "destructive",
-              description: res.message,
+              description: res.message as string,
             });
           }
         })
       }
     >
       {isPending ? (
-        <Loader className="w-4 h-4 animate-spin" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
       ) : (
-        <ChevronUpCircle className="w-4 h-4" />
+        <Plus className="w-3.5 h-3.5" />
       )}
     </Button>
   );
 };
 
-const DecrementButton = ({ item }: { item: CartItem }) => {
+const DecrementButton = ({ item }: CartButtonProps) => {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   return (
     <Button
+      type="button"
       disabled={isPending}
-      variant="ghost"
+      variant="outline"
       size="icon"
-      className="text-red-600 hover:text-red-800"
+      className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-white border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 transition-all shadow-sm shrink-0"
       onClick={() =>
         startTransition(async () => {
           const res = await removeItemFromCart(item.productId);
           if (!res.success) {
             toast({
               variant: "destructive",
-              description: res.message,
+              description: res.message as string,
             });
           }
         })
       }
     >
       {isPending ? (
-        <Loader className="w-4 h-4 animate-spin" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
       ) : (
-        <ChevronDownCircle className="w-4 h-4" />
+        <Minus className="w-3.5 h-3.5" />
       )}
     </Button>
   );

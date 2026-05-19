@@ -128,6 +128,7 @@ export async function getProductBySlug(id: string) {
         category: {
           select: {
             name_en: true,
+            name_sw: true,
           },
         },
         brand: {
@@ -143,6 +144,7 @@ export async function getProductBySlug(id: string) {
             certifications: true,
           },
         },
+        // videoUrl,
       },
     });
 

@@ -1,53 +1,53 @@
-"use client";
+// "use client";
 
-// import { useState } from "react";
-// import { InquiryFormModal } from "@/components/chat/inquiryFormModal";
-import BottomToolbar from "@/components/shared/dialogs/bottom-toolbar";
-import { CartItem } from "@/types";
+// // import { useState } from "react";
+// // import { InquiryFormModal } from "@/components/chat/inquiryFormModal";
+// import BottomToolbar from "@/components/shared/dialogs/bottom-toolbar";
+// import { CartItem } from "@/types";
 
-type Props = {
-  buyerId: string;
-  supplierId: string;
-  productId: string;
-  supplierUserId: string;
-  item: CartItem;
-  cartCount?: number;
-};
+// type Props = {
+//   buyerId: string;
+//   supplierId: string;
+//   productId: string;
+//   supplierUserId: string;
+//   item: CartItem;
+//   cartCount?: number;
+// };
 
-export default function ProductClientActions({
-  buyerId,
-  supplierId,
-  productId,
-  supplierUserId,
-  item,
-  cartCount,
-}: Props) {
-  // const [open, setOpen] = useState(false);
+// export default function ProductClientActions({
+//   buyerId,
+//   supplierId,
+//   productId,
+//   supplierUserId,
+//   item,
+//   cartCount,
+// }: Props) {
+//   // const [open, setOpen] = useState(false);
 
-  // console.log("ProductId Received to Buttons", productId);
+//   // console.log("ProductId Received to Buttons", productId);
 
-  return (
-    <>
-      {/* {buyerId && (
-        <InquiryFormModal //replace this with bottom drawer
-          open={open}
-          onOpenChange={setOpen}
-          buyerId={buyerId}
-          supplierId={supplierId}
-          supplierUserId={supplierUserId}
-          productId={productId}
-        />
-      )} */}
+//   return (
+//     <>
+//       {/* {buyerId && (
+//         <InquiryFormModal //replace this with bottom drawer
+//           open={open}
+//           onOpenChange={setOpen}
+//           buyerId={buyerId}
+//           supplierId={supplierId}
+//           supplierUserId={supplierUserId}
+//           productId={productId}
+//         />
+//       )} */}
 
-      <BottomToolbar
-        productId={productId}
-        supplierId={supplierId}
-        userId={buyerId}
-        supplierUserId={supplierUserId}
-        item={item}
-        cartCount={cartCount}
-        // openInquiryClick={() => setOpen(true)} // optional button trigger
-      />
-    </>
-  );
-}
+//       <BottomToolbar
+//         productId={productId}
+//         supplierId={supplierId}
+//         userId={buyerId}
+//         supplierUserId={supplierUserId}
+//         item={item}
+//         cartCount={cartCount}
+//         // openInquiryClick={() => setOpen(true)} // optional button trigger
+//       />
+//     </>
+//   );
+// }

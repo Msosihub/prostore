@@ -2,93 +2,67 @@
 
 import { Cart, CartItem } from "@/types";
 import { Button } from "@/components/ui/button";
-import { addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
+import { addItemToCart } from "@/lib/actions/cart.actions";
 import { useToast } from "@/hooks/use-toast";
-// import { ToastAction } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
-import { Plus, Minus, Loader } from "lucide-react";
-import { Description } from "@radix-ui/react-toast";
+import { ShoppingBag, Loader2 } from "lucide-react";
 import { useTransition } from "react";
 
-const AddToCart = ({ cart, item }: { cart?: Cart; item: CartItem }) => {
+interface AddToCartProps {
+  cart?: Cart;
+  item: CartItem;
+  currentQty: number; // 🟢 Driven dynamically by unified client selector state
+}
+
+const AddToCart = ({ item, currentQty }: AddToCartProps) => {
   const { toast } = useToast();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  //console.log("Cart: ", cart);
+
   const handleAddToCart = async () => {
     startTransition(async () => {
-      const res = await addItemToCart(item);
-      //Check if the item is already in the cart
+      // Package item payload payload with matching dynamic tier numbers overrides
+      const res = await addItemToCart({
+        ...item,
+        qty: currentQty,
+      });
 
       if (!res.success) {
-        toast({
-          variant: "destructive",
-          description: res.message,
-        });
+        toast({ variant: "destructive", description: res.message as string });
         return;
       }
 
-      //Handle success add to cart
       toast({
-        title: "Success",
-        description: res.message,
+        title: "Umefanikiwa!",
+        description: "Bidhaa imewekwa kwenye kikapu chako.",
         action: (
-          <Description className=" text-green-900 hover:text-green-700">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs bg-white text-slate-800 border-slate-200"
+            onClick={() => router.push("/cart")}
+          >
             Angalia Kikapu
-          </Description>
+          </Button>
         ),
-        onClick: () => router.push("/cart"),
       });
-    });
-    // Optionally, you can also update the cart state here if needed
-    // For example, you can use a context or state management library to update the cart state
-    // cartContext.updateCart(res.cart);
-    // Or you can redirect to the cart page directly
-    // router.push("/cart");
-  };
-  // Handle remove from cart
-  const handleRemoveFromCart = async () => {
-    startTransition(async () => {
-      const res = await removeItemFromCart(item.productId);
-
-      toast({
-        variant: res.success ? "default" : "destructive",
-        description: res.message,
-      });
-
-      return;
     });
   };
 
-  // Check if item is in cart
-  const existItem =
-    cart && cart.items.find((x) => x.productId === item.productId);
-
-  return existItem ? (
-    <div>
-      <Button type="button" variant="outline" onClick={handleRemoveFromCart}>
-        {isPending ? (
-          <Loader className="w-4 h-4 animate-spin" />
-        ) : (
-          <Minus className="w-4 h-4" />
-        )}
-      </Button>
-      <span className="px-2">{existItem.qty}</span>
-      <Button type="button" variant="outline" onClick={handleAddToCart}>
-        {isPending ? (
-          <Loader className="w-4 h-4 animate-spin" />
-        ) : (
-          <Plus className="w-4 h-4" />
-        )}
-      </Button>
-    </div>
-  ) : (
-    <Button className="w-full" type="button" onClick={handleAddToCart}>
+  return (
+    <Button
+      className="w-full h-11 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+      type="button"
+      onClick={handleAddToCart}
+      disabled={isPending}
+    >
       {isPending ? (
-        <Loader className="w-4 h-4 animate-spin" />
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
       ) : (
-        <Plus className="w-4 h-4" />
-      )}{" "}
+        <ShoppingBag className="w-3.5 h-3.5" />
+      )}
       Weka Kikapuni
     </Button>
   );

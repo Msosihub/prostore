@@ -23,6 +23,20 @@ const nextConfig: NextConfig = {
         hostname: "static.photos",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "youtube.com",
+      },
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        pathname: "/**",
+      },
     ],
   },
   // experimental: {
