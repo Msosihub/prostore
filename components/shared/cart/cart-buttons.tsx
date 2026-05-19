@@ -20,7 +20,7 @@ const AddButton = ({ item }: { item: CartItem }) => {
           if (!res.success) {
             toast({
               variant: "destructive",
-              description: res.message,
+              description: res.message as string,
             });
           }
         })
@@ -50,7 +50,7 @@ const RemoveButton = ({ item }: { item: CartItem }) => {
           if (!res.success) {
             toast({
               variant: "destructive",
-              description: res.message,
+              description: res.message as string,
             });
           }
         })

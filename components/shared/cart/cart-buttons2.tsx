@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
@@ -11,8 +12,10 @@ interface CartButtonProps {
   item: CartItem;
 }
 
-const IncrementButton = ({ item }: CartButtonProps) => {
+// 🟢 FIXED: Named exactly as IncrementButton to match your CartTable imports perfectly
+export function IncrementButton({ item }: CartButtonProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -24,13 +27,14 @@ const IncrementButton = ({ item }: CartButtonProps) => {
       className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg bg-white border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50/50 transition-all shadow-sm shrink-0"
       onClick={() =>
         startTransition(async () => {
-          // Passes data down to your upgraded server action checking dynamic wholesale tiers
           const res = await addItemToCart(item);
           if (!res.success) {
             toast({
               variant: "destructive",
-              description: res.message as string,
+              description: String(res.message),
             });
+          } else {
+            router.refresh(); // Tells Next.js to re-render data layout changes instantly
           }
         })
       }
@@ -42,10 +46,12 @@ const IncrementButton = ({ item }: CartButtonProps) => {
       )}
     </Button>
   );
-};
+}
 
-const DecrementButton = ({ item }: CartButtonProps) => {
+// 🟢 FIXED: Named exactly as DecrementButton to match your CartTable imports perfectly
+export function DecrementButton({ item }: CartButtonProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -61,8 +67,10 @@ const DecrementButton = ({ item }: CartButtonProps) => {
           if (!res.success) {
             toast({
               variant: "destructive",
-              description: res.message as string,
+              description: String(res.message),
             });
+          } else {
+            router.refresh(); // Tells Next.js to re-render data layout changes instantly
           }
         })
       }
@@ -74,6 +82,4 @@ const DecrementButton = ({ item }: CartButtonProps) => {
       )}
     </Button>
   );
-};
-
-export { IncrementButton, DecrementButton };
+}

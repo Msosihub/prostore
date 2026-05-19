@@ -19,6 +19,7 @@ import { Loader2, RefreshCw, PackageCheck, ChevronLeft } from "lucide-react";
 import { markOrderAsDelivered } from "@/lib/actions/order.actions";
 import PaymentLoadingScreen from "@/components/payment-loading-screen";
 import { Order } from "@/types";
+import GeneralReviewDialog from "@/components/shared/dialogs/general-review-dialog";
 
 interface OrderDetailsTableProps {
   order: Omit<Order, "paymentResult">;
@@ -38,6 +39,7 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
     deliveredAt,
   } = order;
 
+  const [showGeneralReview, setShowGeneralReview] = useState(false);
   const [paymentStage, setPaymentStage] = useState<
     "idle" | "creating" | "push_sent" | "completed"
   >("idle");
@@ -73,7 +75,12 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
     if (!confirm("Je, una uhakika umepokea mzigo wako salama?")) return;
     startTransition(async () => {
       const res = await markOrderAsDelivered(id);
-      alert(res.message);
+      if (res.success) {
+        // Trigger the general review dialog open state immediately!
+        setShowGeneralReview(true);
+      } else {
+        alert(res.message);
+      }
     });
   };
 
@@ -81,6 +88,13 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
     <>
       {/* Full screen payment re-initialization overlay setup */}
       {paymentStage !== "idle" && <PaymentLoadingScreen stage={paymentStage} />}
+
+      {/* Mounts the review wizard hook right here */}
+      <GeneralReviewDialog
+        open={showGeneralReview}
+        onOpenChange={setShowGeneralReview}
+        orderId={id}
+      />
 
       <div className="pb-24 md:pb-6 max-w-5xl mx-auto px-2 md:px-4 space-y-4">
         {/* Navigation Header Layout */}
