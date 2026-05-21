@@ -293,3 +293,48 @@ export const formSchema = z.object({
   businessHours: z.array(businessHoursSchema),
   policies: z.array(supplierPolicySchema),
 });
+
+export const supplierProfileFormSchema = z.object({
+  name: z.string().min(1, "Jina la wasifu linahitajika"),
+  username: z.string().min(3, "Username lazima iwe na herufi 3 au zaidi"),
+  tagLine: z.string().default(""),
+  description: z.string().default(""),
+  about: z.string().default(""),
+  logo: z.string().default(""),
+  banner: z.string().default(""),
+
+  // Business Metadata Matrix
+  companyName: z.string().min(1, "Jina la kampuni linahitajika"),
+  businessType: z.string().min(1, "Chagua aina ya biashara"),
+  nation: z.string().default("Tanzania"),
+  location: z.string().min(1, "Sehemu ya duka / Mtaa inahitajika"),
+  website: z.string().default(""),
+  email: z.string().email("Andika barua pepe halali"),
+  phone: z.string().min(10, "Namba ya simu lazima iwe na tarakimu 10 au zaidi"),
+
+  // Hours Configuration Schema Array
+  businessHours: z.array(
+    z.object({
+      day: z.string(),
+      open: z.string().optional(),
+      close: z.string().optional(),
+      closed: z.boolean().default(false),
+    })
+  ),
+
+  // Dynamic Text Arrays
+  policies: z.array(
+    z.object({
+      id: z.string().optional(),
+      type: z.string().min(1, "Sera ya nini?"),
+      content: z.string().min(1, "Maelezo ya sera yanahitajika"),
+    })
+  ),
+
+  // Media Array URLs
+  gallery: z.array(z.string()).default([]),
+});
+
+export type SupplierProfileFormValues = z.infer<
+  typeof supplierProfileFormSchema
+>;

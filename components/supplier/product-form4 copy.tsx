@@ -37,7 +37,7 @@ import {
 import { UploadButton } from "@/lib/uploadthing";
 import { useState } from "react";
 import RichTextEditor from "../customComponents/richTextEditor";
-import { PricingTiersFieldArray } from "./separate-comp";
+import PricingTiersFieldArray from "./separate-comp";
 
 const ProductForm = ({
   type,
