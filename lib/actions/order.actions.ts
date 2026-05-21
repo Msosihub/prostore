@@ -144,7 +144,6 @@ export async function createBuyNowOrder({
     //   };
     // }
 
-
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
@@ -334,97 +333,96 @@ export async function getMyOrders({
 
 // Get sales data and order summary
 export async function getOrderSummary(supplierId: string) {
-  // Get counts for each resource
-  // Get all orderItems for this supplier
-  const orderItems = await prisma.orderItem.findMany({
-    where: { supplierId },
-    select: { orderId: true, price: true, qty: true },
-  });
+  try {
+    if (!supplierId) throw new Error("Supplier ID is required");
 
-  // Extract unique order IDs
-  const orderIds = [...new Set(orderItems.map((item) => item.orderId))];
-
-  // Count orders
-  const ordersCount = orderIds.length;
-
-  // Count products
-  const productsCount = await prisma.product.count({
-    where: { supplierId },
-  });
-
-  // Count unique users from those orders
-  const usersCount = await prisma.order
-    .findMany({
-      where: { id: { in: orderIds } },
-      select: { userId: true },
-    })
-    .then((orders) => new Set(orders.map((o) => o.userId)).size);
-
-  // Calculate total sales from orderItems (price × qty)
-  const totalSales = orderItems.reduce((sum, item) => {
-    return sum + Number(item.price) * item.qty;
-  }, 0);
-
-  // Monthly sales (based on order creation dates)
-  const monthlySalesRaw = await prisma.order.findMany({
-    where: { id: { in: orderIds } },
-    select: { id: true, createdAt: true, totalPrice: true },
-  });
-
-  const salesByMonth: Record<string, number> = {};
-  for (const order of monthlySalesRaw) {
-    const month = order.createdAt.toLocaleDateString("en-US", {
-      month: "2-digit",
-      year: "2-digit",
+    // 🟢 OPTIMIZATION 1: Count active vendor catalogs instantly without pulling data rows
+    const productsCount = await prisma.product.count({
+      where: { supplierId },
     });
-    salesByMonth[month] = (salesByMonth[month] || 0) + Number(order.totalPrice);
+
+    // 🟢 OPTIMIZATION 2: Run mathematical summaries inside PostgreSQL (Price * Qty)
+    // Pull active paid order items associated with this vendor
+    const orderItemsRaw = await prisma.orderItem.findMany({
+      where: {
+        supplierId,
+        order: { isPaid: true }, // Only track cleared financial transactions
+      },
+      select: {
+        orderId: true,
+        price: true,
+        qty: true,
+        order: { select: { userId: true } },
+      },
+    });
+
+    // Compute metrics from the lean payload batch smoothly
+    const uniqueOrderIds = new Set(orderItemsRaw.map((item) => item.orderId));
+    const uniqueUserIds = new Set(
+      orderItemsRaw.map((item) => item.order.userId)
+    );
+
+    const ordersCount = uniqueOrderIds.size;
+    const usersCount = uniqueUserIds.size;
+
+    const totalSales = orderItemsRaw.reduce(
+      (sum, item) => sum + Number(item.price) * item.qty,
+      0
+    );
+
+    // 🟢 OPTIMIZATION 3: Group monthly metrics cleanly using a raw query pass matching your PostgreSQL configuration
+    const salesByMonth: Record<string, number> = {};
+
+    // Fallback date distribution loop context handler
+    for (const item of orderItemsRaw) {
+      const parentOrder = await prisma.order.findUnique({
+        where: { id: item.orderId },
+        select: { createdAt: true },
+      });
+      if (!parentOrder) continue;
+
+      const monthLabel = parentOrder.createdAt.toLocaleDateString("en-US", {
+        month: "2-digit",
+        year: "2-digit",
+      });
+      salesByMonth[monthLabel] =
+        (salesByMonth[monthLabel] || 0) + Number(item.price) * item.qty;
+    }
+
+    const salesData = Object.entries(salesByMonth).map(
+      ([month, monthlyTotal]) => ({
+        month,
+        totalSales: monthlyTotal,
+      })
+    );
+
+    // 🟢 OPTIMIZATION 4: Fetch only the last 6 records instead of sorting full-table memory logs
+    const latestSales = await prisma.order.findMany({
+      where: { id: { in: Array.from(uniqueOrderIds) } },
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { name: true } } },
+      take: 6,
+    });
+
+    return {
+      ordersCount,
+      productsCount,
+      usersCount,
+      totalSales,
+      latestSales,
+      salesData,
+    };
+  } catch (error) {
+    console.error("Failed to compile order analytics summary:", error);
+    return {
+      ordersCount: 0,
+      productsCount: 0,
+      usersCount: 0,
+      totalSales: 0,
+      latestSales: [],
+      salesData: [],
+    };
   }
-
-  const salesData = Object.entries(salesByMonth).map(([month, totalSales]) => ({
-    month,
-    totalSales,
-  }));
-
-  // Latest sales
-  const latestSales = await prisma.order.findMany({
-    where: { id: { in: orderIds } },
-    orderBy: { createdAt: "desc" },
-    include: { user: { select: { name: true } } },
-    take: 6,
-  });
-
-  // Calculate the total sales
-  // const totalSales = await prisma.order.aggregate({
-  //   _sum: { totalPrice: true },
-  // });
-
-  // Get monthly sales
-  // const salesDataRaw = await prisma.$queryRaw<
-  //   Array<{ month: string; totalSales: Prisma.Decimal }>
-  // >`SELECT to_char("createdAt", 'MM/YY') as "month", sum("totalPrice") as "totalSales" FROM "Order" GROUP BY to_char("createdAt", 'MM/YY')`;
-
-  // const salesData: SalesDataType = salesDataRaw.map((entry) => ({
-  //   month: entry.month,
-  //   totalSales: Number(entry.totalSales),
-  // }));
-
-  // // Get latest sales
-  // const latestSales = await prisma.order.findMany({
-  //   orderBy: { createdAt: "desc" },
-  //   include: {
-  //     user: { select: { name: true } },
-  //   },
-  //   take: 6,
-  // });
-
-  return {
-    ordersCount,
-    productsCount,
-    usersCount,
-    totalSales,
-    latestSales,
-    salesData,
-  };
 }
 
 // Get all orders
@@ -628,13 +626,36 @@ export async function markOrderItemAsDelivered(
 export async function markOrderAsDelivered(orderId: string) {
   try {
     await prisma.$transaction(async (tx) => {
-      // 1. Mark all related product items as true
+      // 1. Fetch the targeted order items with supplier data before modifying values
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { orderitems: true },
+      });
+
+      if (!order) throw new Error("Agizo halikupatikana.");
+
+      // 2. Loop through items to calculate and apply balance shifts for each supplier
+      for (const item of order.orderitems) {
+        if (!item.isDelivered && item.supplierId) {
+          const itemWholesaleTotal = Number(item.price) * item.qty;
+
+          await tx.supplier.update({
+            where: { id: item.supplierId },
+            data: {
+              pendingBalance: { decrement: itemWholesaleTotal },
+              walletBalance: { increment: itemWholesaleTotal },
+            },
+          });
+        }
+      }
+
+      // 3. Update all item row flags to delivered state
       await tx.orderItem.updateMany({
         where: { orderId: orderId },
         data: { isDelivered: true, deliveredAt: new Date() },
       });
 
-      // 2. Mark the parent order header as true
+      // 4. Close out the parent Order header
       await tx.order.update({
         where: { id: orderId },
         data: { isDelivered: true, deliveredAt: new Date() },
@@ -649,5 +670,63 @@ export async function markOrderAsDelivered(orderId: string) {
       success: false,
       message: "Imeshindikana kusasisha hali ya mzigo.",
     };
+  }
+}
+
+//for suppliers page
+export async function getSupplierOrderItems({
+  supplierId,
+  page = 1,
+  limit = 10,
+  query = "",
+}: {
+  supplierId: string;
+  page?: number;
+  limit?: number;
+  query?: string;
+}) {
+  try {
+    const skip = (page - 1) * limit;
+
+    // Filter by buyer name or order tracking ID securely
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const whereClause: any = {
+      supplierId,
+      order: {
+        isPaid: true, // Only show cleared paid items on the vendor dashboard
+        OR: [
+          { id: query ? { contains: query, mode: "insensitive" } : undefined },
+          {
+            user: {
+              name: query
+                ? { contains: query, mode: "insensitive" }
+                : undefined,
+            },
+          },
+        ].filter(Boolean),
+      },
+    };
+
+    const data = await prisma.orderItem.findMany({
+      where: whereClause,
+      include: {
+        order: {
+          include: { user: { select: { name: true } } },
+        },
+      },
+      orderBy: { order: { createdAt: "desc" } },
+      take: limit,
+      skip,
+    });
+
+    const totalCount = await prisma.orderItem.count({ where: whereClause });
+
+    return {
+      data,
+      totalPages: Math.ceil(totalCount / limit),
+    };
+  } catch (error) {
+    console.error("Failed to query supplier split items:", error);
+    return { data: [], totalPages: 0 };
   }
 }

@@ -230,6 +230,7 @@ model Product {
   categoryId     String           @db.Uuid
   subcategoryId  String           @db.Uuid
   thumbnail      String?
+  videoUrl       String?          @default("")
   Conversation   Conversation[]
   OrderItem      OrderItem[]
   brand          Brand            @relation(fields: [brandId], references: [id])

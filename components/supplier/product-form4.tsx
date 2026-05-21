@@ -1,20 +1,12 @@
 "use client";
 
-import { useToast } from "@/hooks/use-toast";
-import { productDefaultValues } from "@/lib/constants";
-import {
-  insertProductSchema,
-  productFormSchema,
-  ProductFormValues,
-} from "@/lib/validators";
-import { Product, Category } from "@/types";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
-import Image from "next/image";
-
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, SubmitHandler, ControllerRenderProps } from "react-hook-form";
-import { z } from "zod";
+import Image from "next/image";
+import { useForm, SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import slugify from "slugify";
 import {
   Form,
   FormControl,
@@ -22,24 +14,72 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../ui/form";
-import slugify from "slugify";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import { createProduct, updateProduct } from "@/lib/actions/product.actions";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
-  SelectTrigger,
   SelectContent,
-  SelectValue,
   SelectItem,
-} from "../ui/select";
-import { UploadButton } from "@/lib/uploadthing";
-import { useState } from "react";
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, X, Image as ImageIcon, Sparkles, Save } from "lucide-react";
+import { createProduct, updateProduct } from "@/lib/actions/product.actions";
+import { productFormSchema } from "@/lib/validators"; // Adjust path to match your validator exactly
+import { UploadButton } from "@/lib/uploadthing"; // Assuming standard implementation wrapper mapping
 import RichTextEditor from "../customComponents/richTextEditor";
-import { PricingTiersFieldArray } from "./separate-comp";
+import PricingTiersFieldArray from "./separate-comp";
 
-const ProductForm = ({
+interface Category {
+  id: string;
+  name_en: string;
+  name_sw: string;
+}
+
+interface Subcategory {
+  id: string;
+  name_en: string;
+  name_sw: string;
+  categoryId: string;
+}
+
+interface ProductPricing {
+  id?: string;
+  minQty: number;
+  price: number;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  images: string[];
+  price: string | number;
+  stock: number;
+  videoUrl?: string;
+  brandId: string;
+  categoryId: string;
+  subcategoryId: string;
+  pricingTiers?: ProductPricing[];
+}
+
+interface ProductFormProps {
+  type: "Create" | "Update";
+  product?: Product;
+  productId?: string;
+  supplierId: string;
+  brands: { id: string; name: string }[];
+  categories: Category[];
+  videoUrl?: string;
+  subcategories: Subcategory[];
+}
+
+type ProductFormValues = z.infer<typeof productFormSchema>;
+
+export default function ProductForm({
   type,
   product,
   productId,
@@ -47,494 +87,535 @@ const ProductForm = ({
   brands,
   categories,
   subcategories,
-}: {
-  type: "Create" | "Update";
-  product?: Product;
-  productId?: string;
-  supplierId?: string;
-  brands: { id: string; name: string }[];
-  categories: Category[];
-  subcategories: { id: string; name_en: string }[];
-}) => {
+}: ProductFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  // const [previewImages, setPreviewImages] = useState<string[]>([]);
-  const [uploading] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [uploading, setUploading] = useState(false);
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
-      ...productDefaultValues,
-      ...(product || {}),
-      pricingTiers: product?.pricingTiers?.map((tier) => ({
-        minQty: tier.minQty,
-        price: Number(tier.price), // ✅ Convert Decimal to number
-      })),
+      name: product?.name || "",
+      slug: product?.slug || "",
+      videoUrl: product?.videoUrl || "",
+      description: product?.description || "",
+      images: product?.images || [],
+      price: product?.price ? String(product.price) : "",
+      stock: product?.stock || 0,
+      brandId: product?.brandId || "",
+      categoryId: product?.categoryId || "",
+      subcategoryId: product?.subcategoryId || "",
       supplierId: supplierId || "",
-      id: product?.id || undefined, // only for update
-    },
+      pricingTiers:
+        product?.pricingTiers?.map((tier) => ({
+          minQty: tier.minQty,
+          price: Number(tier.price),
+        })) || [],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any,
   });
 
-  // const addTier = () => {
-  //   if (fields.length < 3) append({ minQty: 1, price: 0 });
-  // };
-  // const removeTier = (index: number) => remove(index);
+  // 🟢 MONITOR NAME CHANGES LIVE IN CLIENT MEMORY:
+  const watchName = form.watch("name");
 
-  // //KEEP WATCH
-  // const handleFiles = (files: FileList | null) => {
-  //   if (!files) return;
-  //   const urls = Array.from(files).map((file) => URL.createObjectURL(file));
-  //   setPreviewImages((prev) => [...prev, ...urls]);
-
-  //   // ✅ keep form in sync
-  //   form.setValue("images", [...(form.getValues("images") || []), ...urls], {
-  //     shouldValidate: true,
-  //   });
-  // };
-
-  const onSubmit: SubmitHandler<ProductFormValues> = async (values) => {
-    // console.log("SUPPLIER ID: ", supplierId);
-    // const x = { ...values, supplierId };
-    // console.log("Here Values: ", x);
-    try {
-      if (type === "Create") {
-        const res = await createProduct({
-          ...values,
-          supplierId: supplierId || "",
-        });
-        console.log("Here Values: ", values);
-
-        if (!res.success) {
-          toast({
-            variant: "destructive",
-            description: res.message,
-          });
-          throw new Error(res.message);
-        }
-      } else {
-        if (!productId) {
-          toast({
-            variant: "destructive",
-            description: "Product ID haipo.",
-          });
-          return;
-        }
-        const res = await updateProduct({ ...values, id: productId });
-        if (!res.success) {
-          toast({
-            variant: "destructive",
-            description: res.message,
-          });
-          throw new Error(res.message);
-        }
-      }
-      toast({ description: "Product imehifadhiwa!" });
-      router.push("/supplier/products");
-    } catch (error) {
-      toast({ variant: "destructive", description: "Tatizo limetokea" });
-      console.log("Errorvvvv", error);
-    } finally {
-      router.push("/supplier/products");
+  useEffect(() => {
+    // Sync slugs automatically on text typing inputs, strictly restricted to Create views
+    if (type === "Create" && watchName) {
+      const computedSlug = slugify(watchName, { lower: true, strict: true });
+      form.setValue("slug", computedSlug, { shouldValidate: true });
     }
+  }, [watchName, type, form]);
+
+  // 🟢 LIVE DEPENDENT FILTERING: Read current selected Category to compute subcategory matching subsets
+  const selectedCategoryId = form.watch("categoryId");
+  const filteredSubcategories = subcategories.filter(
+    (sub) => sub.categoryId === selectedCategoryId
+  );
+
+  const handleGenerateSlug = () => {
+    const productName = form.getValues("name");
+    if (!productName.trim()) {
+      toast({
+        variant: "destructive",
+        description: "Andika jina la bidhaa kwanza ili kutengeneza slug.",
+      });
+      return;
+    }
+    const generatedSlug = slugify(productName, { lower: true, strict: true });
+    form.setValue("slug", generatedSlug, { shouldValidate: true });
   };
 
-  // const images = form.watch("images");
-  // const isFeatured = form.watch("isFeatured");
-  // const banner = form.watch("banner");
+  const onSubmit: SubmitHandler<ProductFormValues> = async (values) => {
+    startTransition(async () => {
+      try {
+        if (type === "Create") {
+          const res = await createProduct({
+            ...values,
+            supplierId: supplierId,
+          });
+
+          if (!res.success) {
+            toast({ variant: "destructive", description: res.message });
+            return;
+          }
+        } else {
+          if (!productId) {
+            toast({
+              variant: "destructive",
+              description: "Kitambulisho cha bidhaa (Product ID) hakipatikani.",
+            });
+            return;
+          }
+          const res = await updateProduct({ ...values, id: productId });
+          if (!res.success) {
+            toast({ variant: "destructive", description: res.message });
+            return;
+          }
+        }
+
+        toast({
+          description: "Mabadiliko ya bidhaa yamehifadhiwa kikamilifu!",
+        });
+        router.push("/supplier/products");
+        router.refresh();
+      } catch (error) {
+        console.error(error);
+        toast({
+          variant: "destructive",
+          description: "Imeshindikana kuhifadhi, jaribu tena.",
+        });
+      }
+    });
+  };
 
   return (
     <Form {...form}>
       <form
-        method="POST"
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-8  mb-8"
+        className="space-y-5 max-w-4xl mx-auto pb-12"
       >
-        {/* Name + Slug */}
-        <div className="grid md:grid-cols-2 gap-5">
-          {/*Name */}
+        {/* Row 1: Name + Auto Slug Generator Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="name"
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                z.infer<typeof insertProductSchema>,
-                "name"
-              >;
-            }) => (
-              <FormItem>
-                <FormLabel>Jina la bidhaa</FormLabel>
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Jina la Bidhaa *
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Ingiza jina la bidhaa" {...field} />
+                  <Input
+                    placeholder="Mf. Waya za Shaba za Jumla (Copper Wires)"
+                    className="h-10 text-xs rounded-xl focus-visible:ring-orange-500 bg-slate-50/30 border-slate-200"
+                    {...field}
+                  />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[11px]" />
               </FormItem>
             )}
           />
-          {/* SLUG WITH GENERATE BUTTON */}
+
           <FormField
             control={form.control}
             name="slug"
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                z.infer<typeof insertProductSchema>,
-                "slug"
-              >;
-            }) => (
-              <FormItem>
-                <FormLabel>Slug</FormLabel>
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Kiungo Maalum cha Tovuti (Slug) *
+                </FormLabel>
                 <div className="flex gap-2">
                   <FormControl>
                     <Input
-                      disabled
-                      placeholder="Bonyeza Kitufe cheusi"
+                      readOnly
+                      placeholder="Bonyeza Tengeneza..."
+                      className="h-10 text-xs rounded-xl bg-slate-100 border-slate-200 font-mono text-slate-500 select-none"
                       {...field}
                     />
                   </FormControl>
                   <Button
                     type="button"
-                    onClick={() => {
-                      form.setValue(
-                        "slug",
-                        slugify(form.getValues("name") || "", { lower: true })
-                      );
-                    }}
+                    onClick={handleGenerateSlug}
+                    className="h-10 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl px-4 flex items-center gap-1 shrink-0"
                   >
+                    <Sparkles className="w-3.5 h-3.5 text-orange-400" />
                     Tengeneza
                   </Button>
                 </div>
-                <FormMessage />
+                <FormMessage className="text-[11px]" />
               </FormItem>
             )}
           />
         </div>
 
-        {/* Category + Subcategory + Brand */}
-        <div className="grid md:grid-cols-3 gap-5">
+        {/* Row 2: Category + Subcategory + Brand Selectors */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
             control={form.control}
             name="categoryId"
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                z.infer<typeof insertProductSchema>,
-                "categoryId"
-              >;
-            }) => (
-              <FormItem>
-                <FormLabel>Kundi</FormLabel>
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Kundi Kuu (Category) *
+                </FormLabel>
                 <Select
-                  onValueChange={field.onChange}
+                  onValueChange={(val) => {
+                    field.onChange(val);
+                    form.setValue("subcategoryId", ""); // Reset subcategory row on primary switch
+                  }}
                   value={field.value || ""}
                 >
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chagua kundi" />
+                    <SelectTrigger className="h-10 text-xs rounded-xl focus:ring-orange-500 bg-slate-50/30 border-slate-200 text-slate-700 font-medium">
+                      <SelectValue placeholder="Chagua kundi kuu" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="bg-white border rounded-xl shadow-xl z-50 text-xs">
                     {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name_en}
+                      <SelectItem
+                        key={cat.id}
+                        value={cat.id}
+                        className="cursor-pointer rounded-lg focus:bg-slate-50"
+                      >
+                        {cat.name_sw || cat.name_en}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <FormMessage />
+                <FormMessage className="text-[11px]" />
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
             name="subcategoryId"
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                z.infer<typeof insertProductSchema>,
-                "subcategoryId"
-              >;
-            }) => (
-              <FormItem>
-                <FormLabel>Kundi dogo</FormLabel>
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Kundi Dogo (Subcategory) *
+                </FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   value={field.value || ""}
+                  disabled={!selectedCategoryId}
                 >
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chagua kundi dogo" />
+                    <SelectTrigger className="h-10 text-xs rounded-xl focus:ring-orange-500 bg-slate-50/30 border-slate-200 text-slate-700 font-medium disabled:opacity-50">
+                      <SelectValue
+                        placeholder={
+                          selectedCategoryId
+                            ? "Chagua kundi dogo"
+                            : "Chagua Kundi Kuu kwanza"
+                        }
+                      />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
-                    {subcategories.map((sub) => (
-                      <SelectItem key={sub.id} value={sub.id}>
-                        {sub.name_en}
+                  <SelectContent className="bg-white border rounded-xl shadow-xl z-50 text-xs">
+                    {filteredSubcategories.map((sub) => (
+                      <SelectItem
+                        key={sub.id}
+                        value={sub.id}
+                        className="cursor-pointer rounded-lg focus:bg-slate-50"
+                      >
+                        {sub.name_sw || sub.name_en}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <FormMessage />
+                <FormMessage className="text-[11px]" />
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
             name="brandId"
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                z.infer<typeof insertProductSchema>,
-                "brandId"
-              >;
-            }) => (
-              <FormItem>
-                <FormLabel>Brandi</FormLabel>
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Chapa (Brand) *
+                </FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   value={field.value || ""}
                 >
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chagua brandi" />
+                    <SelectTrigger className="h-10 text-xs rounded-xl focus:ring-orange-500 bg-slate-50/30 border-slate-200 text-slate-700 font-medium">
+                      <SelectValue placeholder="Chagua Brandi" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="bg-white border rounded-xl shadow-xl z-50 text-xs">
                     {brands.map((brand) => (
-                      <SelectItem key={brand.id} value={brand.id}>
+                      <SelectItem
+                        key={brand.id}
+                        value={brand.id}
+                        className="cursor-pointer rounded-lg focus:bg-slate-50"
+                      >
                         {brand.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <FormMessage />
+                <FormMessage className="text-[11px]" />
               </FormItem>
             )}
           />
         </div>
 
-        {/* Price + Stock */}
-        <div className="grid md:grid-cols-2 gap-5">
+        {/* Row 3: Base Price + Total Inventory Stock Inputs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="price"
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                z.infer<typeof insertProductSchema>,
-                "price"
-              >;
-            }) => (
-              <FormItem>
-                <FormLabel>Bei Elekezi</FormLabel>
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Bei Elekezi ya Rejareja (Base Retail Price) *
+                </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="Ingiza bei ya bidhaa"
+                    min={0}
+                    placeholder="Ingiza bei ya kipande kimoja (TZS)"
+                    className="h-10 text-xs rounded-xl focus-visible:ring-orange-500 bg-slate-50/30 border-slate-200 font-semibold"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[11px]" />
               </FormItem>
             )}
           />
+
           <FormField
             control={form.control}
             name="stock"
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                z.infer<typeof insertProductSchema>,
-                "stock"
-              >;
-            }) => (
-              <FormItem>
-                <FormLabel>Idadi ya mzigo</FormLabel>
+            render={({ field }) => (
+              <FormItem className="space-y-1">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Idadi ya Mzigo Uliopo Ghalani (Total Stock) *
+                </FormLabel>
                 <FormControl>
                   <Input
                     type="number"
-                    placeholder="Ingiza idadi ya mzigo"
+                    min={0}
+                    placeholder="Ingiza jumla ya idadi ya mzigo unaouza"
+                    className="h-10 text-xs rounded-xl focus-visible:ring-orange-500 bg-slate-50/30 border-slate-200 font-semibold"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-[11px]" />
               </FormItem>
             )}
           />
         </div>
 
-        {/* Price Tiers */}
-        <PricingTiersFieldArray control={form.control} />
-
-        {/* Images */}
+        {/* 🟢 ADD THIS BLOCK DIRECTLY UNDER YOUR PRICE & STOCK GRID LAYOUTS IN THE FORM: */}
         <FormField
           control={form.control}
-          name="images"
-          render={() => {
-            return (
-              <FormItem>
-                <FormLabel>Picha za bidhaa</FormLabel>
-                <FormControl>
-                  <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-muted">
-                    <UploadButton
-                      endpoint="imageUploader"
-                      appearance={{
-                        button:
-                          "bg-green-600 text-white hover:bg-green-700 px-4 py-2 rounded-md",
-                        // : "text-green-600 font-medium",
-                      }}
-                      content={{
-                        button: "Chagua na pakia picha", // 👈 changed text
-                      }}
-                      // ✅ Enable multiple uploads
-                      // multiple
-                      onUploadBegin={() => {
-                        // ✅ show loader when upload starts
-                        toast({
-                          title: "Tafadhali subiri...",
-                          description: "Picha zinapakiwa 🚀",
-                          duration: 999999, // stays until upload finishes
-                        });
-                      }}
-                      onClientUploadComplete={(res: { url: string }[]) => {
-                        //toast.dismiss(); // ✅ remove loader toast
-
-                        const existing = form.getValues("images") || [];
-                        const newUrls = res.map((r) => r.url);
-
-                        if (existing.length + newUrls.length > 5) {
-                          toast({
-                            variant: "destructive",
-                            description: "Unaweza kupakia hadi picha 5 pekee.",
-                          });
-                          return;
-                        }
-
-                        form.setValue("images", [...existing, ...newUrls], {
-                          shouldValidate: true,
-                        });
-
-                        toast({
-                          title: "Upload successful",
-                          description: `${newUrls.length} image(s) uploaded`,
-                        });
-                      }}
-                      onUploadError={(error) => {
-                        //toast.dismiss(); // remove loader if error happens
-                        toast({
-                          variant: "destructive",
-                          description: error.message,
-                        });
-                      }}
-                    />
-
-                    {/* Loader */}
-                    {uploading && (
-                      <div className="flex items-center gap-2 mt-2 text-green-600 text-sm">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Inapakia picha...</span>
-                      </div>
-                    )}
-
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Buruta na udondoshe au ubofye ili kupakia (picha
-                      zisizozidi 5)
-                    </div>
-                  </div>
-                </FormControl>
-
-                {/* Preview thumbnails */}
-                {form.watch("images")?.length > 0 && (
-                  <div className="flex gap-2 flex-wrap mt-4">
-                    {form.watch("images").map((src: string, idx: number) => (
-                      <div
-                        key={idx}
-                        className="relative w-24 h-24 rounded-md overflow-hidden border"
-                      >
-                        <Image
-                          src={src}
-                          alt={`preview-${idx}`}
-                          width={100}
-                          height={100}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                          onClick={() => {
-                            const updated = form
-                              .getValues("images")
-                              .filter((_: string, i: number) => i !== idx);
-
-                            form.setValue("images", updated, {
-                              shouldValidate: true,
-                            });
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <FormMessage />
-              </FormItem>
-            );
-          }}
-        />
-
-        {/* Featured */}
-
-        {/* Description */}
-        <FormField
-          control={form.control}
-          name="description"
-          render={({
-            field,
-          }: {
-            field: ControllerRenderProps<
-              z.infer<typeof insertProductSchema>,
-              "description"
-            >;
-          }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
+          name="videoUrl"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <div className="flex justify-between items-baseline">
+                <FormLabel className="text-xs font-semibold text-slate-700">
+                  Kiungo cha Video ya Bidhaa (Product Video Link) - Hiari
+                </FormLabel>
+                <span className="text-[10px] text-slate-400 font-medium font-mono">
+                  YouTube, Instagram au Facebook
+                </span>
+              </div>
               <FormControl>
-                <RichTextEditor
-                  value={field.value}
-                  onChange={field.onChange}
-                  placeholder="Ingiza maelezo ya bidhaa"
-                  onBlur={field.onBlur}
-                  className="min-h-[150px] w-full focus:outline-none"
+                <Input
+                  placeholder="Mfano: https://youtube.com..."
+                  className="h-10 text-xs rounded-xl focus-visible:ring-orange-500 bg-slate-50/30 border-slate-200"
+                  {...field}
+                  value={field.value || ""} // Prevents raw input warning exceptions if value is null
                 />
               </FormControl>
-              <FormMessage />
+              <p className="text-[10px] text-slate-400 leading-normal font-light">
+                Weka kiungo cha video ili wateja waweze kuitazama bidhaa hii
+                ikifanya kazi moja kwa moja kwenye ukurasa wa bidhaa.
+              </p>
+              <FormMessage className="text-[11px]" />
             </FormItem>
           )}
         />
 
-        {/* Submit */}
-        <div>
+        {/* Row 4: Wholesale Pricing Tiers Context Area */}
+        <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-1">
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-orange-500 fill-orange-100" />{" "}
+            Ngazi za Bei za Jumla (Wholesale Pricing Tiers)
+          </h3>
+          <p className="text-[11px] text-slate-400 pb-2">
+            Andika kiwango cha chini cha bidhaa na bei yake ili kuwapa punguzo
+            wanaonunua kwa wingi.
+          </p>
+          <PricingTiersFieldArray control={form.control} />
+        </div>
+
+        {/* Row 5: Multi-Image Uploading Integration Matrix Dropzone */}
+        {/* 🟢 UPGRADED MULTI-IMAGE INTEGRATION MATRIX DROPZONE */}
+        <div className="space-y-1.5 w-full">
+          <FormLabel className="text-xs font-semibold text-slate-700">
+            Picha za Bidhaa (Zisizozidi 5) *
+          </FormLabel>
+          <div className="border-2 border-dashed border-slate-200 rounded-2xl p-6 bg-slate-50/40 flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors relative group">
+            <UploadButton
+              endpoint="imageUploader"
+              // 🟢 CONFIGURATION FIX: Grants browser permissions to multi-select files simultaneously
+              //multiple={true}
+              config={{ mode: "manual" }}
+              appearance={{
+                button:
+                  "bg-slate-900 text-white text-xs font-bold px-4 h-9 rounded-xl shadow-sm cursor-pointer hover:bg-slate-800 transition-colors",
+                allowedContent: "text-[10px] text-slate-400 font-medium mt-1",
+              }}
+              content={{ button: "Chagua na Pakia Picha" }}
+              onUploadBegin={() => {
+                setUploading(true);
+                toast({
+                  title: "Tafadhali subiri...",
+                  description: "Picha zako zinapakiwa salama kwenye mfumo 🚀",
+                });
+              }}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onClientUploadComplete={(res: any) => {
+                setUploading(false);
+                const existing = form.getValues("images") || [];
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const newUrls = res.map((r: any) => r.url);
+
+                // 🟢 MULTI-UPLOAD SAFETY CHECK: Intercept batch size limit breaches before validation errors trigger
+                if (existing.length + newUrls.length > 5) {
+                  toast({
+                    variant: "destructive",
+                    title: "Mpakio Umekataliwa",
+                    description: `Maudhui yamezidi kikomo. Unaweza kuweka hadi picha 5 pekee. (Kwa sasa unazo ${existing.length} na umejaribu kuongeza ${newUrls.length}).`,
+                  });
+                  return;
+                }
+
+                form.setValue("images", [...existing, ...newUrls], {
+                  shouldValidate: true,
+                });
+                toast({
+                  title: "Mpakio Umekamilika! 🎉",
+                  description: `Picha ${newUrls.length} zimeongezwa kwa mafanikio.`,
+                });
+              }}
+              onUploadError={(error: { message: string }) => {
+                setUploading(false);
+                toast({
+                  variant: "destructive",
+                  description:
+                    error.message || "Hitilafu imetokea wakati wa kupakia.",
+                });
+              }}
+            />
+
+            {uploading && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-2 text-slate-800 text-xs font-bold">
+                <Loader2 className="h-4 w-4 animate-spin text-orange-500" />
+                <span>Mifumo inapokea picha ghalani...</span>
+              </div>
+            )}
+
+            <div className="mt-3 text-[11px] text-slate-400 font-medium flex items-center gap-1 select-none">
+              <ImageIcon className="w-3.5 h-3.5 text-slate-300" />
+              <span>
+                Buruta na udondoshe au bofye hapa kupakia picha nyingi kwa mara
+                moja (Zisizozidi 5)
+              </span>
+            </div>
+          </div>
+
+          {/* Dynamic Image Thumbnails Grid Preview Panel */}
+          {form.watch("images")?.length > 0 && (
+            <div className="flex gap-2.5 flex-wrap pt-2">
+              {form.watch("images").map((src: string, idx: number) => (
+                <div
+                  key={idx}
+                  className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-100 bg-white group shadow-sm flex items-center justify-center p-1"
+                >
+                  <Image
+                    src={src}
+                    alt={`preview-${idx}`}
+                    fill
+                    className="object-contain p-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = form
+                        .getValues("images")
+                        .filter((_, i) => i !== idx);
+                      form.setValue("images", updated, {
+                        shouldValidate: true,
+                      });
+                    }}
+                    className="absolute top-1 right-1 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 opacity-90 transition-opacity shadow-sm outline-none"
+                    aria-label="Ondoa picha hii"
+                  >
+                    <X className="w-3 h-3 stroke-[2.5]" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Row 6: Rich Text Product Narrative Description Editor */}
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs font-semibold text-slate-700">
+                Maelezo Kamili ya Bidhaa (Product Description) *
+              </FormLabel>
+              <FormControl>
+                <div className="border border-slate-200 rounded-2xl overflow-hidden focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/10 bg-white min-h-[160px]">
+                  <RichTextEditor
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Andika sifa, vipimo, ubora au maelezo ya ziada ya bidhaa yako hapa..."
+                    onBlur={field.onBlur}
+                    className="p-3 w-full outline-none text-xs leading-relaxed"
+                  />
+                </div>
+              </FormControl>
+              <FormMessage className="text-[11px]" />
+            </FormItem>
+          )}
+        />
+
+        {/* Form Action Submissions Block */}
+        <div className="pt-3 border-t border-slate-100">
           <Button
             type="submit"
-            size="lg"
-            disabled={form.formState.isSubmitting}
-            className="w-full"
+            disabled={isPending || form.formState.isSubmitting}
+            className="w-full h-11 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-slate-900/10 transition-colors"
           >
-            {form.formState.isSubmitting ? "Submitting..." : `${type} Product`}
+            {isPending || form.formState.isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                <span>Tunahifadhi data ya bidhaa...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5 text-orange-400" />
+                <span>
+                  {type === "Create"
+                    ? "Chapisha Bidhaa Hii"
+                    : "Sasisha Bidhaa Hii"}
+                </span>
+              </>
+            )}
           </Button>
         </div>
       </form>
     </Form>
   );
-};
-
-export default ProductForm;
+}

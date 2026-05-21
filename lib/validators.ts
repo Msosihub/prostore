@@ -70,6 +70,11 @@ export const productFormSchema = z.object({
   id: z.string().optional(), // optional, only needed for update
   name: z.string().min(3, "Jina lazima liwe zaidi ya herufi 3"),
   slug: z.string().min(3, "Slug lazima liwe zaidi ya herufi 3"),
+  videoUrl: z
+    .string()
+    .url("Kiungo cha video lazima kiwe URL halali")
+    .optional()
+    .or(z.literal("")),
   description: z.string().min(3, "Maelezo yanataka walau herufi 3"),
   stock: z.coerce.number().min(0, "Stock lazima iwe namba chanya"),
   images: z

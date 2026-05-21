@@ -1,5 +1,10 @@
-export const dynamic = "force-dynamic";
-
+import { Metadata } from "next";
+import Link from "next/link";
+import { getSupplierOrderItems } from "@/lib/actions/order.actions"; // 🟢 New Multi-Vendor query hook
+import { requireSupplier } from "@/lib/auth-guard";
+import { auth } from "@/auth";
+import { prisma } from "@/db/prisma";
+import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -8,82 +13,113 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { deleteOrder, getAllOrders } from "@/lib/actions/order.actions";
-import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
-import { Metadata } from "next";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import Link from "next/link";
 import Pagination from "@/components/shared/pagination";
-import { requireSupplier } from "@/lib/auth-guard";
 import DeleteDialog from "@/components/shared/delete-dialog";
-import { ChevronRight, X, Search } from "lucide-react";
+import { deleteOrder } from "@/lib/actions/order.actions";
+import {
+  Search,
+  X,
+  ClipboardList,
+  Eye,
+  Truck,
+  CheckCircle2,
+  User,
+} from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Maagizo ya Wasambazaji",
+  title: "Maagizo ya Duka (Vendor Orders) | Nimboya",
 };
 
 interface SupplierOrdersPageProps {
   searchParams: Promise<{ page: string; query: string }>;
 }
 
-const SupplierOrdersPage = async (props: SupplierOrdersPageProps) => {
-  const { page = "1", query: searchText = "" } = await props.searchParams;
-
+export default async function SupplierOrdersPage(
+  props: SupplierOrdersPageProps
+) {
   await requireSupplier();
+  const session = await auth();
+  const supplierUserId = session?.user?.id;
 
-  const orders = await getAllOrders({
-    page: Number(page),
+  // Resolve the vendor id to extract matching item rows
+  const supplier = await prisma.supplier.findUnique({
+    where: { userId: supplierUserId },
+  });
+
+  if (!supplier) {
+    return (
+      <div className="text-center py-12 border border-dashed rounded-xl bg-white text-xs font-medium text-slate-400">
+        Akaunti hii haijahusishwa na duka lolote la muuzaji.
+      </div>
+    );
+  }
+
+  const searchParams = await props.searchParams;
+  const page = Number(searchParams.page) || 1;
+  const searchText = searchParams.query || "";
+
+  // 🟢 FIXED MULTI-VENDOR QUERY: Pulls explicit items owned by this supplier instead of global order header rows
+  const ordersPayload = await getSupplierOrderItems({
+    supplierId: supplier.id,
+    page,
     query: searchText,
+    limit: 10,
   });
 
   return (
-    <div className="w-full space-y-4 px-2 py-3 md:px-4 md:py-6 max-w-6xl mx-auto">
-      {/* 1. Header Panel */}
-      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-bold tracking-tight md:text-2xl text-slate-900">
-            Maagizo (Orders)
+    <div className="w-full space-y-5 select-none">
+      {/* Header Banner Row */}
+      <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 px-1">
+        <div className="space-y-1">
+          <h1 className="text-base font-extrabold md:text-xl text-slate-900 tracking-tight flex items-center gap-1.5">
+            <ClipboardList className="w-4 h-4 text-slate-500" />
+            Maagizo ya Mauzo (Orders Log)
           </h1>
-          <Badge
-            variant="outline"
-            className="text-xs font-normal text-muted-foreground px-2 py-0.5"
-          >
-            Jumla: {orders.data.length}
-          </Badge>
+          <p className="text-xs text-slate-400 font-normal">
+            Usimamizi wa vifurushi vya bidhaa zako zilizolipiwa na wateja
+            sokoni.
+          </p>
         </div>
+        <Badge
+          variant="outline"
+          className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 border-slate-200 uppercase tracking-wider rounded-md"
+        >
+          Vifurushi: {ordersPayload.data.length}
+        </Badge>
       </div>
 
-      {/* 2. Optimized Search & Filter Action Bar */}
-      <div className="bg-white border rounded-xl p-3 shadow-sm flex flex-col sm:flex-row items-center gap-2">
+      {/* Optimized Search & Filter Action Bar */}
+      <div className="bg-white border border-slate-100 p-2.5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center gap-2">
         <form
           method="GET"
           action="/supplier/orders"
           className="flex items-center gap-2 w-full"
         >
           <div className="relative flex-1 w-full">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <Input
               name="query"
               defaultValue={searchText}
-              placeholder="Tafuta kwa Jina la Mteja au ID ya agizo..."
-              className="pl-9 h-9 text-xs focus-visible:ring-emerald-500 rounded-lg w-full"
+              placeholder="Tafuta kwa namba ya agizo au jina la mteja..."
+              className="pl-9 h-10 text-xs focus-visible:ring-orange-500 rounded-xl w-full bg-slate-50/40 border-slate-200"
             />
           </div>
           <Button
             type="submit"
-            className="h-9 bg-slate-900 hover:bg-slate-800 text-white text-xs px-4 rounded-lg font-medium"
+            className="h-10 bg-slate-900 hover:bg-slate-800 text-white text-xs px-4 rounded-xl font-bold transition-colors shrink-0"
           >
             Tafuta
           </Button>
         </form>
 
         {searchText && (
-          <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground bg-slate-50 border rounded-lg pl-2.5 pr-1 py-1 w-full sm:w-auto shrink-0">
+          <div className="flex items-center justify-between gap-2 text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 rounded-xl pl-3 pr-1 py-1 w-full sm:w-auto shrink-0">
             <span className="truncate">
-              Matokeo ya:{" "}
-              <i className="font-semibold text-slate-700">
+              Chujio la:{" "}
+              <i className="font-bold text-slate-800">
                 &quot;{searchText}&quot;
               </i>
             </span>
@@ -91,196 +127,208 @@ const SupplierOrdersPage = async (props: SupplierOrdersPageProps) => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 rounded-md hover:bg-slate-200"
+                className="h-6 w-6 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600"
               >
-                <X className="h-3 w-3 text-slate-500" />
+                <X className="h-3.5 w-3.5" />
               </Button>
             </Link>
           </div>
         )}
       </div>
 
-      {/* 3. 📱 MOBILE VIEW: Cards Layout */}
-      <div className="block md:hidden space-y-2.5">
-        {orders.data.length === 0 ? (
-          <div className="text-center py-12 border border-dashed rounded-xl bg-slate-50/50">
-            <p className="text-xs text-muted-foreground">
-              Hakuna maagizo yaliyopatikana yanayolingana na utafutaji wako.
-            </p>
+      {ordersPayload.data.length === 0 ? (
+        <div className="text-center py-16 border border-dashed rounded-2xl bg-white space-y-2">
+          <p className="text-xs sm:text-sm text-slate-400 italic">
+            Hakuna maagizo yaliyopatikana yanayolingana na utafutaji wako.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* 📱 MOBILE VIEW: Clean Split Container Item Stack Cards */}
+          <div className="block md:hidden space-y-2.5">
+            {/*  eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {ordersPayload.data.map((item: any) => {
+              const itemTotalRevenue = Number(item.price) * item.qty;
+              return (
+                <div
+                  key={`${item.orderId}-${item.productId}`}
+                  className="bg-white border border-slate-100 p-3.5 rounded-xl shadow-sm space-y-3"
+                >
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-xs font-bold text-slate-800 font-mono">
+                        Agizo #{formatId(item.orderId)}
+                      </p>
+                      <p className="text-[11px] font-semibold text-slate-700 truncate">
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <User className="w-3 h-3" /> Mteja:{" "}
+                        {item.order.user.name}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-black text-slate-900">
+                        {formatCurrency(itemTotalRevenue)}
+                      </p>
+                      <p className="text-[10px] font-mono text-slate-400 font-medium pt-0.5">
+                        {item.qty} pcs
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2.5 border-t border-slate-50">
+                    <div className="flex gap-1.5 items-center">
+                      {item.isDelivered ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] font-bold px-2 py-0 rounded-full flex items-center gap-0.5"
+                        >
+                          <CheckCircle2 className="w-2.5 h-2.5" /> Amepokea
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="bg-amber-50 text-amber-700 border-amber-100 text-[10px] font-bold px-2 py-0 rounded-full flex items-center gap-0.5"
+                        >
+                          <Truck className="w-2.5 h-2.5 animate-pulse" /> Njia
+                          Kuu
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[11px] px-2.5 rounded-lg border-slate-200 text-slate-600"
+                      >
+                        <Link
+                          href={`/order/${item.orderId}`}
+                          className="flex items-center gap-0.5"
+                        >
+                          <Eye className="w-3 h-3" /> Maelezo
+                        </Link>
+                      </Button>
+                      <DeleteDialog id={item.orderId} action={deleteOrder} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        ) : (
-          orders.data.map((order) => (
-            <div
-              key={order.id}
-              className="bg-white border rounded-xl p-3 shadow-sm space-y-3"
-            >
-              <div className="flex justify-between items-start">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-slate-800">
-                    Agizo #{formatId(order.id)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {formatDateTime(order.createdAt).dateOnly} • Mteja:{" "}
-                    <span className="font-medium text-slate-700">
-                      {order.user.name}
-                    </span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-green-700">
-                    {formatCurrency(order.totalPrice)}
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                <div className="flex gap-1.5 items-center">
-                  {order.isPaid ? (
-                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-medium px-1.5 py-0">
-                      Umelipa
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-medium px-1.5 py-0">
-                      Inasubiri
-                    </Badge>
-                  )}
-
-                  {order.isDelivered ? (
-                    <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-medium px-1.5 py-0">
-                      Imefika
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] font-medium px-1.5 py-0">
-                      Njia Kuu
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <Link
-                    href={`/order/${order.id}`}
-                    className="flex items-center text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors gap-0.5"
-                  >
-                    Maelezo
-                    <ChevronRight className="w-3 h-3" />
-                  </Link>
-                  <DeleteDialog id={order.id} action={deleteOrder} />
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* 4. 💻 DESKTOP VIEW: Clean Table */}
-      <div className="hidden md:block border rounded-xl bg-white overflow-hidden shadow-sm">
-        <Table>
-          <TableHeader className="bg-slate-50/70">
-            <TableRow>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                ID YA AGIZO
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                TAREHE
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                MTEJA (BUYER)
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                GHARAMA
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                MALIPO
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3">
-                MZIGO
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-600 py-3 text-right">
-                VITENDO
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders.data.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={7}
-                  className="text-center text-sm text-muted-foreground py-12"
-                >
-                  Hakuna maagizo yaliyopatikana yanayolingana na utafutaji wako.
-                </TableCell>
-              </TableRow>
-            ) : (
-              orders.data.map((order) => (
-                <TableRow
-                  key={order.id}
-                  className="hover:bg-slate-50/50 transition-colors"
-                >
-                  <TableCell className="font-medium text-xs text-slate-900 py-3.5">
-                    {formatId(order.id)}
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-600 py-3.5">
-                    {formatDateTime(order.createdAt).dateTime}
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-700 py-3.5 font-medium">
-                    {order.user.name}
-                  </TableCell>
-                  <TableCell className="text-xs font-semibold text-slate-900 py-3.5">
-                    {formatCurrency(order.totalPrice)}
-                  </TableCell>
-                  <TableCell className="py-3.5">
-                    {order.isPaid && order.paidAt ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Imelipiwa
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        Haijalipiwa
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-3.5">
-                    {order.isDelivered && order.deliveredAt ? (
-                      <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                        Imewasilishwa
-                      </span>
-                    ) : (
-                      <span className="text-xs font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full">
-                        Njia Kuu
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right py-3.5 space-x-2">
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs px-2.5"
-                    >
-                      <Link href={`/order/${order.id}`}>Details</Link>
-                    </Button>
-                    <DeleteDialog id={order.id} action={deleteOrder} />
-                  </TableCell>
+          {/* 💻 DESKTOP VIEW: Split Multi-Vendor Order Item Registry Grid */}
+          <div className="hidden md:block border border-slate-100 rounded-2xl bg-white overflow-hidden shadow-sm">
+            <Table>
+              <TableHeader className="bg-slate-50/60 border-b border-slate-100">
+                <TableRow className="hover:bg-transparent border-slate-100">
+                  <TableHead className="text-xs font-semibold py-3 pl-4">
+                    Namba ya Agizo
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold py-3">
+                    Tarehe
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold py-3">
+                    Mteja (Buyer)
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold py-3">
+                    Bidhaa (Package Item)
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold py-3 text-center">
+                    Kiasi
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold py-3 text-center">
+                    Hali ya Mzigo
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold py-3 text-right pr-4">
+                    Gharama Yako
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold py-3 text-center w-[150px]">
+                    Vitendo
+                  </TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {ordersPayload.data.map((item: any) => {
+                  const itemTotalRevenue = Number(item.price) * item.qty;
+                  return (
+                    <TableRow
+                      key={`${item.orderId}-${item.productId}`}
+                      className="border-slate-100 hover:bg-slate-50/40"
+                    >
+                      <TableCell className="font-mono text-slate-400 text-[11px] font-bold pl-4">
+                        #{formatId(item.orderId)}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 font-medium">
+                        {formatDateTime(item.order.createdAt).dateOnly}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-700 font-bold">
+                        {item.order.user.name}
+                      </TableCell>
+                      <TableCell
+                        className="text-xs text-slate-600 font-medium truncate max-w-[180px]"
+                        title={item.name}
+                      >
+                        {item.name}
+                      </TableCell>
+                      <TableCell className="text-xs font-bold text-slate-700 text-center">
+                        {item.qty}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {item.isDelivered ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />{" "}
+                            Imefika
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-100">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />{" "}
+                            Njia Kuu
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-black text-xs text-slate-900 pr-4">
+                        {formatCurrency(itemTotalRevenue)}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <div className="flex items-center justify-center gap-1.5 pr-1">
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="h-7 px-2 text-[11px] rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
+                          >
+                            <Link
+                              href={`/order/${item.orderId}`}
+                              className="flex items-center gap-0.5"
+                            >
+                              <Eye className="w-3 h-3 text-slate-400" /> Details
+                            </Link>
+                          </Button>
+                          <DeleteDialog
+                            id={item.orderId}
+                            action={deleteOrder}
+                          />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
 
-      {/* 5. Pagination Container */}
-      {orders.totalPages > 1 && (
-        <div className="pt-2 flex justify-center">
-          <Pagination
-            page={Number(page) || 1}
-            totalPages={orders?.totalPages}
-          />
+      {/* Pagination Controls Row */}
+      {ordersPayload.totalPages > 1 && (
+        <div className="w-full flex justify-center pt-3">
+          <Pagination page={page} totalPages={ordersPayload.totalPages} />
         </div>
       )}
     </div>
   );
-};
-
-export default SupplierOrdersPage;
+}
