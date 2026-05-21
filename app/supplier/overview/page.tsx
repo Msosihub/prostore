@@ -8,13 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { formatCurrency, formatNumber, formatDateTime } from "@/lib/utils";
-import { getOrderSummary } from "@/lib/actions/product.actions";
-import { requireSupplier } from "@/lib/actions/user.actions"; // Adjust path to match your user validation logic
-import Charts from "@/components/supplier/charts"; // Adjust path to your charts layout component file
 import {
   CreditCard,
   Users,
@@ -22,9 +17,11 @@ import {
   TrendingUp,
   Sparkles,
   ArrowUpRight,
-  Eye,
 } from "lucide-react";
-import { Order } from "@/types";
+// import { Order } from "@/types";
+import Charts from "./charts";
+import { getOrderSummary } from "@/lib/actions/order.actions";
+import { requireSupplier } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
   title: "Supplier Dashboard Summary Overview | Nimboya",
@@ -174,7 +171,8 @@ export default async function SupplierOverviewPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {summary.latestSales.map((order: Order) => (
+                      {/*  eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                      {summary.latestSales.map((order: any) => (
                         <TableRow
                           key={order.id}
                           className="border-slate-100 hover:bg-slate-50/40"
@@ -196,7 +194,8 @@ export default async function SupplierOverviewPage() {
 
                 {/* Mobile View Card Rows Layout (Sealed & Cleaned completely) */}
                 <div className="sm:hidden divide-y divide-slate-100">
-                  {summary.latestSales.map((order: Order) => (
+                  {/*  eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {summary.latestSales.map((order: any) => (
                     <div
                       key={order.id}
                       className="p-3.5 flex items-center justify-between gap-3"
