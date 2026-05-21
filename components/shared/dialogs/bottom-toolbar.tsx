@@ -111,6 +111,7 @@ export default function BottomToolbar({
                 productId: productId,
                 name: item?.name,
                 price: item?.price,
+                priceTiers: item.priceTiers,
                 qty: 1,
                 image: item?.image || "",
               }}

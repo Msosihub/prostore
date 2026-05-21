@@ -68,6 +68,7 @@ export default function RandomOneSectionHeading({}: Props) {
             <div key={product.slug} className="min-w-[200px] flex-shrink-0">
               <ProductCard
                 id={product.id}
+                slug={product.slug}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}

@@ -5,10 +5,11 @@ import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { shippingAddressSchema } from "@/lib/validators";
+import { ShippingAddress } from "@/types";
 
 export async function updateOrderShippingAddress(
   orderId: string,
-  rawAddressData: any
+  rawAddressData: unknown
 ) {
   try {
     const session = await auth();
@@ -21,13 +22,13 @@ export async function updateOrderShippingAddress(
     await prisma.order.update({
       where: { id: orderId },
       data: {
-        shippingAddress: validatedAddress as any,
+        shippingAddress: validatedAddress as ShippingAddress,
       },
     });
 
     revalidatePath(`/order/${orderId}`);
     return { success: true, message: "Taarifa za agizo zimesasishwa vyema!" };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Order adjustment crash encountered:", error);
     return {
       success: false,

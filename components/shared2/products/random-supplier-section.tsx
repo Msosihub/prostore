@@ -133,6 +133,7 @@ export default function RandomSupplierSection() {
             >
               <ProductCard
                 id={product.id}
+                slug={product.slug}
                 name={product.name}
                 brand={product?.brand?.name || ""}
                 category={product.category?.name_en ?? ""}

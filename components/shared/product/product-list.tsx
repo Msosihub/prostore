@@ -75,6 +75,7 @@ const ProductList = ({
                 <ProductCard
                   key={product.id}
                   id={product.slug}
+                  slug={product.slug}
                   name={product.name}
                   brand={product?.brand?.name || ""}
                   category={
@@ -146,6 +147,7 @@ const ProductList = ({
                     <ProductCard
                       id={product.slug}
                       name={product.name}
+                      slug={product.slug}
                       brand={product?.brand?.name || ""}
                       category={
                         product.category?.name_sw ||

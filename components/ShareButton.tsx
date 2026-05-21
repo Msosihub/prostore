@@ -8,7 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Share2, Copy, Instagram, MessageCircle } from "lucide-react";
+import { Share2, Copy, MessageCircle, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ShareButton({
   title,
@@ -18,26 +19,35 @@ export default function ShareButton({
   url: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast({
+        description: "Kiungo kimenakiliwa kwenye ubao wako! 📋",
+      });
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleShare = async () => {
+  const handleDeviceShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
           title,
-          text: "Check this out on Nimboya!",
+          text: "Angalia bidhaa hii ya kipekee kwenye Nimboya!",
           url,
         });
       } catch (error) {
         console.log("Share cancelled", error);
       }
     } else {
-      alert("Sharing not supported in this browser");
+      // Fallback natively to copying link parameters if browser platform support fails
+      handleCopy();
     }
   };
 
@@ -48,32 +58,52 @@ export default function ShareButton({
     );
   };
 
-  const handleInstagram = () => {
-    alert("Instagram sharing works best via app or copy link feature.");
-  };
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Share2 className="w-4 h-4" />
-          Share
+        {/* 🟢 Refined for high-density placement parameters within header lines */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs font-semibold rounded-lg px-2.5 border-slate-200 text-slate-600 hover:text-orange-600 active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+        >
+          <Share2 className="w-3.5 h-3.5" />
+          <span>Safarisha</span>
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleShare}>
-          <Share2 className="mr-2 h-4 w-4" /> Share via device
+      <DropdownMenuContent
+        className="w-48 bg-white border border-slate-100 rounded-xl shadow-xl p-1 z-50"
+        align="end"
+      >
+        <DropdownMenuItem
+          onClick={handleDeviceShare}
+          className="text-xs font-medium text-slate-600 p-2 rounded-lg cursor-pointer focus:bg-slate-50 focus:text-slate-900 flex items-center gap-2"
+        >
+          <Share2 className="w-3.5 h-3.5 text-slate-400" /> Shiriki na kifaa
+          chako
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleWhatsApp}>
-          <MessageCircle className="mr-2 h-4 w-4 text-green-500" /> WhatsApp
+
+        <DropdownMenuItem
+          onClick={handleWhatsApp}
+          className="text-xs font-medium text-slate-600 p-2 rounded-lg cursor-pointer focus:bg-slate-50 focus:text-slate-900 flex items-center gap-2"
+        >
+          <MessageCircle className="w-3.5 h-3.5 text-emerald-500 fill-emerald-50" />{" "}
+          WhatsApp
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleInstagram}>
-          <Instagram className="mr-2 h-4 w-4 text-pink-500" /> Instagram
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleCopy}>
-          <Copy className="mr-2 h-4 w-4 text-gray-500" />{" "}
-          {copied ? "Copied!" : "Copy Link"}
+
+        <DropdownMenuItem
+          onClick={handleCopy}
+          className="text-xs font-semibold text-slate-700 p-2 rounded-lg cursor-pointer focus:bg-slate-50 focus:text-slate-900 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-slate-400" />
+            )}
+            <span>{copied ? "Imenakiliwa!" : "Nakili Kiungo"}</span>
+          </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

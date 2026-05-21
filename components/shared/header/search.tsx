@@ -30,9 +30,9 @@ export default function Search() {
   const phraseIndex = useRef(0);
   const charIndex = useRef(0);
   const typingInterval = useRef<NodeJS.Timeout | null>(null);
-  const splitter = new GraphemeSplitter();
 
   useEffect(() => {
+    const splitter = new GraphemeSplitter();
     if (isInteracted || query) return;
 
     const typeNextChar = () => {

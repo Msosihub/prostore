@@ -82,6 +82,7 @@ model User {
   Notification          Notification[]
   // SupplierNote          SupplierNote[]
   Admin                 Admin?
+  PayoutRequest         PayoutRequest[]
 }
 
 model Cart {
@@ -133,6 +134,10 @@ model OrderItem {
 
   isDelivered Boolean   @default(false)
   deliveredAt DateTime? @db.Timestamp(6)
+
+  // 🟢 INJECT THESE FOR FINANCIAL SAFETY IN MULTI-VENDOR TRANSACTIONS:
+  payoutStatus ItemPayoutStatus @default(ESCROW)
+  payoutAt     DateTime?        @db.Timestamp(6)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -317,32 +322,38 @@ model Supplier {
   bannerUrl     String?
   businessType  String? // e.g. Manufacturer, Wholesaler, Retailer
 
-  country           String?
-  location          String?
-  nation            String?
-  about             String?
-  logo              String?
-  website           String?
-  isVerified        Boolean             @default(false)
-  yearsActive       Int                 @default(1)
-  rating            Decimal             @default(0.0) @db.Decimal(3, 2)
-  deliveryRate      Int                 @default(0)
-  responseTime      String?
-  avatar            String?
-  banner            String?
-  certifications    Certification[]
-  gallery           Json? // Array of image/video URLs
-  createdAt         DateTime            @default(now()) @db.Timestamp(6)
-  updatedAt         DateTime            @default(now()) @db.Timestamp(6)
-  verifiedAt        DateTime?           @db.Timestamp(6)
-  verifiedBy        String?             @db.Uuid
-  products          Product[]
-  Quote             Quote[]
+  country        String?
+  location       String?
+  nation         String?
+  about          String?
+  logo           String?
+  website        String?
+  isVerified     Boolean         @default(false)
+  yearsActive    Int             @default(1)
+  rating         Decimal         @default(0.0) @db.Decimal(3, 2)
+  deliveryRate   Int             @default(0)
+  responseTime   String?
+  avatar         String?
+  banner         String?
+  certifications Certification[]
+  gallery        Json? // Array of image/video URLs
+  createdAt      DateTime        @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime        @default(now()) @db.Timestamp(6)
+  verifiedAt     DateTime?       @db.Timestamp(6)
+  verifiedBy     String?         @db.Uuid
+  products       Product[]
+  Quote          Quote[]
+
+  // 🟢 ESCROW AND FINTECH BALANCE LEDGERS
+  walletBalance  Decimal @default(0) @db.Decimal(12, 2) // Cleared, ready-to-withdraw funds
+  pendingBalance Decimal @default(0) @db.Decimal(12, 2) // Locked in escrow until buyer clicks "Nimepokea"
+
   user              User                @relation(fields: [userId], references: [id])
   SupplierPolicy    SupplierPolicy[]
   SupplierAnalytics SupplierAnalytics[]
   SupplierDocument  SupplierDocument[]
   // SupplierNote      SupplierNote[]
+  PayoutRequest     PayoutRequest[]
 }
 
 model Certification {
@@ -637,4 +648,37 @@ enum ContactType {
   TECHNICIAN_CAR
   SUPPLIER
   UNKNOWN
+}
+
+// 🟢 NEW: LEDGER TRANSACTION TRACKING (Manages financial audits for admin bank compliance)
+model PayoutRequest {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId    String       @db.Uuid
+  userId        String       @db.Uuid // Admin or user processing the payout log
+  amount        Decimal      @db.Decimal(12, 2)
+  paymentMethod String // "M-PESA" | "TIGO_PESA" | "CRDB_BANK"
+  accountNumber String // Mobile line or banking account details sequence
+  status        PayoutStatus @default(PENDING)
+  // PENDING | APPROVED | REJECTED | TRANSFERRED
+
+  adminNote String? // Rejection explanation or transactional receipts hashes
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+enum ItemPayoutStatus {
+  ESCROW // Held securely until buyer confirms receipt
+  ELIGIBLE // Disbursable immediately to supplier wallet balance
+  REQUESTED // Included in an active withdrawal batch queue
+  PAID // Transferred successfully to vendor account
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  TRANSFERRED
 }
