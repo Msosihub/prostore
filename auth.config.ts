@@ -9,16 +9,17 @@ export const authConfig = {
   callbacks: {
     authorized({ request, auth }: any) {
       // Array of regex patterns of paths we want to protect
+      // 🟢 FIXED: Lock matches strictly to the start of paths to avoid accidental blocks on public product slugs
       const protectedPaths = [
-        /\/shipping-address/,
-        /\/payment-method/,
-        /\/place-order/,
-        /\/profile/,
-        /\/user\/(.*)/,
-        /\/order\/(.*)/,
-        /\/admin/,
-        /\/supplier(?!s\/scroll)/, // optional: exclude /suppliers/scroll,
-        /\/buyer/,
+        /^\/shipping-address/,
+        /^\/payment-method/,
+        /^\/place-order/,
+        /^\/profile/,
+        /^\/user\/(.*)/,
+        /^\/order\/(.*)/,
+        /^\/admin/,
+        /^\/supplier(?!s\/scroll)/,
+        /^\/buyer/,
       ];
 
       // Get pathname from the req URL object

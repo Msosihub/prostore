@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Cart, CartItem } from "@/types";
-import { Decimal } from "@prisma/client/runtime/library";
+// import { Decimal } from "@prisma/client/runtime/library";
 import { formatCurrency } from "@/lib/utils";
 import PricingTable from "./shared/product/pricing-table";
 import AddToCart from "./shared/product/add-to-cart";
@@ -25,7 +25,7 @@ interface ProductClientActionsProps {
   supplierUserId: string;
   item: CartItem;
   cartData?: Cart;
-  pricingTiers?: { id: string; minQty: number; price: Decimal }[];
+  pricingTiers?: { id: string; minQty: number; price: number }[];
   fallbackPrice: number;
   stock: number;
 }
@@ -117,6 +117,8 @@ export default function ProductClientActions({
   };
 
   const cartCount = cartData?.items ? cartData.items.length : 0;
+
+  // console.log("Item to be carted: ", item);
 
   return (
     <div className="w-full space-y-4">

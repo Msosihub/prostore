@@ -16,6 +16,7 @@ type ProductCardProps = {
   images: string[];
   price: number;
   stock: number;
+  slug: string;
   pricingTiers?: {
     minQty: number;
     price: Decimal;
@@ -23,6 +24,7 @@ type ProductCardProps = {
 };
 
 const ProductCard = ({
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   id,
   name,
   brand,
@@ -30,6 +32,7 @@ const ProductCard = ({
   subcategory,
   supplier,
   images,
+  slug,
   price,
   stock,
   pricingTiers,
@@ -44,7 +47,7 @@ const ProductCard = ({
     <Card className="w-full bg-white rounded-xl shadow-sm overflow-hidden group transition-all duration-300 hover:shadow-md border border-slate-100 hover:border-slate-200 flex flex-col h-full">
       {/* Product Image Wrapper - Fixed Aspect Ratio ensures consistent grids */}
       <div className="relative w-full aspect-square overflow-hidden bg-slate-50 border-b border-slate-50 shrink-0">
-        <Link href={`/product/${id}`} className="block w-full h-full">
+        <Link href={`/product/${slug}`} className="block w-full h-full">
           <Image
             src={images?.[0] || "/images/sample-products/p3-1.jpg"}
             alt={name}
@@ -67,7 +70,7 @@ const ProductCard = ({
 
           {/* Item Core Name */}
           <Link
-            href={`/product/${id}`}
+            href={`/product/${slug}`}
             className="block group-hover:text-orange-600 transition-colors"
           >
             <h3 className="font-semibold text-xs sm:text-sm text-slate-800 tracking-tight leading-tight line-clamp-2 h-8 sm:h-9">

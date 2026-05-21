@@ -13,13 +13,28 @@ import MarketplaceFooter from "@/components/footerx";
 
 const inter = Inter({ subsets: ["latin"] });
 
+// 🟢 ALIBABA/AMAZON SEO ARCHITECTURE METADATA CONFIG
 export const metadata: Metadata = {
   title: {
-    template: `%s | Nimboya`,
-    default: APP_NAME,
+    template: `%s | Nimboya Soko la Jumla`,
+    default: `${APP_NAME} | Soko la Jumla Afrika Mashariki (Wholesale Marketplace)`,
   },
   description: APP_DESCRIPTION,
   metadataBase: new URL(SERVER_URL),
+  alternates: {
+    canonical: "./",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   other: {
     "facebook-domain-verification": "dtkvz6zwyad5k4ajwu03ig48hkxcxn",
   },
@@ -31,15 +46,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <meta
-          name="facebook-domain-verification"
-          content="dtkvz6zwyad5k4ajwu03ig48hkxcxn"
-        />
-      </head>
+    <html lang="sw" suppressHydrationWarning className="scroll-smooth">
       <body
-        className={`${inter.className} antialiased overflow-x-hidden overflow-y-auto w-full max-w-full`}
+        className={`${inter.className} antialiased text-slate-900 min-h-screen bg-slate-50/30 overflow-x-hidden flex flex-col`}
       >
         <ThemeProvider
           attribute="class"
@@ -47,14 +56,14 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {/* <div className="max-w-screen-xl mx-auto px-2 sm:px-1  lg:px-8"> */}
-          <div className="max-w-screen-xl mx-auto w-full overflow-x-hidden  pl-1 md:px-4  lg:px-8">
-            <SessionProvider>{children}</SessionProvider>
-            <Toaster /> {/* ✅ required for toast */}
-          </div>
-          <Toaster />
+          <SessionProvider>
+            {/* Unified full-bleed wrapper system layer handling layouts natively */}
+            <div className="flex-1 flex flex-col w-full">{children}</div>
+            <MarketplaceFooter />
+          </SessionProvider>
+          <Toaster />{" "}
+          {/* 🟢 FIXED: Kept exactly one global toaster injection block */}
         </ThemeProvider>
-        <MarketplaceFooter />
       </body>
     </html>
   );

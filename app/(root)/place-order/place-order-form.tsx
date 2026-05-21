@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { createOrder } from "@/lib/actions/order.actions";
 import PaymentLoadingScreen from "@/components/payment-loading-screen";
+import { createOrder } from "@/lib/actions/order.actions";
 
 export default function PlaceOrderForm() {
   const router = useRouter();

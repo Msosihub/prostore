@@ -3,11 +3,11 @@
 // signaling the tier drop to the buyer.
 "use client";
 
-import { Decimal } from "@prisma/client/runtime/library";
+// import { Decimal } from "@prisma/client/runtime/library";
 import ProductPrice from "./product-price2";
 
 interface TieredPricingTableProps {
-  tiers?: { id: string; minQty: number; price: Decimal }[];
+  tiers?: { id: string; minQty: number; price: number }[];
   fallbackPrice: number | string;
   activeQty?: number; // 🟢 Tracks client component state shifts live
 }

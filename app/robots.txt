@@ -1,0 +1,30 @@
+import { MetadataRoute } from "next";
+import { SERVER_URL } from "@/lib/constants";
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: {
+      userAgent: "*",
+      allow: [
+        "/",
+        "/search",
+        "/product/",
+        "/company/",
+        "/assets/",
+        "/images/",
+      ],
+      deny: [
+        "/api/",
+        "/user/",
+        "/buyer/",
+        "/supplier/",
+        "/admin/",
+        "/cart",
+        "/place-order",
+        "/onboarding",
+        "/sign-in",
+      ],
+    },
+    sitemap: `${SERVER_URL}/sitemap.xml`,
+  };
+}

@@ -120,10 +120,10 @@ export async function getLatestProducts() {
 
 //Get single product by slug (now renamed to id)
 
-export async function getProductBySlug(id: string) {
+export async function getProductBySlug(slug: string) {
   try {
     const data = await prisma.product.findFirst({
-      where: { id: id },
+      where: { slug: slug },
       include: {
         category: {
           select: {

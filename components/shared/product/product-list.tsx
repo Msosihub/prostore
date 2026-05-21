@@ -50,7 +50,7 @@ const ProductList = ({
               notext ? (
                 <ProductCardNoText
                   key={product.id}
-                  id={product.id}
+                  id={product.slug}
                   name={product.name}
                   brand={product?.brand?.name || ""}
                   category={
@@ -74,7 +74,7 @@ const ProductList = ({
               ) : (
                 <ProductCard
                   key={product.id}
-                  id={product.id}
+                  id={product.slug}
                   name={product.name}
                   brand={product?.brand?.name || ""}
                   category={
@@ -119,7 +119,7 @@ const ProductList = ({
                 >
                   {notext ? (
                     <ProductCardNoText
-                      id={product.id}
+                      id={product.slug}
                       name={product.name}
                       brand={product?.brand?.name || ""}
                       category={
@@ -144,7 +144,7 @@ const ProductList = ({
                     />
                   ) : (
                     <ProductCard
-                      id={product.id}
+                      id={product.slug}
                       name={product.name}
                       brand={product?.brand?.name || ""}
                       category={

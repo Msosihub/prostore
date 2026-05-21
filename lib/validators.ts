@@ -139,7 +139,9 @@ export const cartItemSchema = z.object({
   qty: z.number().int().nonnegative("quantity lazima iwe namba chanya"),
   image: z.string().min(1, "image inahitajika"),
   supplierId: z.string().optional(),
+  supplierName: z.string().optional(),
   price: currency,
+  priceTiers: z.array(pricingTierSchema).default([]),
 });
 
 export const insertCartSchema = z.object({

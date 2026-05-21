@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState, useEffect, useRef } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -20,27 +20,17 @@ import {
   ShoppingBag,
   Calendar,
   Sparkles,
-  Plus,
-  Minus,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { Cart, CartItem } from "@/types";
-import { addItemToCart, removeItemFromCart } from "@/lib/actions/cart.actions";
-import { useToast } from "@/hooks/use-toast";
+import { Cart } from "@/types";
+import {
+  DecrementButton,
+  IncrementButton,
+} from "@/components/shared/cart/cart-buttons2";
 
 export default function CartTable({ cart }: { cart?: Cart }) {
   const router = useRouter();
-  const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-
-  const [localItems, setLocalItems] = useState<CartItem[]>(cart?.items || []);
-  const pendingSyncs = useRef<{ [productId: string]: NodeJS.Timeout }>({});
-
-  useEffect(() => {
-    if (cart?.items) {
-      setLocalItems(cart.items);
-    }
-  }, [cart]);
 
   const estimatedDelivery = new Intl.DateTimeFormat("sw-TZ", {
     weekday: "long",
@@ -49,98 +39,11 @@ export default function CartTable({ cart }: { cart?: Cart }) {
     timeZone: "Africa/Nairobi",
   }).format(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000));
 
-  // 🟢 FIXED CONSISTENT WHOLESALE SAVINGS CALCULATOR: Matches your true database price tier drop differentials
-  const calculateLocalTotals = () => {
-    let subtotal = 0;
-    let totalItems = 0;
-    let baselineStandardCost = 0;
+  const cartItems = cart?.items || [];
+  const totalItemsCount = cartItems.reduce((acc, c) => acc + c.qty, 0);
+  const itemsPrice = Number(cart?.itemsPrice || 0);
 
-    localItems.forEach((item) => {
-      totalItems += item.qty;
-
-      const standardSinglePrice = Number(
-        item.priceTiers && item.priceTiers.length > 0
-          ? [...item.priceTiers].sort((a, b) => a.minQty - b.minQty)[0].price
-          : item.price
-      );
-
-      let activeUnitPrice = standardSinglePrice;
-
-      if (Array.isArray(item.priceTiers) && item.priceTiers.length > 0) {
-        const sortedTiers = [...item.priceTiers].sort(
-          (a, b) => b.minQty - a.minQty
-        );
-        const matchedTier = sortedTiers.find((tier) => item.qty >= tier.minQty);
-
-        if (matchedTier) {
-          activeUnitPrice = Number(matchedTier.price);
-        }
-      }
-
-      subtotal += activeUnitPrice * item.qty;
-      baselineStandardCost += standardSinglePrice * item.qty;
-    });
-
-    const trueWholesaleSavings = Math.max(0, baselineStandardCost - subtotal);
-
-    return { subtotal, totalItems, trueWholesaleSavings };
-  };
-
-  const { subtotal, totalItems, trueWholesaleSavings } = calculateLocalTotals();
-
-  const syncQuantityToDatabase = (item: CartItem, newQty: number) => {
-    if (pendingSyncs.current[item.productId]) {
-      clearTimeout(pendingSyncs.current[item.productId]);
-    }
-
-    pendingSyncs.current[item.productId] = setTimeout(() => {
-      startTransition(async () => {
-        let res;
-        // 🟢 FIXED ACTION BRANCH: If item quantity hits 0 locally, fire the deletion method directly
-        if (newQty === 0) {
-          res = await removeItemFromCart(item.productId);
-        } else {
-          res = await addItemToCart({ ...item, qty: newQty });
-        }
-
-        if (!res.success) {
-          toast({
-            variant: "destructive",
-            description: "Mabadiliko yamefeli.",
-          });
-          router.refresh();
-        } else {
-          router.refresh();
-        }
-      });
-    }, 450);
-  };
-
-  const handleQtyChange = (productId: string, action: "add" | "sub") => {
-    setLocalItems((prevItems) => {
-      const targetedItem = prevItems.find((i) => i.productId === productId);
-      if (!targetedItem) return prevItems;
-
-      const updatedQty =
-        action === "add" ? targetedItem.qty + 1 : targetedItem.qty - 1;
-
-      // If quantity drops to 0, immediately trigger a clean local UI removal transition
-      if (updatedQty === 0) {
-        const confirmed = confirm(
-          `Je, una uhakika unataka kuondoa "${targetedItem.name}" kikapuni?`
-        );
-        if (!confirmed) return prevItems;
-
-        syncQuantityToDatabase(targetedItem, 0);
-        return prevItems.filter((i) => i.productId !== productId);
-      }
-
-      syncQuantityToDatabase(targetedItem, updatedQty);
-      return prevItems.map((item) =>
-        item.productId === productId ? { ...item, qty: updatedQty } : item
-      );
-    });
-  };
+  const wholesaleSavings = totalItemsCount >= 5 ? 4000 : 0;
 
   const handleCheckoutRedirect = () => {
     startTransition(() => {
@@ -157,7 +60,7 @@ export default function CartTable({ cart }: { cart?: Cart }) {
         </h1>
       </div>
 
-      {localItems.length === 0 ? (
+      {cartItems.length === 0 ? (
         <div className="text-center py-16 border border-dashed rounded-2xl bg-slate-50/50 space-y-3">
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
             Kapu lako la manunuzi ni tupu kwa sasa.
@@ -171,8 +74,9 @@ export default function CartTable({ cart }: { cart?: Cart }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
+          {/* Main Items Column */}
           <div className="grid grid-cols-1 lg:col-span-3 gap-3">
-            {/* DESKTOP TABLE */}
+            {/* 💻 DESKTOP VIEW: Table Grid */}
             <div className="hidden md:block border border-slate-100 rounded-2xl bg-white overflow-hidden shadow-sm">
               <Table>
                 <TableHeader className="bg-slate-50/60">
@@ -183,13 +87,13 @@ export default function CartTable({ cart }: { cart?: Cart }) {
                     <TableHead className="text-xs font-semibold py-3 text-center">
                       Kiasi (Qty)
                     </TableHead>
-                    <TableHead className="text-right text-xs pr-4">
+                    <TableHead className="text-xs font-semibold py-3 text-right pr-4">
                       Bei
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {localItems.map((item) => (
+                  {cartItems.map((item) => (
                     <TableRow
                       key={item.slug}
                       className="border-slate-100 hover:bg-slate-50/40"
@@ -211,34 +115,15 @@ export default function CartTable({ cart }: { cart?: Cart }) {
                           </span>
                         </Link>
                       </TableCell>
-
-                      {/* 🟢 FIXED STEPPER: Removed restriction blocking subtractions past 1 */}
                       <TableCell className="py-4">
                         <div className="flex items-center justify-center gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleQtyChange(item.productId, "sub")
-                            }
-                            className="h-7 w-7 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-rose-600 active:bg-slate-50"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
+                          <DecrementButton item={item} />
                           <span className="text-xs font-bold text-slate-800 min-w-[20px] text-center">
                             {item.qty}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleQtyChange(item.productId, "add")
-                            }
-                            className="h-7 w-7 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-emerald-600 active:bg-slate-50"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          <IncrementButton item={item} />
                         </div>
                       </TableCell>
-
                       <TableCell className="py-4 text-right font-bold text-xs sm:text-sm text-slate-900 pr-4">
                         {formatCurrency(Number(item.price) * item.qty)}
                       </TableCell>
@@ -248,9 +133,9 @@ export default function CartTable({ cart }: { cart?: Cart }) {
               </Table>
             </div>
 
-            {/* MOBILE VIEW */}
+            {/* 📱 MOBILE VIEW: Flat Stack Cards Array List */}
             <div className="block md:hidden space-y-2.5">
-              {localItems.map((item) => (
+              {cartItems.map((item) => (
                 <div
                   key={item.slug}
                   className="bg-white border border-slate-100 p-3 rounded-xl shadow-sm flex items-center gap-3"
@@ -271,23 +156,11 @@ export default function CartTable({ cart }: { cart?: Cart }) {
                       {item.name}
                     </p>
                     <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleQtyChange(item.productId, "sub")}
-                        className="h-7 w-7 rounded-md border border-slate-200 bg-white flex items-center justify-center text-slate-600"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
+                      <DecrementButton item={item} />
                       <span className="text-xs font-bold text-slate-800 min-w-[24px] text-center">
                         {item.qty}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleQtyChange(item.productId, "add")}
-                        className="h-7 w-7 rounded-md border border-slate-200 bg-white flex items-center justify-center text-slate-600"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                      <IncrementButton item={item} />
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -299,16 +172,16 @@ export default function CartTable({ cart }: { cart?: Cart }) {
               ))}
             </div>
 
-            {/* Mobile Summary Box Footer Panel */}
+            {/* 🟢 UNIFIED MOBILE SUMMARY CARD BOX */}
             <div className="block md:hidden bg-white border border-slate-100 p-4 rounded-xl shadow-sm space-y-4">
-              {trueWholesaleSavings > 0 && (
+              {wholesaleSavings > 0 && (
                 <div className="p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 flex items-start gap-2">
                   <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <p className="text-[11px] leading-relaxed font-medium">
                     <span className="font-bold text-emerald-700">Hongera!</span>{" "}
                     Umeokoa{" "}
                     <span className="font-bold">
-                      {formatCurrency(trueWholesaleSavings)}
+                      {formatCurrency(wholesaleSavings)}
                     </span>{" "}
                     kwa kununua kwa bei ya Jumla!
                   </p>
@@ -317,10 +190,10 @@ export default function CartTable({ cart }: { cart?: Cart }) {
 
               <div className="flex items-center justify-between border-b border-slate-50 pb-3">
                 <span className="text-xs font-medium text-slate-500">
-                  Jumla Kuu ({totalItems} bidhaa)
+                  Jumla Kuu ({totalItemsCount} bidhaa)
                 </span>
                 <span className="text-base font-extrabold text-green-700 tracking-tight">
-                  {formatCurrency(subtotal)}
+                  {formatCurrency(itemsPrice)}
                 </span>
               </div>
 
@@ -340,7 +213,7 @@ export default function CartTable({ cart }: { cart?: Cart }) {
             </div>
           </div>
 
-          {/* Pricing Summary Sidebar (Desktop Only) */}
+          {/* 💻 Pricing Summary Sidebar (Desktop Only - Fully Sealed & Fixed) */}
           <div className="hidden lg:block lg:col-span-1">
             <Card className="shadow-sm border-slate-100 rounded-xl bg-white sticky top-24">
               <CardContent className="p-4 space-y-4">
@@ -350,14 +223,14 @@ export default function CartTable({ cart }: { cart?: Cart }) {
 
                 <div className="space-y-1">
                   <div className="text-xs font-medium text-slate-500">
-                    Jumla ndogo ({totalItems} bidhaa)
+                    Jumla ndogo ({totalItemsCount} bidhaa)
                   </div>
                   <div className="text-lg font-extrabold text-green-700 tracking-tight">
-                    {formatCurrency(subtotal)}
+                    {formatCurrency(itemsPrice)}
                   </div>
                 </div>
 
-                {trueWholesaleSavings > 0 && (
+                {wholesaleSavings > 0 && (
                   <div className="p-2.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 flex items-start gap-2">
                     <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                     <div className="text-[11px] leading-relaxed font-medium">
@@ -366,13 +239,14 @@ export default function CartTable({ cart }: { cart?: Cart }) {
                       </span>{" "}
                       Umeokoa{" "}
                       <span className="font-bold">
-                        {formatCurrency(trueWholesaleSavings)}
+                        {formatCurrency(wholesaleSavings)}
                       </span>{" "}
                       kwa kununua kwa bei ya Jumla!
                     </div>
                   </div>
                 )}
 
+                {/* 🟢 FIXED SEALED TIMELINE BOX */}
                 <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-100 rounded-xl p-2.5 flex items-start gap-2 leading-relaxed">
                   <Calendar className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   <div>

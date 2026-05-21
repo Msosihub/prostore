@@ -1,23 +1,16 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Category } from "@/types";
-import { Loader, SearchIcon } from "lucide-react";
+
 import { useEffect, useRef, useState } from "react";
-import useSWR from "swr";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { SearchIcon } from "lucide-react";
 import GraphemeSplitter from "grapheme-splitter";
 
 const phrases = [
   "Simu zenye kamera 3 📱📸",
   "Mashati mekundu ya wanaume 👕👔",
-  "Viatu vya michezo vya wanawake 👟🏃‍♀️",
+  "Viatu vya michezo 👟🏃‍♀️",
   "Laptop za bei nafuu 💻🧮",
   "Friji ndogo kwa vyumba 🧊🧯",
   "Nguo za watoto wachanga 👶🧦",
@@ -25,30 +18,22 @@ const phrases = [
   "Saa za mkononi za kisasa ⌚✨",
 ];
 
-const fetcher = async (url: string): Promise<Category[]> => {
-  const res = await fetch(url);
-  if (!res) throw new Error("Failed to fetch");
-  return res.json();
-};
+export default function Search() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-const Search = () => {
-  const [query, setQuery] = useState("");
+  // Initialize input state natively with current URL params if available
+  const [query, setQuery] = useState(searchParams.get("q") || "");
   const [isInteracted, setIsInteracted] = useState(false);
   const [typedText, setTypedText] = useState("");
+
   const phraseIndex = useRef(0);
   const charIndex = useRef(0);
   const typingInterval = useRef<NodeJS.Timeout | null>(null);
   const splitter = new GraphemeSplitter();
 
-  const {
-    data: categories,
-    error,
-    isLoading,
-  } = useSWR<Category[]>("/api/shared/categories", fetcher);
-
-  // console.log("CATEGORIES:=> ", categories);
   useEffect(() => {
-    if (isInteracted) return;
+    if (isInteracted || query) return;
 
     const typeNextChar = () => {
       const graphemes = splitter.splitGraphemes(phrases[phraseIndex.current]);
@@ -61,73 +46,53 @@ const Search = () => {
           phraseIndex.current = (phraseIndex.current + 1) % phrases.length;
           charIndex.current = 0;
           setTypedText("");
-          typingInterval.current = setInterval(typeNextChar, 80);
-        }, 1500); // pause before next phrase
+          typingInterval.current = setInterval(typeNextChar, 85);
+        }, 1800); // Premium pause threshold loop
       }
     };
 
-    typingInterval.current = setInterval(typeNextChar, 80);
+    typingInterval.current = setInterval(typeNextChar, 85);
 
     return () => {
       if (typingInterval.current) clearInterval(typingInterval.current);
     };
-  }, [isInteracted]);
+  }, [isInteracted, query]);
 
-  const handleFocus = () => setIsInteracted(true);
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setIsInteracted(true);
-    setQuery(e.target.value);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   };
 
-  // if (!categories) return <Loader className="w-4 h-4 animate-spin" />;
-  // if (categories === null) return <Loader className="w-4 h-4 animate-spin" />;
-  // if (isLoading) return <Loader className="w-4 h-4 animate-spin" />;
-
-  // if (error || !categories) return <Loader className="w-4 h-4 animate-spin" />;
-
   return (
-    <form action="/search" method="GET" className="w-full">
-      <div className="flex w-full  items-center space-x-2">
-        <div className="hidden md:block">
-          {categories || isLoading || error ? (
-            <Select name="category">
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem key="All" value="all">
-                  Yote
-                </SelectItem>
-                {Array.isArray(categories) &&
-                  (categories !== undefined || categories !== null) &&
-                  categories?.map((x) => (
-                    <SelectItem key={x.id} value={x.name_en}>
-                      {x.name_en}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Loader className="w-4 h-4 animate-spin" />
-          )}
-        </div>
-        {/* Input expands fully */}
-        <div className="flex-grow">
-          <Input
-            name="q"
-            value={isInteracted ? query : ""}
-            onChange={handleChange}
-            onFocus={handleFocus}
-            placeholder={isInteracted ? "Tafuta bidhaa..." : typedText}
-            className="w-full  transition-all duration-300"
-          />
-        </div>
-        <Button>
-          <SearchIcon />
+    <form onSubmit={handleSubmit} className="w-full max-w-2xl mx-auto">
+      <div className="relative flex items-center w-full bg-slate-50 border border-slate-200 rounded-xl overflow-hidden focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/10 transition-all duration-200">
+        <Input
+          name="q"
+          value={query}
+          onChange={(e) => {
+            setIsInteracted(true);
+            setQuery(e.target.value);
+          }}
+          onFocus={() => setIsInteracted(true)}
+          placeholder={
+            isInteracted || query
+              ? "Tafuta bidhaa au wasambazaji..."
+              : typedText
+          }
+          className="w-full h-10 pl-3.5 pr-12 text-xs font-medium bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-slate-400 text-slate-800"
+        />
+
+        {/* Absolute floating actionable button trigger matches Alibaba aesthetic bounds */}
+        <Button
+          type="submit"
+          className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg bg-orange-600 hover:bg-orange-700 text-white p-0 flex items-center justify-center transition-colors shrink-0"
+        >
+          <SearchIcon className="w-4 h-4" />
         </Button>
       </div>
     </form>
   );
-};
-
-export default Search;
+}

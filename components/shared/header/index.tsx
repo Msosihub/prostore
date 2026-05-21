@@ -1,79 +1,65 @@
 "use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { APP_NAME } from "@/lib/constants";
-// import { Button } from "@/components/ui/button";
-// import { ShoppingCart, UserIcon } from "lucide-react";
-// import ModeToggle from "./mode-toggle";
 import Menu from "./menu";
 import CategoryDrawer from "./category-drawer";
-// import CategoryDrawer from './category-drawer';
 import Search from "./search";
 import CategoryPreviewBar from "./category-preview-bar";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-const Header = () => {
+interface HeaderProps {
+  cartItemsCount?: number;
+}
+
+export default function Header({ cartItemsCount = 0 }: HeaderProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [isAtTop, setIsAtTop] = useState(true);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsAtTop(window.scrollY < 10);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   return (
-    // <header className="w-full border-b pb-1">
-    <header
-      className={`w-full border-b pb-1 pl-1 pr-1 sticky top-0 z-50 transition-colors duration-300 ${
-        isAtTop ? "bg-orange-200" : "bg-white"
-      }`}
-    >
-      <div className="px-2 sm:px-1  lg:px-8">
-        <div
-          className="wrapper flex flex-col gap-2 pb-1"
-          style={{
-            paddingBottom: "1px",
-            paddingLeft: "0px",
-            paddingRight: "0px",
-          }}
-        >
-          <div className="flex flex-1 justify-between items-center">
-            <div className="hidden md:flex items-center">
-              <Link href="/" className="hidden  flex-start ml-4">
+    // 🟢 FIXED: Removed conflicting custom text styles and color flashes to match premium marketplace designs
+    <header className="w-full bg-white/95 backdrop-blur-md border-b border-slate-100 sticky top-0 z-50 transition-all duration-200">
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        {/* Main Header Inner Grid Wrapper Row */}
+        <div className="flex flex-col gap-2 py-2">
+          {/* Top Row: Brand Logo, Global Search Input, and Nav Actions Menu */}
+          <div className="flex items-center justify-between gap-3 w-full">
+            {/* Desktop Brand Logo Layout (Hidden on Mobile viewports) */}
+            <div className="hidden md:flex items-center shrink-0">
+              <Link href="/" className="flex items-center gap-2">
                 <Image
                   src="/images/logo.svg"
                   alt={`${APP_NAME} logo`}
-                  height={48}
-                  width={48}
-                  priority={true}
-                  className="hidden md:block ml-3 justify-center items-center"
+                  height={36}
+                  width={36}
+                  priority
+                  className="object-contain"
                 />
-                <span className="hidden  font-bold text-2xl ml-3">
+                <span className="font-extrabold text-xl tracking-tight text-slate-900">
                   {APP_NAME}
                 </span>
               </Link>
             </div>
 
-            <div className="flex-1 ml-4">
+            {/* Global Search Input Area (Expands intelligently to consume available width footprint) */}
+            <div className="flex-1 min-w-0">
               <Search />
             </div>
-            <Menu />
+
+            {/* Quick Action Menu Links Block */}
+            <div className="shrink-0 flex items-center">
+              <Menu cartItemsCount={cartItemsCount} />
+            </div>
           </div>
-          {/* Category preview bar */}
-          <CategoryPreviewBar onOpenDrawer={() => setDrawerOpen(true)} />
+
+          {/* Bottom Row: Dynamic Horizontal Category Scroll Bar */}
+          <div className="w-full border-t border-slate-50/60 pt-1.5 flex items-center">
+            <CategoryPreviewBar onOpenDrawer={() => setDrawerOpen(true)} />
+          </div>
         </div>
+
         <CategoryDrawer open={drawerOpen} onOpenChange={setDrawerOpen} />
       </div>
-      <meta
-        name="facebook-domain-verification"
-        content="dtkvz6zwyad5k4ajwu03ig48hkxcxn"
-      />
     </header>
   );
-};
-
-export default Header;
+}

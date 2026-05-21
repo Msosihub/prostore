@@ -170,7 +170,12 @@ export type Review = z.infer<typeof insertReviewSchema> & {
   createdAt: Date;
   user?: { name: string };
 };
-export type OrderItem = z.infer<typeof insertOrderItemSchema>;
+export type OrderItem = z.infer<typeof insertOrderItemSchema> & {
+  orderId?: string;
+  isDelivered?: boolean;
+  supplierId?: string;
+  supplierName?: string;
+};
 export type Order = z.infer<typeof insertOrderSchema> & {
   id: string;
   createdAt: Date;
@@ -181,6 +186,7 @@ export type Order = z.infer<typeof insertOrderSchema> & {
   orderitems: OrderItem[];
   user: { name: string; email: string };
   paymentResult?: PaymentResult;
+  supplierId?: string;
 };
 
 export type MessageLite = {

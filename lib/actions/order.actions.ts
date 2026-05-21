@@ -10,9 +10,8 @@ import { CartItem } from "@/types";
 import { revalidatePath } from "next/cache";
 import { PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
-import { paypal } from "../paypal";
 import { PaymentResult } from "@/types";
-import { getPesapalToken } from "../pesapal";
+import { sendSms } from "../africasTalking";
 // import { ShippingAddress } from "@/types";
 //import { sendPurchaseReceipt } from "@/email";
 
@@ -69,9 +68,14 @@ export async function createOrder() {
       const insertedOrder = await tx.order.create({ data: order });
       // Create order items from the cart items
       for (const item of cart.items as CartItem[]) {
+        const orderItemData = { ...item };
+
+        // @ts-expect-error dont needed
+        delete orderItemData.priceTiers;
+
         await tx.orderItem.create({
           data: {
-            ...item,
+            ...orderItemData,
             price: item.price,
             orderId: insertedOrder.id,
             slug: item.slug || "",
@@ -140,12 +144,13 @@ export async function createBuyNowOrder({
     //   };
     // }
 
-    console.log("There we are creating order");
 
     const product = await prisma.product.findUnique({
       where: { id: productId },
+      include: {
+        pricingTiers: true,
+      },
     });
-    console.log("Product: ", product);
 
     if (!product) return { success: false, message: "Product not found" };
     if (Number(product.stock) < qty)
@@ -158,6 +163,12 @@ export async function createBuyNowOrder({
       price: product.price.toString(),
       qty,
       slug: product.slug ?? "",
+      priceTiers: product.pricingTiers
+        ? product.pricingTiers.map((t) => ({
+            minQty: t.minQty,
+            price: Number(t.price),
+          }))
+        : [],
     };
 
     const cartLike = {
@@ -167,7 +178,6 @@ export async function createBuyNowOrder({
       taxPrice: "0",
       totalPrice: (Number(product.price) * qty).toString(),
     };
-    console.log("Usser: ", user);
 
     const order = insertOrderSchema.parse({
       userId,
@@ -194,7 +204,6 @@ export async function createBuyNowOrder({
           },
         });
       }
-      console.log("Inserted order id: ", insertedOrder.id);
       return insertedOrder.id;
     });
 
@@ -207,7 +216,6 @@ export async function createBuyNowOrder({
       },
     };
   } catch (error) {
-    console.log("The error: ", error);
     if (isRedirectError(error)) throw error;
     return { success: false, message: formatError(error) };
   }
@@ -226,177 +234,6 @@ export async function getOrderById(orderId: string) {
   });
 
   return convertToPlainObject(data);
-}
-
-export async function markOrderAsDelivered(orderId: string) {
-  try {
-    await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        isDelivered: true,
-        deliveredAt: new Date(),
-      },
-    });
-
-    revalidatePath(`/order/${orderId}`);
-    return { success: true, message: "Agizo limesasishwa kuwa limefika!" };
-  } catch (error) {
-    console.error(error);
-    return {
-      success: false,
-      message: "Imeshindikana kusasisha hali ya mzigo.",
-    };
-  }
-}
-
-//create PesaPal Order
-export async function createPesapalOrder(orderId: string) {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { orderitems: true, user: true },
-  });
-
-  if (!order) return { success: false, message: "Order not found" };
-
-  const { token } = await getPesapalToken();
-  const shipping = order.shippingAddress as {
-    city: string;
-    phone: string;
-    fullName: string;
-  };
-
-  const res = await fetch(
-    `${process.env.PESAPAL_BASE_URL}/Transactions/SubmitOrderRequest`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        id: order.id,
-        currency: "TZS",
-        amount: Number(order.totalPrice),
-        description: `Order ${order.id}`,
-        callback_url: process.env.PESAPAL_CALLBACK_URL,
-        notification_id: process.env.PESAPAL_IPN_ID,
-        billing_address: {
-          email_address: order.user.email,
-          phone_number: shipping.phone || order.user.phone || "",
-          country_code: "TZ",
-          first_name: shipping?.fullName.split(" ")[0],
-          last_name: shipping?.fullName.split(" ")[1] || "",
-          city: shipping.city || "",
-        },
-      }),
-    }
-  );
-
-  const data = await res.json();
-
-  if (!res.ok) return { success: false, message: "Pesapal error" };
-
-  // store tracking id
-  await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      paymentResult: {
-        id: data.order_tracking_id,
-        status: "PENDING",
-      },
-    },
-  });
-
-  return { success: true, redirectUrl: data.redirect_url };
-}
-
-// Create new paypal order
-export async function createPayPalOrder(orderId: string) {
-  try {
-    // Get order from database
-    const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-      },
-    });
-
-    if (order) {
-      // Create paypal order
-      const paypalOrder = await paypal.createOrder(Number(order.totalPrice));
-
-      // Update order with paypal order id
-      await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          paymentResult: {
-            id: paypalOrder.id,
-            email_address: "",
-            status: "",
-            pricePaid: 0,
-          },
-        },
-      });
-
-      return {
-        success: true,
-        message: "Item order created successfully",
-        data: paypalOrder.id,
-      };
-    } else {
-      throw new Error("Order not found");
-    }
-  } catch (error) {
-    return { success: false, message: formatError(error) };
-  }
-}
-
-// Approve paypal order and update order to paid
-export async function approvePayPalOrder(
-  orderId: string,
-  data: { orderID: string }
-) {
-  try {
-    // Get order from database
-    const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-      },
-    });
-
-    if (!order) throw new Error("Order not found");
-
-    const captureData = await paypal.capturePayment(data.orderID);
-
-    if (
-      !captureData ||
-      captureData.id !== (order.paymentResult as PaymentResult)?.id ||
-      captureData.status !== "COMPLETED"
-    ) {
-      throw new Error("Error in PayPal payment");
-    }
-
-    // Update order to paid
-    await updateOrderToPaid({
-      orderId,
-      paymentResult: {
-        id: captureData.id,
-        status: captureData.status,
-        email_address: captureData.payer.email_address,
-        pricePaid:
-          captureData.purchase_units[0]?.payments?.captures[0]?.amount?.value,
-      },
-    });
-
-    revalidatePath(`/order/${orderId}`);
-
-    return {
-      success: true,
-      message: "Your order has been paid",
-    };
-  } catch (error) {
-    return { success: false, message: formatError(error) };
-  }
 }
 
 // Update order to paid
@@ -687,5 +524,130 @@ export async function deliverOrder(orderId: string) {
     };
   } catch (error) {
     return { success: false, message: formatError(error) };
+  }
+}
+
+// 🟢 FIND AND REPLACE / ADD THESE TWO METHODS INSIDE: lib/actions/order.actions.ts
+
+/**
+ * 1. MARK A SPECIFIC PRODUCT LINE ITEM AS ARRIVED
+ * Uses the composite index signature parameters to identify rows cleanly without errors
+ */
+export async function markOrderItemAsDelivered(
+  orderId: string,
+  productId: string
+) {
+  try {
+    // Update the targeted item row inside your composite table index layout structure
+    const updatedItem = await prisma.orderItem.update({
+      where: {
+        orderId_productId: {
+          orderId: orderId,
+          productId: productId,
+        },
+      },
+      data: {
+        isDelivered: true,
+        deliveredAt: new Date(),
+      },
+      include: {
+        order: {
+          include: {
+            orderitems: true, // Fetch sister rows to check for total delivery completeness
+            user: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    const currentOrder = updatedItem.order;
+    const cleanOrderId = currentOrder.id.slice(0, 8);
+    const buyerName = currentOrder.user?.name || "Mteja wetu";
+
+    // CASCADING CHECKER: If EVERY single product inside this cart is delivered, update the master Order row too
+    const allItemsDelivered = currentOrder.orderitems.every(
+      (item) => item.isDelivered
+    );
+
+    if (allItemsDelivered) {
+      await prisma.order.update({
+        where: { id: currentOrder.id },
+        data: {
+          isDelivered: true,
+          deliveredAt: new Date(),
+        },
+      });
+      // console.log(
+      //   `Global Order Header row #${cleanOrderId} closed automatically.`
+      // );
+    }
+
+    // Fetch the supplier's contact details to trigger an instant SMS alert
+    const productWithSupplier = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        supplier: {
+          select: { name: true, companyName: true, phone: true },
+        },
+      },
+    });
+
+    const supplier = productWithSupplier?.supplier;
+    if (supplier?.phone) {
+      const sName = supplier.companyName || supplier.name;
+      const supplierMsg = `Habari ${sName}, mteja (${buyerName}) amethibitisha kupokea bidhaa yako salama:\n- ${updatedItem.qty}x ${updatedItem.name}\nAgizo ID: #${cleanOrderId}.\nMalipo yako yanashughulikiwa sasa. Asante!`;
+
+      try {
+        await sendSms(supplier.phone, supplierMsg);
+      } catch (smsErr) {
+        console.error(
+          `Failed sending single item delivery SMS to supplier ${sName}:`,
+          smsErr
+        );
+      }
+    }
+
+    revalidatePath(`/order/${orderId}`);
+    return {
+      success: true,
+      message: `Umethibitisha kupokea: ${updatedItem.name}`,
+    };
+  } catch (error: unknown) {
+    console.error("Item delivery completion system error:", error);
+    return {
+      success: false,
+      message: "Imeshindikana kusasisha hali ya bidhaa.",
+    };
+  }
+}
+
+/**
+ * 2. MASTER FALLBACK ACTION: MARKS THE ENTIRE ORDER CLOSED AT ONCE
+ * Kept intact to preserve backward compatibility for your existing single-button dashboard panels
+ */
+export async function markOrderAsDelivered(orderId: string) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Mark all related product items as true
+      await tx.orderItem.updateMany({
+        where: { orderId: orderId },
+        data: { isDelivered: true, deliveredAt: new Date() },
+      });
+
+      // 2. Mark the parent order header as true
+      await tx.order.update({
+        where: { id: orderId },
+        data: { isDelivered: true, deliveredAt: new Date() },
+      });
+    });
+
+    revalidatePath(`/order/${orderId}`);
+    return { success: true, message: "Agizo zima limesasishwa kuwa limefika!" };
+  } catch (error) {
+    console.error(error);
+    return {
+      success: false,
+      message: "Imeshindikana kusasisha hali ya mzigo.",
+    };
   }
 }

@@ -22,11 +22,11 @@ import ShareButton from "@/components/ShareButton";
 export const revalidate = 60;
 
 export async function generateMetadata(
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ slug: string }> },
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const { id } = await params;
-  const product = await getProductBySlug(id);
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
   console.log("abc: ", parent);
 
   const title = product?.name || "Bidhaa";
@@ -54,10 +54,10 @@ export async function generateMetadata(
 }
 
 const ProductDetailsPagez = async (props: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) => {
-  const { id } = await props.params;
-  const product = await getProductBySlug(id);
+  const { slug } = await props.params;
+  const product = await getProductBySlug(slug);
   const safeCartData = await getMyCart();
 
   if (!product) return notFound();
@@ -69,11 +69,18 @@ const ProductDetailsPagez = async (props: {
   const cartItem = {
     productId: product.id,
     supplierId: product.supplierId,
+    supplierName: product.supplier.companyName || "",
     name: product.name,
     slug: product.slug,
     price: product.price,
     qty: 1,
     image: product.images![0],
+    priceTiers: product.pricingTiers
+      ? product.pricingTiers.map((t) => ({
+          minQty: t.minQty,
+          price: Number(t.price),
+        }))
+      : [],
   };
 
   return (
@@ -99,7 +106,7 @@ const ProductDetailsPagez = async (props: {
                 </p>
                 <ShareButton
                   title={product.name}
-                  url={`https://nimboya.com{product.id}`}
+                  url={`https://nimboya.com/${product.slug}`}
                 />
               </div>
 
@@ -147,7 +154,13 @@ const ProductDetailsPagez = async (props: {
                 productId={product.id}
                 item={cartItem}
                 cartData={safeCartData}
-                pricingTiers={product.pricingTiers}
+                pricingTiers={
+                  product.pricingTiers as unknown as {
+                    id: string;
+                    minQty: number;
+                    price: number;
+                  }[]
+                }
                 fallbackPrice={Number(product.price)}
                 stock={product.stock}
               />
@@ -231,7 +244,7 @@ const ProductDetailsPagez = async (props: {
             name: product.name,
             image: product.images,
             description: product.description,
-            sku: product.id,
+            sku: product.slug,
             brand: {
               "@type": "Brand",
               name: product.brand?.name || "Nimboya",
@@ -253,7 +266,7 @@ const ProductDetailsPagez = async (props: {
 };
 
 export default function ProductDetailsPage(props: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
   return (
     <Suspense fallback={<ProductDescriptionSkeleton />}>

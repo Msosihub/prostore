@@ -14,12 +14,10 @@ export default async function RootLayout({
   let unreadMessagesCount = 0;
 
   if (session?.user?.id) {
-    // 🧠 Logged in but not onboarded
     if (session.user?.name === "NO_NAME") {
       redirect("/onboarding");
     }
 
-    // 1. Fetch Cart items count dynamically from Json[] schema field array
     const cart = await prisma.cart.findFirst({
       where: { userId: session.user.id },
       select: { items: true },
@@ -28,26 +26,27 @@ export default async function RootLayout({
       cartItemsCount = cart.items.length;
     }
 
-    // 2. Fetch Unread Messages count matching your exact model variable: "seen"
     unreadMessagesCount = await prisma.message.count({
       where: {
-        seen: false, // matching seen column structure
+        seen: false,
         conversation: {
           OR: [{ buyerId: session.user.id }, { supplierId: session.user.id }],
         },
-        NOT: { senderId: session.user.id }, // Exclude messages sent by yourself
+        NOT: { senderId: session.user.id },
       },
     });
   }
 
   return (
-    <div className="flex h-screen flex-col bg-slate-50/50">
-      <Header />
-      <main className="flex-1 w-full max-w-7xl mx-auto p-0 px-2 sm:px-4 lg:px-6">
+    // 🟢 FIXED: Changed from 'h-screen' to 'min-h-screen flex flex-col' to eliminate mobile scroll trap breakages
+    <div className="flex min-h-screen flex-col bg-slate-50/40 w-full overflow-x-hidden">
+      <Header cartItemsCount={cartItemsCount} />
+
+      {/* 🟢 UNIFIED BOUNDARY CONTROLLER: Cleans up duplicate wrapper padding loops */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
         {children}
       </main>
 
-      {/* Inject live values cleanly to feed interactive badge bubbles */}
       <BottomNav
         cartItemsCount={cartItemsCount}
         unreadMessagesCount={unreadMessagesCount}

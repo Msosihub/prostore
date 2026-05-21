@@ -29,6 +29,12 @@ const OrderDetailsPage = async (props: {
       ...order.user,
       email: order.user.email ?? "",
     },
+    // Map over orderitems to transform nulls into undefined
+    orderitems: order.orderitems.map((item) => ({
+      ...item,
+      supplierId: item.supplierId ?? undefined,
+      supplierName: item.supplierName ?? undefined,
+    })),
   };
 
   const session = await auth();

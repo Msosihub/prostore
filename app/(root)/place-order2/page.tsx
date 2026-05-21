@@ -84,6 +84,11 @@ const PlaceOrderPage = ({
       price: product.price.toString(),
       supplierId: product.supplierId,
       slug: product.slug ?? "",
+      priceTiers: product.pricingTiers as unknown as {
+        id: string;
+        minQty: number;
+        price: number;
+      }[],
     };
 
     cart = {

@@ -6,29 +6,64 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
-import { Loader2, RefreshCw, PackageCheck, ChevronLeft } from "lucide-react";
-import { markOrderAsDelivered } from "@/lib/actions/order.actions";
-import PaymentLoadingScreen from "@/components/payment-loading-screen";
-import { Order } from "@/types";
-import GeneralReviewDialog from "@/components/shared/dialogs/general-review-dialog";
 
-interface OrderDetailsTableProps {
-  order: Omit<Order, "paymentResult">;
+import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
+import {
+  Loader2,
+  RefreshCw,
+  PackageCheck,
+  ChevronLeft,
+  MapPin,
+  Edit3,
+  Truck,
+} from "lucide-react";
+import PaymentLoadingScreen from "@/components/payment-loading-screen";
+import GeneralReviewDialog from "@/components/shared/dialogs/general-review-dialog";
+import ShippingAddressDrawer from "@/components/shared/forms/ShippingAddressDrawer";
+// import { updateOrderShippingAddress } from "@/lib/actions/order-update.actions";
+import { ShippingAddress } from "@/types";
+import { markOrderItemAsDelivered } from "@/lib/actions/order.actions";
+
+interface LocalOrderItem {
+  name: string;
+  productId: string;
+  slug: string;
+  qty: number;
+  image: string;
+  price: string;
+  orderId: string;
+  isDelivered: boolean;
+  deliveredAt: Date | null;
+  supplierId: string | undefined; // Safely accepts null
+  supplierName: string | undefined; // Safely accepts null
 }
 
-const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
+interface LocalOrder {
+  id: string;
+  createdAt: Date;
+  isPaid: boolean;
+  paidAt: Date | null;
+  isDelivered: boolean;
+  deliveredAt: Date | null;
+  itemsPrice: string;
+  shippingPrice: string;
+  taxPrice: string;
+  totalPrice: string;
+  paymentMethod: string;
+
+  shippingAddress: ShippingAddress;
+  user: {
+    name: string;
+    email: string;
+  };
+  orderitems: LocalOrderItem[];
+}
+interface OrderDetailsTableProps {
+  order: LocalOrder;
+}
+export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
   const {
     id,
-    shippingAddress,
     orderitems,
     itemsPrice,
     shippingPrice,
@@ -39,10 +74,12 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
     deliveredAt,
   } = order;
 
-  const [showGeneralReview, setShowGeneralReview] = useState(false);
+  const shippingAddress = order.shippingAddress as ShippingAddress;
+
   const [paymentStage, setPaymentStage] = useState<
     "idle" | "creating" | "push_sent" | "completed"
   >("idle");
+  const [showGeneralReview, setShowGeneralReview] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleReinitializePayment = async () => {
@@ -71,13 +108,47 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
     }
   };
 
-  const handleConfirmDelivery = () => {
-    if (!confirm("Je, una uhakika umepokea mzigo wako salama?")) return;
+  // 🟢 DYNAMIC GROUPER: Groups order items by their Supplier to organize the UI cleanly
+  const groupItemsBySupplier = (items: LocalOrderItem[]) => {
+    // @ts-error i dont know type
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const groups: Record<string, { supplierName: string; list: any[] }> = {};
+
+    items.forEach((item) => {
+      const sName = item.supplierName || "Muuzaji wa Nimboya";
+      const sId = item.supplierId || "default_vendor";
+
+      if (!groups[sId]) {
+        groups[sId] = { supplierName: sName, list: [] };
+      }
+      groups[sId].list.push(item);
+    });
+
+    return Object.values(groups);
+  };
+
+  const shipmentPackages = groupItemsBySupplier(orderitems);
+
+  const handleItemReceiptConfirmation = (
+    orderId: string,
+    productId: string,
+    itemName: string
+  ) => {
+    if (!confirm(`Je, una uhakika umepokea "${itemName}" salama?`)) return;
+
     startTransition(async () => {
-      const res = await markOrderAsDelivered(id);
+      // 🟢 FIXED CALL: Pass both composite identifiers to target the exact row securely
+      const res = await markOrderItemAsDelivered(orderId, productId);
+
       if (res.success) {
-        // Trigger the general review dialog open state immediately!
-        setShowGeneralReview(true);
+        // Count how many items remain undelivered to trigger the final feedback modal
+        const remainingOpenItems = orderitems.filter(
+          (i: LocalOrderItem) => !i.isDelivered
+        ).length;
+        if (remainingOpenItems <= 1) {
+          setShowGeneralReview(true);
+        }
+        alert(res.message);
       } else {
         alert(res.message);
       }
@@ -86,18 +157,16 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
 
   return (
     <>
-      {/* Full screen payment re-initialization overlay setup */}
       {paymentStage !== "idle" && <PaymentLoadingScreen stage={paymentStage} />}
 
-      {/* Mounts the review wizard hook right here */}
       <GeneralReviewDialog
         open={showGeneralReview}
         onOpenChange={setShowGeneralReview}
         orderId={id}
       />
 
-      <div className="pb-24 md:pb-6 max-w-5xl mx-auto px-2 md:px-4 space-y-4">
-        {/* Navigation Header Layout */}
+      <div className="pb-28 md:pb-12 max-w-5xl mx-auto px-2 md:px-4 space-y-4">
+        {/* Nav Header */}
         <div className="flex items-center gap-2 pt-3">
           <Link
             href="/user/orders"
@@ -110,18 +179,34 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
           </h1>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Main Info Blocks Area */}
-          <div className="md:col-span-2 space-y-3.5">
-            {/* Payment Status Card */}
-            <Card className="shadow-sm border-slate-100 rounded-xl">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+          {/* Main Cards Work area */}
+          <div className="grid grid-cols-1 md:col-span-3 gap-3.5">
+            {/* Payment Card */}
+            <Card className="shadow-sm border-slate-100 rounded-xl bg-white">
               <CardContent className="p-3.5 flex flex-col gap-1.5">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Hali ya Malipo
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Hali ya Malipo
+                  </h2>
+                  {!isPaid && (
+                    <ShippingAddressDrawer
+                      trigger={
+                        <button
+                          type="button"
+                          className="text-[11px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1 bg-orange-50 border border-orange-100 px-2.5 py-1 rounded-lg transition-all"
+                        >
+                          <Edit3 className="w-3 h-3" /> Rekebisha Namba
+                        </button>
+                      }
+                      address={shippingAddress}
+                      openByDefault={false}
+                    />
+                  )}
+                </div>
                 <p className="text-xs text-slate-800 font-medium">
-                  Namba inayohusika:{" "}
-                  <span className="font-mono text-blue-600">
+                  Namba itakayolipa (STK Push):{" "}
+                  <span className="font-mono font-semibold text-blue-600 bg-blue-50/50 px-1.5 py-0.5 rounded-md border border-blue-100/30">
                     {shippingAddress.paymentPhone}
                   </span>
                 </p>
@@ -145,12 +230,29 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
               </CardContent>
             </Card>
 
-            {/* Delivery Address Card */}
-            <Card className="shadow-sm border-slate-100 rounded-xl">
+            {/* Delivery Location Card */}
+            <Card className="shadow-sm border-slate-100 rounded-xl bg-white">
               <CardContent className="p-3.5 flex flex-col gap-1.5">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Mpokeaji & Anuani
-                </h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Mpokeaji & Anuani
+                  </h2>
+                  {!isPaid && !isDelivered && (
+                    <ShippingAddressDrawer
+                      trigger={
+                        <button
+                          type="button"
+                          className="text-[11px] font-bold text-slate-600 hover:text-slate-800 flex items-center gap-1 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg transition-all"
+                        >
+                          <MapPin className="w-3 h-3 text-slate-400" /> Badili
+                          Anuani
+                        </button>
+                      }
+                      address={shippingAddress}
+                      openByDefault={false}
+                    />
+                  )}
+                </div>
                 <p className="text-xs font-bold text-slate-900">
                   {shippingAddress.fullName}
                 </p>
@@ -172,156 +274,150 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
                       variant="destructive"
                       className="text-[11px] font-medium bg-amber-50 text-amber-700 border-amber-200 rounded-full px-2.5 py-0.5"
                     >
-                      Mzigo haujafika bado
+                      Vifurushi Vinajisafirisha
                     </Badge>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Table List of Items Ordered */}
-            <Card className="shadow-sm border-slate-100 rounded-xl overflow-hidden">
-              <CardContent className="p-3.5">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider pb-3 border-b border-slate-100">
-                  Vitu Vilivyomo
-                </h2>
+            {/* 🟢 MULTI-VENDOR SPLIT SHIPMENT CART ROW LISTS CONTAINER */}
+            <div className="space-y-3 pt-1">
+              {shipmentPackages.map((pkg, pIdx) => (
+                <Card
+                  key={pIdx}
+                  className="shadow-sm border-slate-100 rounded-2xl overflow-hidden bg-white"
+                >
+                  {/* Supplier Package Header row decoration banner */}
+                  <div className="bg-slate-50/80 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">
+                      Kifurushi kutoka:{" "}
+                      <span className="text-orange-600 font-extrabold">
+                        {pkg.supplierName}
+                      </span>
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] bg-white text-slate-500 font-medium px-2 py-0.5 rounded-md border-slate-200"
+                    >
+                      Bidhaa: {pkg.list.length}
+                    </Badge>
+                  </div>
 
-                {/* Desktop View Table */}
-                <div className="hidden sm:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent border-slate-100">
-                        <TableHead className="text-xs px-1">Bidhaa</TableHead>
-                        <TableHead className="text-xs text-center">
-                          Idadi
-                        </TableHead>
-                        <TableHead className="text-right text-xs px-1">
-                          Bei
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {orderitems.map((item) => (
-                        <TableRow key={item.slug} className="border-slate-100">
-                          <TableCell className="px-1 py-3">
+                  {/* List Body items content entries */}
+                  <CardContent className="p-0 divide-y divide-slate-100">
+                    {pkg.list.map((item: LocalOrderItem) => (
+                      <div
+                        key={`${item.orderId}-${item.productId}`}
+                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 shrink-0">
+                            <Image
+                              src={item.image}
+                              alt={item.name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          <div className="min-w-0">
                             <Link
                               href={`/product/${item.slug}`}
-                              className="flex items-center gap-3 hover:underline"
+                              className="text-xs font-bold text-slate-800 hover:text-orange-600 hover:underline transition-colors line-clamp-1"
                             >
-                              <Image
-                                src={item.image}
-                                alt={item.name}
-                                width={44}
-                                height={44}
-                                className="rounded-lg object-cover bg-slate-50"
-                              />
-                              <span className="text-xs font-medium text-slate-800 truncate max-w-xs">
-                                {item.name}
-                              </span>
+                              {item.name}
                             </Link>
-                          </TableCell>
-                          <TableCell className="text-center text-xs font-semibold text-slate-700">
-                            {item.qty}
-                          </TableCell>
-                          <TableCell className="text-right text-xs font-bold text-slate-900 px-1">
-                            {formatCurrency(item.price)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                            <p className="text-[11px] text-slate-400 font-medium pt-0.5">
+                              Idadi:{" "}
+                              <span className="font-bold text-slate-600">
+                                {item.qty}
+                              </span>{" "}
+                              • Thamani:{" "}
+                              {formatCurrency(Number(item.price) * item.qty)}
+                            </p>
+                          </div>
+                        </div>
 
-                {/* Mobile View Item Blocks Layout */}
-                <div className="sm:hidden divide-y divide-slate-100">
-                  {orderitems.map((item) => (
-                    <div
-                      key={item.slug}
-                      className="flex items-center gap-3 py-3 first:pt-1 last:pb-1"
-                    >
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        width={48}
-                        height={48}
-                        className="rounded-lg object-cover bg-slate-50 shrink-0"
-                      />
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <p className="text-xs font-medium text-slate-800 truncate">
-                          {item.name}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground">
-                          Idadi:{" "}
-                          <span className="font-semibold text-slate-700">
-                            {item.qty}
-                          </span>
-                        </p>
+                        {/* Item actions handler controller cell */}
+                        <div className="flex items-center sm:justify-end shrink-0 pt-2 sm:pt-0 border-t border-dashed border-slate-50 sm:border-0 w-full sm:w-auto">
+                          {item.isDelivered ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 select-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              Umekwisha Pokea Hii
+                            </span>
+                          ) : (
+                            <div className="w-full sm:w-auto">
+                              {isPaid ? (
+                                <Button
+                                  size="sm"
+                                  disabled={isPending}
+                                  // 🟢 PASS BOTH: orderId and productId inside our loop parameters accurately
+                                  onClick={() =>
+                                    handleItemReceiptConfirmation(
+                                      id,
+                                      item.productId,
+                                      item.name
+                                    )
+                                  }
+                                  className="h-8 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl px-3 flex items-center justify-center gap-1 shadow-sm w-full sm:w-auto"
+                                >
+                                  {isPending ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <PackageCheck className="w-3.5 h-3.5" />
+                                  )}
+                                  Nimepokea Bidhaa Hii
+                                </Button>
+                              ) : (
+                                <span className="text-[10px] font-medium text-slate-400 italic flex items-center gap-1 px-1">
+                                  <Truck className="w-3.5 h-3.5 text-slate-300 animate-pulse" />{" "}
+                                  Inasubiri Malipo
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs font-bold text-slate-900">
-                          {formatCurrency(Number(item.price) * item.qty)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
 
-          {/* Financial Sidebar Context Summary (Desktop Column Layout) */}
-          <div className="space-y-4">
-            <Card className="shadow-sm border-slate-100 rounded-xl bg-white">
-              <CardContent className="p-4 space-y-3.5">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider border-b pb-2 border-slate-100">
+          {/* Pricing Summary Sidebar Element Panel (Desktop viewports - Fixed Mid screen layout gaps) */}
+          <div className="hidden md:block md:col-span-1">
+            <Card className="shadow-sm border-slate-100 rounded-xl bg-white sticky top-24">
+              <CardContent className="p-4 space-y-4">
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider border-b pb-2 border-slate-50">
                   Muhtasari wa Gharama
                 </h2>
-
                 <div className="flex justify-between items-center text-xs">
                   <div className="text-muted-foreground">Bidhaa</div>
                   <div className="font-medium text-slate-800">
                     {formatCurrency(itemsPrice)}
                   </div>
                 </div>
-
                 <div className="flex justify-between items-center text-xs">
                   <div className="text-muted-foreground">Usafiri</div>
                   <div className="font-medium text-slate-800">
                     {formatCurrency(shippingPrice)}
                   </div>
                 </div>
-
                 <div className="flex justify-between items-center text-xs font-bold border-t pt-2.5 border-slate-100">
-                  <div className="text-slate-900">Jumla Kuu</div>
-                  <div className="text-base text-green-700">
+                  <div>Jumla Kuu</div>
+                  <div className="text-green-700">
                     {formatCurrency(totalPrice)}
                   </div>
                 </div>
 
-                {/* Sidebar Desktop Interaction Area (Hidden on mobile screen sizes) */}
-                <div className="hidden md:block pt-2">
+                <div className="pt-2">
                   {!isPaid && (
                     <Button
                       onClick={handleReinitializePayment}
-                      className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm"
+                      className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
                     >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Jaribu Tena Kulipa
-                    </Button>
-                  )}
-
-                  {isPaid && !isDelivered && (
-                    <Button
-                      onClick={handleConfirmDelivery}
-                      disabled={isPending}
-                      className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      {isPending ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <PackageCheck className="w-3.5 h-3.5" />
-                      )}
-                      Nimepokea Mzigo huu
+                      <RefreshCw className="w-3.5 h-3.5" /> Jaribu Tena Kulipa
                     </Button>
                   )}
                 </div>
@@ -331,47 +427,27 @@ const OrderDetailsTable = ({ order }: OrderDetailsTableProps) => {
         </div>
       </div>
 
-      {/* MOBILE STICKY FOOTER TRAY AREA: Automatically floats action panels on smartphones */}
-      {(!isPaid || (isPaid && !isDelivered)) && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-100 p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] md:hidden flex items-center justify-between gap-3">
+      {/* 📱 MOBILE PERSISTENT FLOATING STICKY ACTION TRAY BOTTOM (Only show re-payment loops if unpaid) */}
+      {!isPaid && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-100 p-3.5 shadow-[0_-4px_16px_rgba(0,0,0,0.05)] md:hidden flex items-center justify-between gap-4 pb-safe bg-white/95 backdrop-blur-md">
           <div className="flex flex-col">
-            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
               Jumla ya Malipo
             </span>
-            <span className="text-sm font-bold text-green-700">
+            <span className="text-sm font-extrabold text-green-700 tracking-tight">
               {formatCurrency(totalPrice)}
             </span>
           </div>
-          <div className="flex-1 max-w-[240px]">
-            {!isPaid && (
-              <Button
-                onClick={handleReinitializePayment}
-                className="w-full h-11 bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Jaribu Tena Kulipa
-              </Button>
-            )}
-
-            {isPaid && !isDelivered && (
-              <Button
-                onClick={handleConfirmDelivery}
-                disabled={isPending}
-                className="w-full h-11 bg-blue-600 active:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                {isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <PackageCheck className="w-3.5 h-3.5" />
-                )}
-                Nimepokea Mzigo
-              </Button>
-            )}
+          <div className="flex-1 max-w-[200px]">
+            <Button
+              onClick={handleReinitializePayment}
+              className="w-full h-11 bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Jaribu Tena Kulipa
+            </Button>
           </div>
         </div>
       )}
     </>
   );
-};
-
-export default OrderDetailsTable;
+}
