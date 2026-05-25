@@ -74,6 +74,8 @@ model User {
   BuyerConversations    Conversation[]   @relation("BuyerConversations")
   SupplierConversations Conversation[]   @relation("SupplierConversations")
   messagesSent          Message[]        @relation("SentMessages")
+  chatwootContactId     Int?             @unique
+  chatwootAgentId       Int?             @unique
   Order                 Order[]
   Review                Review[]
   session               Session[]
@@ -291,9 +293,10 @@ model Message {
   moderationNote String?
 
   // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id])
-  sender       User         @relation("SentMessages", fields: [senderId], references: [id])
-  inquiryId    String?      @db.Uuid
+  chatwootMessageId Int?         @unique
+  conversation      Conversation @relation(fields: [conversationId], references: [id])
+  sender            User         @relation("SentMessages", fields: [senderId], references: [id])
+  inquiryId         String?      @db.Uuid
 }
 
 model Attachment {
@@ -383,12 +386,12 @@ model Conversation {
   updatedAt DateTime @updatedAt @db.Timestamp(6)
   buyer     User     @relation("BuyerConversations", fields: [buyerId], references: [id])
 
-  supplier User @relation("SupplierConversations", fields: [supplierId], references: [id])
-
-  messages  Message[]
-  Product   Product?  @relation(fields: [productId], references: [id])
-  productId String?   @db.Uuid
-  Inquiry   Inquiry[]
+  supplier               User      @relation("SupplierConversations", fields: [supplierId], references: [id])
+  chatwootConversationId Int?      @unique
+  messages               Message[]
+  Product                Product?  @relation(fields: [productId], references: [id])
+  productId              String?   @db.Uuid
+  Inquiry                Inquiry[]
 
   @@unique([buyerId, supplierId])
 }
