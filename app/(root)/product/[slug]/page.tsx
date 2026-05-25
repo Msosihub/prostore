@@ -23,7 +23,7 @@ export const revalidate = 60;
 
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> },
-  parent: ResolvingMetadata
+  parent: ResolvingMetadata,
 ): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
@@ -151,7 +151,7 @@ const ProductDetailsPagez = async (props: {
                 buyerId={userId || ""}
                 supplierId={product.supplierId}
                 supplierUserId={product.supplier?.userId || ""}
-                productId={product.id}
+                productId={product.slug}
                 item={cartItem}
                 cartData={safeCartData}
                 pricingTiers={

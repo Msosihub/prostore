@@ -40,7 +40,7 @@ model VerificationToken {
   identifier String
   token      String
   expires    DateTime
-  attempts   Int      @default(0) // resend attempts
+  attempts   Int      @default(0)
   createdAt  DateTime @default(now())
 
   @@id([identifier, token])
@@ -50,56 +50,52 @@ model User {
   id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                  String           @default("NO_NAME")
   email                 String?          @unique
-  emailVerified         DateTime?        @db.Timestamp(6) //when vrifid us e now()
+  emailVerified         DateTime?        @db.Timestamp(6)
   phone                 String?          @unique
-  paymentPhone          String?
-  phoneVerified         DateTime? //when vrifid us e now()
   whatsapp              String?
   role                  UserRole         @default(BUYER)
-  onboarded             Boolean          @default(false)
-  country               String?
   location              String?
   mapLat                Float?
   mapLng                Float?
-  isVerified            Boolean          @default(false) //not needed - we use otp now
+  isVerified            Boolean          @default(false)
   image                 String?
-  password              String? //not neded - we use otp now
+  password              String?
   address               Json?            @db.Json
   paymentMethod         String?
-  avatar                String?
   createdAt             DateTime         @default(now()) @db.Timestamp(6)
   updatedAt             DateTime         @updatedAt
+  avatar                String?
+  phoneVerified         DateTime?
+  country               String?
+  onboarded             Boolean          @default(false)
+  paymentPhone          String?
   account               Account[]
+  Admin                 Admin?
   Cart                  Cart[]
   BuyerConversations    Conversation[]   @relation("BuyerConversations")
   SupplierConversations Conversation[]   @relation("SupplierConversations")
   messagesSent          Message[]        @relation("SentMessages")
-  chatwootContactId     Int?             @unique
-  chatwootAgentId       Int?             @unique
+  Notification          Notification[]
   Order                 Order[]
+  PayoutRequest         PayoutRequest[]
+  ProductComment        ProductComment[]
   Review                Review[]
   session               Session[]
   Supplier              Supplier?
-  ProductComment        ProductComment[]
-  Notification          Notification[]
-  // SupplierNote          SupplierNote[]
-  Admin                 Admin?
-  PayoutRequest         PayoutRequest[]
 }
 
 model Cart {
-  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String? @db.Uuid
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String?  @db.Uuid
   sessionCartId String
-  items         Json[]  @default([]) @db.Json
-  itemsPrice    Decimal @db.Decimal(12, 2)
-  totalPrice    Decimal @db.Decimal(12, 2)
-  shippingPrice Decimal @db.Decimal(12, 2)
-  taxPrice      Decimal @db.Decimal(12, 2)
-  isBuyNow      Boolean @default(false)
-
-  createdAt DateTime @default(now()) @db.Timestamp(6)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items         Json[]   @default([]) @db.Json
+  itemsPrice    Decimal  @db.Decimal(12, 2)
+  totalPrice    Decimal  @db.Decimal(12, 2)
+  shippingPrice Decimal  @db.Decimal(12, 2)
+  taxPrice      Decimal  @db.Decimal(12, 2)
+  createdAt     DateTime @default(now()) @db.Timestamp(6)
+  isBuyNow      Boolean  @default(false)
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Order {
@@ -108,8 +104,6 @@ model Order {
   shippingAddress Json        @db.Json
   paymentMethod   String
   paymentResult   Json?       @db.Json
-  paymentStatus   String      @default("PENDING")
-  // PENDING | COMPLETED | FAILED | CANCELLED
   itemsPrice      Decimal     @db.Decimal(12, 2)
   shippingPrice   Decimal     @db.Decimal(12, 2)
   taxPrice        Decimal     @db.Decimal(12, 2)
@@ -119,30 +113,27 @@ model Order {
   isDelivered     Boolean     @default(false)
   deliveredAt     DateTime?   @db.Timestamp(6)
   createdAt       DateTime    @default(now()) @db.Timestamp(6)
+  paymentStatus   String      @default("PENDING")
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   orderitems      OrderItem[]
 }
 
 model OrderItem {
-  orderId      String  @db.Uuid
-  productId    String  @db.Uuid
+  orderId      String           @db.Uuid
+  productId    String           @db.Uuid
   qty          Int
-  price        Decimal @db.Decimal(12, 2)
+  price        Decimal          @db.Decimal(12, 2)
   name         String
   slug         String
-  supplierId   String? @default("")
-  supplierName String? @default("")
   image        String
-
-  isDelivered Boolean   @default(false)
-  deliveredAt DateTime? @db.Timestamp(6)
-
-  // 🟢 INJECT THESE FOR FINANCIAL SAFETY IN MULTI-VENDOR TRANSACTIONS:
-  payoutStatus ItemPayoutStatus @default(ESCROW)
+  supplierId   String?          @default("")
+  deliveredAt  DateTime?        @db.Timestamp(6)
+  isDelivered  Boolean          @default(false)
+  supplierName String?          @default("")
   payoutAt     DateTime?        @db.Timestamp(6)
-
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  payoutStatus ItemPayoutStatus @default(ESCROW)
+  order        Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product      Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([orderId, productId], map: "orderitems_orderId_productId_pk")
 }
@@ -174,11 +165,11 @@ model Category {
   name_en       String        @unique
   name_sw       String
   image         String?
-  parentId      String?       @db.Uuid
-  updatedAt     DateTime      @default(now()) @db.Timestamp(6)
   createdAt     DateTime      @default(now()) @db.Timestamp(6)
   description   String        @default("")
-  sortOrder     Int           @default(0) // ✅ new
+  parentId      String?       @db.Uuid
+  updatedAt     DateTime      @default(now()) @db.Timestamp(6)
+  sortOrder     Int           @default(0)
   products      Product[]
   subcategories Subcategory[]
 }
@@ -191,24 +182,22 @@ model Subcategory {
   image       String?
   createdAt   DateTime  @default(now()) @db.Timestamp(6)
   description String?
-  sortOrder   Int       @default(0) // ✅ new
+  sortOrder   Int       @default(0)
   products    Product[]
   category    Category  @relation(fields: [categoryId], references: [id])
 }
 
-// Audit logs
 model AuditLog {
   id         String   @id @default(uuid())
-  name       String   @default("NO_NAME")
   adminId    String   @db.Uuid
-  action     String // e.g. "DOCUMENT_APPROVED", "DOCUMENT_REJECTED"
-  entityId   String?  @db.Uuid // e.g. documentId or supplierId
-  entityType String? // e.g. "SupplierDocument", "Supplier"
-  reason     String? // rejection reason or note (nullable)
-  details    Json? // store extra metadata
+  action     String
+  details    Json?
   createdAt  DateTime @default(now())
-
-  admin Admin @relation(fields: [adminId], references: [id])
+  entityId   String?  @db.Uuid
+  entityType String?
+  reason     String?
+  name       String   @default("NO_NAME")
+  admin      Admin    @relation(fields: [adminId], references: [id])
 }
 
 model Product {
@@ -222,7 +211,6 @@ model Product {
   stock          Int              @default(0)
   color          String?
   size           String?
-  tags           String[] // e.g., ["organic", "handmade", "bulk"]
   supplierId     String           @db.Uuid
   rating         Decimal          @default(0) @db.Decimal(3, 2)
   numReviews     Int              @default(0)
@@ -232,19 +220,19 @@ model Product {
   categoryId     String           @db.Uuid
   subcategoryId  String           @db.Uuid
   thumbnail      String?
+  tags           String[]
   videoUrl       String?          @default("")
   Conversation   Conversation[]
+  Message        Message[]
   OrderItem      OrderItem[]
   brand          Brand            @relation(fields: [brandId], references: [id])
   category       Category         @relation(fields: [categoryId], references: [id])
   subcategory    Subcategory      @relation(fields: [subcategoryId], references: [id])
   supplier       Supplier         @relation(fields: [supplierId], references: [id])
-  pricingTiers   ProductPricing[]
-  Review         Review[]
-  Message        Message[]
   ProductComment ProductComment[]
+  pricingTiers   ProductPricing[]
   ProductVariant ProductVariant[]
-  // SupplierNote   SupplierNote[]
+  Review         Review[]
 }
 
 model ProductPricing {
@@ -256,172 +244,136 @@ model ProductPricing {
 }
 
 model Message {
-  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String @db.Uuid
-  senderId       String @db.Uuid
-
-  // Rename body → content (to match API code)
-  //add default value
-  content String @default("")
-
-  // Mark message as read/unread (isRead)
-  seen Boolean @default(false)
-
-  // Replying to another message (self-relation)
-  replyToId String?   @db.Uuid
-  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id])
-  replies   Message[] @relation("MessageReplies")
-
-  // Optional product (if chat is about a product)
-  productId String?  @db.Uuid
-  product   Product? @relation(fields: [productId], references: [id])
-
-  // Optional inquiry linked to this message
-  inquiry Inquiry? @relation(fields: [inquiryId], references: [id])
-
-  // Attachments if needed
-  attachments Attachment[]
-
-  // Timestamps
-  createdAt DateTime  @default(now()) @db.Timestamp(6)
-  sentAt    DateTime? @default(now()) @db.Timestamp(6)
-
-  // moderation
-  moderated      Boolean   @default(false) // has moderator acted?
-  moderatedBy    String? // who moderated
-  moderatedAt    DateTime? // when
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String       @db.Uuid
+  senderId       String       @db.Uuid
+  createdAt      DateTime     @default(now()) @db.Timestamp(6)
+  content        String       @default("")
+  inquiryId      String?      @db.Uuid
+  productId      String?      @db.Uuid
+  replyToId      String?      @db.Uuid
+  seen           Boolean      @default(false)
+  sentAt         DateTime?    @default(now()) @db.Timestamp(6)
+  moderated      Boolean      @default(false)
+  moderatedAt    DateTime?
+  moderatedBy    String?
   moderationNote String?
-
-  // Relations
-  chatwootMessageId Int?         @unique
-  conversation      Conversation @relation(fields: [conversationId], references: [id])
-  sender            User         @relation("SentMessages", fields: [senderId], references: [id])
-  inquiryId         String?      @db.Uuid
+  attachments    Attachment[]
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  inquiry        Inquiry?     @relation(fields: [inquiryId], references: [id])
+  product        Product?     @relation(fields: [productId], references: [id])
+  replyTo        Message?     @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        Message[]    @relation("MessageReplies")
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id])
 }
 
 model Attachment {
-  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   url       String
   name      String?
-  mimeType  String?
-  messageId String  @db.Uuid
-  message   Message @relation(fields: [messageId], references: [id])
-
+  messageId String   @db.Uuid
   createdAt DateTime @default(now()) @db.Timestamp(6)
+  mimeType  String?
+  message   Message  @relation(fields: [messageId], references: [id])
 }
 
 model Supplier {
-  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  label         String? // e.g. "Gold Supplier", "Verified Supplier"
-  name          String
-  username      String? @unique
-  tagLine       String?
-  description   String?
-  email         String  @unique
-  phone         String?
-  //Business
-  companyName   String?
-  businessHours Json? // e.g. { mon: "8-5", tue: "8-5" }
-  bannerUrl     String?
-  businessType  String? // e.g. Manufacturer, Wholesaler, Retailer
-
-  country        String?
-  location       String?
-  nation         String?
-  about          String?
-  logo           String?
-  website        String?
-  isVerified     Boolean         @default(false)
-  yearsActive    Int             @default(1)
-  rating         Decimal         @default(0.0) @db.Decimal(3, 2)
-  deliveryRate   Int             @default(0)
-  responseTime   String?
-  avatar         String?
-  banner         String?
-  certifications Certification[]
-  gallery        Json? // Array of image/video URLs
-  createdAt      DateTime        @default(now()) @db.Timestamp(6)
-  updatedAt      DateTime        @default(now()) @db.Timestamp(6)
-  verifiedAt     DateTime?       @db.Timestamp(6)
-  verifiedBy     String?         @db.Uuid
-  products       Product[]
-  Quote          Quote[]
-
-  // 🟢 ESCROW AND FINTECH BALANCE LEDGERS
-  walletBalance  Decimal @default(0) @db.Decimal(12, 2) // Cleared, ready-to-withdraw funds
-  pendingBalance Decimal @default(0) @db.Decimal(12, 2) // Locked in escrow until buyer clicks "Nimepokea"
-
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String              @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String
+  email             String              @unique
+  phone             String?
+  companyName       String?
+  location          String?
+  nation            String?
+  logo              String?
+  website           String?
+  isVerified        Boolean             @default(false)
+  yearsActive       Int                 @default(1)
+  rating            Decimal             @default(0.0) @db.Decimal(3, 2)
+  deliveryRate      Int                 @default(0)
+  responseTime      String?
+  avatar            String?
+  about             String?
+  banner            String?
+  description       String?
+  tagLine           String?
+  gallery           Json?
+  username          String?             @unique
+  bannerUrl         String?
+  businessHours     Json?
+  businessType      String?
+  country           String?
+  label             String?
+  createdAt         DateTime            @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime            @default(now()) @db.Timestamp(6)
+  verifiedAt        DateTime?           @db.Timestamp(6)
+  verifiedBy        String?             @db.Uuid
+  pendingBalance    Decimal             @default(0) @db.Decimal(12, 2)
+  walletBalance     Decimal             @default(0) @db.Decimal(12, 2)
+  certifications    Certification[]
+  PayoutRequest     PayoutRequest[]
+  products          Product[]
+  Quote             Quote[]
   user              User                @relation(fields: [userId], references: [id])
-  SupplierPolicy    SupplierPolicy[]
   SupplierAnalytics SupplierAnalytics[]
   SupplierDocument  SupplierDocument[]
-  // SupplierNote      SupplierNote[]
-  PayoutRequest     PayoutRequest[]
+  SupplierPolicy    SupplierPolicy[]
 }
 
 model Certification {
-  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supplierId      String  @db.Uuid
-  documentId      String? @db.Uuid // optional link
-  visibleToBuyers Boolean @default(true)
-
-  image      String
-  label      String
-  type       String?
-  certNumber String    @default("") // avoids null
-  verified   Boolean   @default(false)
-  validUntil DateTime?
-  updatedAt  DateTime  @default(now()) @db.Timestamp(6)
-  createdAt  DateTime  @default(now()) @db.Timestamp(6)
-  supplier   Supplier  @relation(fields: [supplierId], references: [id])
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId      String    @db.Uuid
+  image           String
+  label           String
+  certNumber      String    @default("")
+  validUntil      DateTime?
+  createdAt       DateTime  @default(now()) @db.Timestamp(6)
+  documentId      String?   @db.Uuid
+  type            String?
+  updatedAt       DateTime  @default(now()) @db.Timestamp(6)
+  verified        Boolean   @default(false)
+  visibleToBuyers Boolean   @default(true)
+  supplier        Supplier  @relation(fields: [supplierId], references: [id])
 }
 
 model Conversation {
-  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  buyerId    String @db.Uuid
-  supplierId String @db.Uuid
-
-  createdAt DateTime @default(now()) @db.Timestamp(6)
-  updatedAt DateTime @updatedAt @db.Timestamp(6)
-  buyer     User     @relation("BuyerConversations", fields: [buyerId], references: [id])
-
-  supplier               User      @relation("SupplierConversations", fields: [supplierId], references: [id])
-  chatwootConversationId Int?      @unique
-  messages               Message[]
-  Product                Product?  @relation(fields: [productId], references: [id])
-  productId              String?   @db.Uuid
-  Inquiry                Inquiry[]
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerId    String    @db.Uuid
+  supplierId String    @db.Uuid
+  productId  String?   @db.Uuid
+  createdAt  DateTime  @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamp(6)
+  buyer      User      @relation("BuyerConversations", fields: [buyerId], references: [id])
+  Product    Product?  @relation(fields: [productId], references: [id])
+  supplier   User      @relation("SupplierConversations", fields: [supplierId], references: [id])
+  Inquiry    Inquiry[]
+  messages   Message[]
 
   @@unique([buyerId, supplierId])
 }
 
 model Inquiry {
-  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String @db.Uuid
-
-  // Example fields (you can expand)
-  productId String?
-
-  buyerId       String?
-  quantity      Decimal?      @db.Decimal(12, 2)
-  subject       String?
-  details       String?
-  unit          String?
-  variant       String?
-  targetPrice   Decimal?      @db.Decimal(12, 2)
-  customization Boolean?
-  shippingTerm  String?
-  needSamples   Boolean?      @default(false)
-  notes         String?
-  status        InquiryStatus @default(PENDING)
-  createdAt     DateTime      @default(now()) @db.Timestamp(6)
-  updatedAt     DateTime      @updatedAt @db.Timestamp(6)
-  conversation  Conversation  @relation(fields: [conversationId], references: [id])
-  Quote         Quote[]
-  Message       Message[]
-
-  // @@unique([conversationId, productId]) //If you want to allow only one inquiry per product per conversation
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String        @db.Uuid
+  quantity       Decimal?      @db.Decimal(12, 2)
+  unit           String?
+  variant        String?
+  targetPrice    Decimal?      @db.Decimal(12, 2)
+  customization  Boolean?
+  shippingTerm   String?
+  needSamples    Boolean?      @default(false)
+  notes          String?
+  status         InquiryStatus @default(PENDING)
+  createdAt      DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime      @updatedAt @db.Timestamp(6)
+  details        String?
+  subject        String?
+  buyerId        String?
+  productId      String?
+  conversation   Conversation  @relation(fields: [conversationId], references: [id])
+  Message        Message[]
+  Quote          Quote[]
 }
 
 model Quote {
@@ -430,15 +382,15 @@ model Quote {
   supplierId   String   @db.Uuid
   pricePerUnit Decimal  @db.Decimal(12, 2)
   moq          Int
-  productId    String?
-  buyerId      String?
-  quantity     Decimal? @db.Decimal(12, 2)
   leadTime     String?
   validity     String?
   notes        String?
   attachments  Json?
   createdAt    DateTime @default(now()) @db.Timestamp(6)
   updatedAt    DateTime @updatedAt @db.Timestamp(6)
+  buyerId      String?
+  productId    String?
+  quantity     Decimal? @db.Decimal(12, 2)
   inquiry      Inquiry  @relation(fields: [inquiryId], references: [id])
   supplier     Supplier @relation(fields: [supplierId], references: [id])
 }
@@ -446,63 +398,57 @@ model Quote {
 model SupplierPolicy {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   supplierId     String   @db.Uuid
-  type           String // e.g. "Shipping", "Returns", "Warranty" 
-  // type: "return" | "shipping" | "payment" | "warranty" | "custom"
-  content        String // markdown/text
-  additionalInfo Json?    @db.Json // e.g. { "returnPeriod": "30 days" }
+  type           String
+  content        String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-
-  supplier Supplier @relation(fields: [supplierId], references: [id])
+  additionalInfo Json?    @db.Json
+  supplier       Supplier @relation(fields: [supplierId], references: [id])
 }
 
 model ProductComment {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId String   @db.Uuid
-  userId    String   @db.Uuid
-  parentId  String?  @db.Uuid // allows threading
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId String           @db.Uuid
+  userId    String           @db.Uuid
+  parentId  String?          @db.Uuid
   content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  product Product          @relation(fields: [productId], references: [id])
-  user    User             @relation(fields: [userId], references: [id])
-  parent  ProductComment?  @relation("CommentReplies", fields: [parentId], references: [id])
-  replies ProductComment[] @relation("CommentReplies")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  parent    ProductComment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   ProductComment[] @relation("CommentReplies")
+  product   Product          @relation(fields: [productId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
 }
 
 model ProductVariant {
   id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   productId String  @db.Uuid
   sku       String? @unique
-  name      String // e.g. "Red - XL"
+  name      String
   price     Decimal @db.Decimal(12, 2)
   stock     Int     @default(0)
   image     String?
-
-  product Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 }
 
 model SupplierAnalytics {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   supplierId String   @db.Uuid
-  metric     String // e.g. "PRODUCT_VIEW", "ORDER_PLACED"
+  metric     String
   value      Int
   createdAt  DateTime @default(now())
-
-  supplier Supplier @relation(fields: [supplierId], references: [id])
+  supplier   Supplier @relation(fields: [supplierId], references: [id])
 }
 
 model Notification {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String   @db.Uuid
-  type      String // ORDER, MESSAGE, REVIEW, COMMENT
+  type      String
   title     String
   content   String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model SupplierDocument {
@@ -510,64 +456,49 @@ model SupplierDocument {
   supplierId      String         @db.Uuid
   label           String
   name            String
-  type            String? // e.g. "Catalog", "License", "Certificate",
+  type            String?
   fileUrl         String
-  files           Json?          @db.Json // Array of file URLs if multiple
-  description     String?
-  status          DocumentStatus @default(PENDING)
-  source          String? // e.g. "Uploaded by user", "Imported from ..."
-  visibleToBuyers Boolean        @default(false) // ✅ new
-  validUntil      DateTime? //can be null for non-expiring docs
+  files           Json?          @db.Json
   verified        Boolean        @default(false)
-  verifiedBy      String?        @db.Uuid
-  verifiedAt      DateTime?
-  rejectionReason String?
   uploadedAt      DateTime       @default(now()) @db.Timestamp(6)
+  certNumber      String?
+  description     String?
+  source          String?
+  validUntil      DateTime?
+  visibleToBuyers Boolean        @default(false)
+  rejectionReason String?
+  verifiedAt      DateTime?
+  verifiedBy      String?        @db.Uuid
+  status          DocumentStatus @default(PENDING)
   createdAt       DateTime       @default(now()) @db.Timestamp(6)
-  certNumber      String? // ✅ optional
   supplier        Supplier       @relation(fields: [supplierId], references: [id])
 }
 
-// model SupplierNote {
-//   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-//   supplierId String   @db.Uuid
-//   productId  String?  @db.Uuid
-//   buyerId    String?
-//   note       String
-//   createdAt  DateTime @default(now()) @db.Timestamp(6)
-
-//   supplier Supplier @relation(fields: [supplierId], references: [id])
-//   product  Product? @relation(fields: [productId], referemnces: [id])
-//   buyer    User?    @relation(fields: [buyerId], references: [id])
-// }
-
-// For Admin users (if different from normal users)
 model Admin {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique @db.Uuid
-  role      String   @default("ADMIN") // could be SUPERADMIN, MODERATOR etc
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user     User       @relation(fields: [userId], references: [id])
-  AuditLog AuditLog[]
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @unique @db.Uuid
+  role      String     @default("ADMIN")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id])
+  AuditLog  AuditLog[]
 }
 
 model Banner {
   id        String       @id @default(uuid()) @db.Uuid
-  image     String // required → banner without image is useless
-  title     String? // short headline (e.g. "Fall Boots under $15")
-  subtitle  String? // optional smaller line (e.g. "Limited Time Offer")
-  text      String?
-  link      String? // where user goes when clicking
-  category  String       @default("") //category of banner items
-  type      String? // e.g. "hero", "promo", "sidebar"
-  data      Json? // extra flexible config (colors, CTA buttons, etc.)
-  isActive  Boolean      @default(false)
-  mode      BannerMode   @default(MANUAL) // <— NEW
-  items     BannerItem[]
+  image     String
+  link      String?
+  data      Json?
+  type      String?
   createdAt DateTime     @default(now())
+  subtitle  String?
+  title     String?
   updatedAt DateTime     @updatedAt
+  isActive  Boolean      @default(false)
+  mode      BannerMode   @default(MANUAL)
+  text      String?
+  category  String       @default("")
+  items     BannerItem[]
 }
 
 model BannerItem {
@@ -575,9 +506,1151 @@ model BannerItem {
   image     String
   title     String?
   link      String
-  productId String? @default("")
   bannerId  String  @db.Uuid
+  productId String? @default("")
   banner    Banner  @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+}
+
+model BotMessage {
+  id        String   @id @default(uuid())
+  phone     String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model LeadLink {
+  id        String   @id @default(uuid())
+  phone     String
+  service   String
+  leadName  String
+  createdAt DateTime @default(now())
+  notified  Boolean  @default(false)
+}
+
+model Contact {
+  id          String      @id @default(cuid())
+  phone       String      @unique
+  name        String?
+  isBlocked   Boolean     @default(false)
+  isOwner     Boolean     @default(false)
+  isVIP       Boolean     @default(false)
+  type        ContactType @default(UNKNOWN)
+  lastMessage String?
+  lastSeen    DateTime    @updatedAt
+  createdAt   DateTime    @default(now())
+}
+
+model PayoutRequest {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId    String       @db.Uuid
+  userId        String       @db.Uuid
+  amount        Decimal      @db.Decimal(12, 2)
+  paymentMethod String
+  accountNumber String
+  status        PayoutStatus @default(PENDING)
+  adminNote     String?
+  createdAt     DateTime     @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime     @updatedAt
+  supplier      Supplier     @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id])
+}
+
+model access_tokens {
+  id         BigInt   @id @default(autoincrement())
+  owner_type String?  @db.VarChar
+  owner_id   BigInt?
+  token      String?  @unique(map: "index_access_tokens_on_token") @db.VarChar
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+
+  @@index([owner_type, owner_id], map: "index_access_tokens_on_owner_type_and_owner_id")
+}
+
+model account_users {
+  id             BigInt    @id @default(autoincrement())
+  account_id     BigInt?
+  user_id        BigInt?
+  role           Int?      @default(0)
+  inviter_id     BigInt?
+  created_at     DateTime  @db.Timestamp(6)
+  updated_at     DateTime  @db.Timestamp(6)
+  active_at      DateTime? @db.Timestamp(6)
+  availability   Int       @default(0)
+  auto_offline   Boolean   @default(true)
+  custom_role_id BigInt?
+
+  @@unique([account_id, user_id], map: "uniq_user_id_per_account_id")
+  @@index([account_id], map: "index_account_users_on_account_id")
+  @@index([custom_role_id], map: "index_account_users_on_custom_role_id")
+  @@index([user_id], map: "index_account_users_on_user_id")
+}
+
+model accounts {
+  id                    Int      @id @default(autoincrement())
+  name                  String   @db.VarChar
+  created_at            DateTime @db.Timestamp(6)
+  updated_at            DateTime @db.Timestamp(6)
+  locale                Int?     @default(0)
+  domain                String?  @db.VarChar(100)
+  support_email         String?  @db.VarChar(100)
+  feature_flags         BigInt   @default(0)
+  auto_resolve_duration Int?
+  limits                Json?    @default("{}")
+  custom_attributes     Json?    @default("{}")
+  status                Int?     @default(0)
+
+  @@index([status], map: "index_accounts_on_status")
+}
+
+model action_mailbox_inbound_emails {
+  id               BigInt   @id @default(autoincrement())
+  status           Int      @default(0)
+  message_id       String   @db.VarChar
+  message_checksum String   @db.VarChar
+  created_at       DateTime @db.Timestamp(6)
+  updated_at       DateTime @db.Timestamp(6)
+
+  @@unique([message_id, message_checksum], map: "index_action_mailbox_inbound_emails_uniqueness")
+}
+
+model active_storage_attachments {
+  id                   BigInt               @id @default(autoincrement())
+  name                 String               @db.VarChar
+  record_type          String               @db.VarChar
+  record_id            BigInt
+  blob_id              BigInt
+  created_at           DateTime             @db.Timestamp(6)
+  active_storage_blobs active_storage_blobs @relation(fields: [blob_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_c3b3935057")
+
+  @@unique([record_type, record_id, name, blob_id], map: "index_active_storage_attachments_uniqueness")
+  @@index([blob_id], map: "index_active_storage_attachments_on_blob_id")
+}
+
+model active_storage_blobs {
+  id                             BigInt                           @id @default(autoincrement())
+  key                            String                           @unique(map: "index_active_storage_blobs_on_key") @db.VarChar
+  filename                       String                           @db.VarChar
+  content_type                   String?                          @db.VarChar
+  metadata                       String?
+  byte_size                      BigInt
+  checksum                       String?                          @db.VarChar
+  created_at                     DateTime                         @db.Timestamp(6)
+  service_name                   String                           @db.VarChar
+  active_storage_attachments     active_storage_attachments[]
+  active_storage_variant_records active_storage_variant_records[]
+}
+
+model active_storage_variant_records {
+  id                   BigInt               @id @default(autoincrement())
+  blob_id              BigInt
+  variation_digest     String               @db.VarChar
+  active_storage_blobs active_storage_blobs @relation(fields: [blob_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_993965df05")
+
+  @@unique([blob_id, variation_digest], map: "index_active_storage_variant_records_uniqueness")
+}
+
+model agent_bot_inboxes {
+  id           BigInt   @id @default(autoincrement())
+  inbox_id     Int?
+  agent_bot_id Int?
+  status       Int?     @default(0)
+  created_at   DateTime @db.Timestamp(6)
+  updated_at   DateTime @db.Timestamp(6)
+  account_id   Int?
+}
+
+model agent_bots {
+  id           BigInt   @id @default(autoincrement())
+  name         String?  @db.VarChar
+  description  String?  @db.VarChar
+  outgoing_url String?  @db.VarChar
+  created_at   DateTime @db.Timestamp(6)
+  updated_at   DateTime @db.Timestamp(6)
+  account_id   BigInt?
+  bot_type     Int?     @default(0)
+  bot_config   Json?    @default("{}")
+
+  @@index([account_id], map: "index_agent_bots_on_account_id")
+}
+
+model applied_slas {
+  id              BigInt   @id @default(autoincrement())
+  account_id      BigInt
+  sla_policy_id   BigInt
+  conversation_id BigInt
+  created_at      DateTime @db.Timestamp(6)
+  updated_at      DateTime @db.Timestamp(6)
+  sla_status      Int?     @default(0)
+
+  @@unique([account_id, sla_policy_id, conversation_id], map: "index_applied_slas_on_account_sla_policy_conversation")
+  @@index([account_id], map: "index_applied_slas_on_account_id")
+  @@index([conversation_id], map: "index_applied_slas_on_conversation_id")
+  @@index([sla_policy_id], map: "index_applied_slas_on_sla_policy_id")
+}
+
+model ar_internal_metadata {
+  key        String   @id @db.VarChar
+  value      String?  @db.VarChar
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+}
+
+model articles {
+  id                    BigInt   @id @default(autoincrement())
+  account_id            Int
+  portal_id             Int
+  category_id           Int?
+  folder_id             Int?
+  title                 String?  @db.VarChar
+  description           String?
+  content               String?
+  status                Int?
+  views                 Int?
+  created_at            DateTime @db.Timestamp(6)
+  updated_at            DateTime @db.Timestamp(6)
+  author_id             BigInt?
+  associated_article_id BigInt?
+  meta                  Json?    @default("{}")
+  slug                  String   @unique(map: "index_articles_on_slug") @db.VarChar
+  position              Int?
+
+  @@index([associated_article_id], map: "index_articles_on_associated_article_id")
+  @@index([author_id], map: "index_articles_on_author_id")
+}
+
+model attachments {
+  id               Int      @id @default(autoincrement())
+  file_type        Int?     @default(0)
+  external_url     String?  @db.VarChar
+  coordinates_lat  Float?   @default(0.0)
+  coordinates_long Float?   @default(0.0)
+  message_id       Int
+  account_id       Int
+  created_at       DateTime @db.Timestamp(6)
+  updated_at       DateTime @db.Timestamp(6)
+  fallback_title   String?  @db.VarChar
+  extension        String?  @db.VarChar
+
+  @@index([account_id], map: "index_attachments_on_account_id")
+  @@index([message_id], map: "index_attachments_on_message_id")
+}
+
+model audits {
+  id              BigInt    @id @default(autoincrement())
+  auditable_id    BigInt?
+  auditable_type  String?   @db.VarChar
+  associated_id   BigInt?
+  associated_type String?   @db.VarChar
+  user_id         BigInt?
+  user_type       String?   @db.VarChar
+  username        String?   @db.VarChar
+  action          String?   @db.VarChar
+  audited_changes Json?
+  version         Int?      @default(0)
+  comment         String?   @db.VarChar
+  remote_address  String?   @db.VarChar
+  request_uuid    String?   @db.VarChar
+  created_at      DateTime? @db.Timestamp(6)
+
+  @@index([associated_type, associated_id], map: "associated_index")
+  @@index([auditable_type, auditable_id, version], map: "auditable_index")
+  @@index([created_at], map: "index_audits_on_created_at")
+  @@index([request_uuid], map: "index_audits_on_request_uuid")
+  @@index([user_id, user_type], map: "user_index")
+}
+
+model automation_rules {
+  id          BigInt   @id @default(autoincrement())
+  account_id  BigInt
+  name        String   @db.VarChar
+  description String?
+  event_name  String   @db.VarChar
+  conditions  Json     @default("\"{}\"")
+  actions     Json     @default("\"{}\"")
+  created_at  DateTime @db.Timestamp(6)
+  updated_at  DateTime @db.Timestamp(6)
+  active      Boolean  @default(true)
+
+  @@index([account_id], map: "index_automation_rules_on_account_id")
+}
+
+model campaigns {
+  id                                 BigInt    @id @default(autoincrement())
+  display_id                         Int
+  title                              String    @db.VarChar
+  description                        String?
+  message                            String
+  sender_id                          Int?
+  enabled                            Boolean?  @default(true)
+  account_id                         BigInt
+  inbox_id                           BigInt
+  trigger_rules                      Json?     @default("{}")
+  created_at                         DateTime  @db.Timestamp(6)
+  updated_at                         DateTime  @db.Timestamp(6)
+  campaign_type                      Int       @default(0)
+  campaign_status                    Int       @default(0)
+  audience                           Json?     @default("[]")
+  scheduled_at                       DateTime? @db.Timestamp(6)
+  trigger_only_during_business_hours Boolean?  @default(false)
+
+  @@index([account_id], map: "index_campaigns_on_account_id")
+  @@index([campaign_status], map: "index_campaigns_on_campaign_status")
+  @@index([campaign_type], map: "index_campaigns_on_campaign_type")
+  @@index([inbox_id], map: "index_campaigns_on_inbox_id")
+  @@index([scheduled_at], map: "index_campaigns_on_scheduled_at")
+}
+
+model canned_responses {
+  id         Int      @id @default(autoincrement())
+  account_id Int
+  short_code String?  @db.VarChar
+  content    String?
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+}
+
+model categories {
+  id                     BigInt   @id @default(autoincrement())
+  account_id             Int
+  portal_id              Int
+  name                   String?  @db.VarChar
+  description            String?
+  position               Int?
+  created_at             DateTime @db.Timestamp(6)
+  updated_at             DateTime @db.Timestamp(6)
+  locale                 String?  @default("en") @db.VarChar
+  slug                   String   @db.VarChar
+  parent_category_id     BigInt?
+  associated_category_id BigInt?
+  icon                   String?  @default("") @db.VarChar
+
+  @@unique([slug, locale, portal_id], map: "index_categories_on_slug_and_locale_and_portal_id")
+  @@index([associated_category_id], map: "index_categories_on_associated_category_id")
+  @@index([locale], map: "index_categories_on_locale")
+  @@index([locale, account_id], map: "index_categories_on_locale_and_account_id")
+  @@index([parent_category_id], map: "index_categories_on_parent_category_id")
+}
+
+model channel_api {
+  id                    BigInt   @id @default(autoincrement())
+  account_id            Int
+  webhook_url           String?  @db.VarChar
+  created_at            DateTime @db.Timestamp(6)
+  updated_at            DateTime @db.Timestamp(6)
+  identifier            String?  @unique(map: "index_channel_api_on_identifier") @db.VarChar
+  hmac_token            String?  @unique(map: "index_channel_api_on_hmac_token") @db.VarChar
+  hmac_mandatory        Boolean? @default(false)
+  additional_attributes Json?    @default("{}")
+}
+
+model channel_email {
+  id                        BigInt   @id @default(autoincrement())
+  account_id                Int
+  email                     String   @unique(map: "index_channel_email_on_email") @db.VarChar
+  forward_to_email          String   @unique(map: "index_channel_email_on_forward_to_email") @db.VarChar
+  created_at                DateTime @db.Timestamp(6)
+  updated_at                DateTime @db.Timestamp(6)
+  imap_enabled              Boolean? @default(false)
+  imap_address              String?  @default("") @db.VarChar
+  imap_port                 Int?     @default(0)
+  imap_login                String?  @default("") @db.VarChar
+  imap_password             String?  @default("") @db.VarChar
+  imap_enable_ssl           Boolean? @default(true)
+  smtp_enabled              Boolean? @default(false)
+  smtp_address              String?  @default("") @db.VarChar
+  smtp_port                 Int?     @default(0)
+  smtp_login                String?  @default("") @db.VarChar
+  smtp_password             String?  @default("") @db.VarChar
+  smtp_domain               String?  @default("") @db.VarChar
+  smtp_enable_starttls_auto Boolean? @default(true)
+  smtp_authentication       String?  @default("login") @db.VarChar
+  smtp_openssl_verify_mode  String?  @default("none") @db.VarChar
+  smtp_enable_ssl_tls       Boolean? @default(false)
+  provider_config           Json?    @default("{}")
+  provider                  String?  @db.VarChar
+}
+
+model channel_facebook_pages {
+  id                Int      @id @default(autoincrement())
+  page_id           String   @db.VarChar
+  user_access_token String   @db.VarChar
+  page_access_token String   @db.VarChar
+  account_id        Int
+  created_at        DateTime @db.Timestamp(6)
+  updated_at        DateTime @db.Timestamp(6)
+  instagram_id      String?  @db.VarChar
+
+  @@unique([page_id, account_id], map: "index_channel_facebook_pages_on_page_id_and_account_id")
+  @@index([page_id], map: "index_channel_facebook_pages_on_page_id")
+}
+
+model channel_line {
+  id                  BigInt   @id @default(autoincrement())
+  account_id          Int
+  line_channel_id     String   @unique(map: "index_channel_line_on_line_channel_id") @db.VarChar
+  line_channel_secret String   @db.VarChar
+  line_channel_token  String   @db.VarChar
+  created_at          DateTime @db.Timestamp(6)
+  updated_at          DateTime @db.Timestamp(6)
+}
+
+model channel_sms {
+  id              BigInt   @id @default(autoincrement())
+  account_id      Int
+  phone_number    String   @unique(map: "index_channel_sms_on_phone_number") @db.VarChar
+  provider        String?  @default("default") @db.VarChar
+  provider_config Json?    @default("{}")
+  created_at      DateTime @db.Timestamp(6)
+  updated_at      DateTime @db.Timestamp(6)
+}
+
+model channel_telegram {
+  id         BigInt   @id @default(autoincrement())
+  bot_name   String?  @db.VarChar
+  account_id Int
+  bot_token  String   @unique(map: "index_channel_telegram_on_bot_token") @db.VarChar
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+}
+
+model channel_twilio_sms {
+  id                    BigInt   @id @default(autoincrement())
+  phone_number          String?  @unique(map: "index_channel_twilio_sms_on_phone_number") @db.VarChar
+  auth_token            String   @db.VarChar
+  account_sid           String   @db.VarChar
+  account_id            Int
+  created_at            DateTime @db.Timestamp(6)
+  updated_at            DateTime @db.Timestamp(6)
+  medium                Int?     @default(0)
+  messaging_service_sid String?  @unique(map: "index_channel_twilio_sms_on_messaging_service_sid") @db.VarChar
+  api_key_sid           String?  @db.VarChar
+
+  @@unique([account_sid, phone_number], map: "index_channel_twilio_sms_on_account_sid_and_phone_number")
+}
+
+model channel_twitter_profiles {
+  id                          BigInt   @id @default(autoincrement())
+  profile_id                  String   @db.VarChar
+  twitter_access_token        String   @db.VarChar
+  twitter_access_token_secret String   @db.VarChar
+  account_id                  Int
+  created_at                  DateTime @db.Timestamp(6)
+  updated_at                  DateTime @db.Timestamp(6)
+  tweets_enabled              Boolean? @default(true)
+
+  @@unique([account_id, profile_id], map: "index_channel_twitter_profiles_on_account_id_and_profile_id")
+}
+
+model channel_web_widgets {
+  id                    Int      @id @default(autoincrement())
+  website_url           String?  @db.VarChar
+  account_id            Int?
+  created_at            DateTime @db.Timestamp(6)
+  updated_at            DateTime @db.Timestamp(6)
+  website_token         String?  @unique(map: "index_channel_web_widgets_on_website_token") @db.VarChar
+  widget_color          String?  @default("#1f93ff") @db.VarChar
+  welcome_title         String?  @db.VarChar
+  welcome_tagline       String?  @db.VarChar
+  feature_flags         Int      @default(7)
+  reply_time            Int?     @default(0)
+  hmac_token            String?  @unique(map: "index_channel_web_widgets_on_hmac_token") @db.VarChar
+  pre_chat_form_enabled Boolean? @default(false)
+  pre_chat_form_options Json?    @default("{}")
+  hmac_mandatory        Boolean? @default(false)
+  continuity_via_email  Boolean  @default(true)
+}
+
+model channel_whatsapp {
+  id                             BigInt    @id @default(autoincrement())
+  account_id                     Int
+  phone_number                   String    @unique(map: "index_channel_whatsapp_on_phone_number") @db.VarChar
+  provider                       String?   @default("default") @db.VarChar
+  provider_config                Json?     @default("{}")
+  created_at                     DateTime  @db.Timestamp(6)
+  updated_at                     DateTime  @db.Timestamp(6)
+  message_templates              Json?     @default("{}")
+  message_templates_last_updated DateTime? @db.Timestamp(6)
+}
+
+model contact_inboxes {
+  id            BigInt   @id @default(autoincrement())
+  contact_id    BigInt?
+  inbox_id      BigInt?
+  source_id     String   @db.VarChar
+  created_at    DateTime @db.Timestamp(6)
+  updated_at    DateTime @db.Timestamp(6)
+  hmac_verified Boolean? @default(false)
+  pubsub_token  String?  @unique(map: "index_contact_inboxes_on_pubsub_token") @db.VarChar
+
+  @@unique([inbox_id, source_id], map: "index_contact_inboxes_on_inbox_id_and_source_id")
+  @@index([contact_id], map: "index_contact_inboxes_on_contact_id")
+  @@index([inbox_id], map: "index_contact_inboxes_on_inbox_id")
+  @@index([source_id], map: "index_contact_inboxes_on_source_id")
+}
+
+/// This model contains an index with non-default null sort order and requires additional setup for migrations. Visit https://pris.ly/d/default-index-null-ordering for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model contacts {
+  id                    Int       @id @default(autoincrement())
+  name                  String?   @default("") @db.VarChar
+  email                 String?   @db.VarChar
+  phone_number          String?   @db.VarChar
+  account_id            Int
+  created_at            DateTime  @db.Timestamp(6)
+  updated_at            DateTime  @db.Timestamp(6)
+  additional_attributes Json?     @default("{}")
+  identifier            String?   @db.VarChar
+  custom_attributes     Json?     @default("{}")
+  last_activity_at      DateTime? @db.Timestamp(6)
+  contact_type          Int?      @default(0)
+  middle_name           String?   @default("") @db.VarChar
+  last_name             String?   @default("") @db.VarChar
+  location              String?   @default("") @db.VarChar
+  country_code          String?   @default("") @db.VarChar
+  blocked               Boolean   @default(false)
+
+  @@unique([email, account_id], map: "uniq_email_per_account_contact")
+  @@unique([identifier, account_id], map: "uniq_identifier_per_account_contact")
+  @@index([account_id], map: "index_contacts_on_account_id")
+  @@index([account_id, last_activity_at(sort: Desc)], map: "index_contacts_on_account_id_and_last_activity_at")
+  @@index([blocked], map: "index_contacts_on_blocked")
+  @@index([name(ops: raw("gin_trgm_ops")), email(ops: raw("gin_trgm_ops")), phone_number(ops: raw("gin_trgm_ops")), identifier(ops: raw("gin_trgm_ops"))], map: "index_contacts_on_name_email_phone_number_identifier", type: Gin)
+  @@index([phone_number, account_id], map: "index_contacts_on_phone_number_and_account_id")
+}
+
+model conversation_participants {
+  id              BigInt   @id @default(autoincrement())
+  account_id      BigInt
+  user_id         BigInt
+  conversation_id BigInt
+  created_at      DateTime @db.Timestamp(6)
+  updated_at      DateTime @db.Timestamp(6)
+
+  @@unique([user_id, conversation_id], map: "index_conversation_participants_on_user_id_and_conversation_id")
+  @@index([account_id], map: "index_conversation_participants_on_account_id")
+  @@index([conversation_id], map: "index_conversation_participants_on_conversation_id")
+  @@index([user_id], map: "index_conversation_participants_on_user_id")
+}
+
+model conversations {
+  id                     Int       @id @default(autoincrement())
+  account_id             Int
+  inbox_id               Int
+  status                 Int       @default(0)
+  assignee_id            Int?
+  created_at             DateTime  @db.Timestamp(6)
+  updated_at             DateTime  @db.Timestamp(6)
+  contact_id             BigInt?
+  display_id             Int
+  contact_last_seen_at   DateTime? @db.Timestamp(6)
+  agent_last_seen_at     DateTime? @db.Timestamp(6)
+  additional_attributes  Json?     @default("{}")
+  contact_inbox_id       BigInt?
+  uuid                   String    @unique(map: "index_conversations_on_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identifier             String?   @db.VarChar
+  last_activity_at       DateTime  @default(now()) @db.Timestamp(6)
+  team_id                BigInt?
+  campaign_id            BigInt?
+  snoozed_until          DateTime? @db.Timestamp(6)
+  custom_attributes      Json?     @default("{}")
+  assignee_last_seen_at  DateTime? @db.Timestamp(6)
+  first_reply_created_at DateTime? @db.Timestamp(6)
+  priority               Int?
+  sla_policy_id          BigInt?
+  waiting_since          DateTime? @db.Timestamp(6)
+  cached_label_list      String?
+
+  @@unique([account_id, display_id], map: "index_conversations_on_account_id_and_display_id")
+  @@index([account_id, inbox_id, status, assignee_id], map: "conv_acid_inbid_stat_asgnid_idx")
+  @@index([account_id], map: "index_conversations_on_account_id")
+  @@index([assignee_id, account_id], map: "index_conversations_on_assignee_id_and_account_id")
+  @@index([campaign_id], map: "index_conversations_on_campaign_id")
+  @@index([contact_id], map: "index_conversations_on_contact_id")
+  @@index([contact_inbox_id], map: "index_conversations_on_contact_inbox_id")
+  @@index([first_reply_created_at], map: "index_conversations_on_first_reply_created_at")
+  @@index([account_id, id], map: "index_conversations_on_id_and_account_id")
+  @@index([inbox_id], map: "index_conversations_on_inbox_id")
+  @@index([priority], map: "index_conversations_on_priority")
+  @@index([status, account_id], map: "index_conversations_on_status_and_account_id")
+  @@index([status, priority], map: "index_conversations_on_status_and_priority")
+  @@index([team_id], map: "index_conversations_on_team_id")
+  @@index([waiting_since], map: "index_conversations_on_waiting_since")
+}
+
+model csat_survey_responses {
+  id                BigInt   @id @default(autoincrement())
+  account_id        BigInt
+  conversation_id   BigInt
+  message_id        BigInt   @unique(map: "index_csat_survey_responses_on_message_id")
+  rating            Int
+  feedback_message  String?
+  contact_id        BigInt
+  assigned_agent_id BigInt?
+  created_at        DateTime @db.Timestamp(6)
+  updated_at        DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_csat_survey_responses_on_account_id")
+  @@index([assigned_agent_id], map: "index_csat_survey_responses_on_assigned_agent_id")
+  @@index([contact_id], map: "index_csat_survey_responses_on_contact_id")
+  @@index([conversation_id], map: "index_csat_survey_responses_on_conversation_id")
+}
+
+model custom_attribute_definitions {
+  id                     BigInt   @id @default(autoincrement())
+  attribute_display_name String?  @db.VarChar
+  attribute_key          String?  @db.VarChar
+  attribute_display_type Int?     @default(0)
+  default_value          Int?
+  attribute_model        Int?     @default(0)
+  account_id             BigInt?
+  created_at             DateTime @db.Timestamp(6)
+  updated_at             DateTime @db.Timestamp(6)
+  attribute_description  String?
+  attribute_values       Json?    @default("[]")
+  regex_pattern          String?  @db.VarChar
+  regex_cue              String?  @db.VarChar
+
+  @@unique([attribute_key, attribute_model, account_id], map: "attribute_key_model_index")
+  @@index([account_id], map: "index_custom_attribute_definitions_on_account_id")
+}
+
+model custom_filters {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @db.VarChar
+  filter_type Int      @default(0)
+  query       Json     @default("\"{}\"")
+  account_id  BigInt
+  user_id     BigInt
+  created_at  DateTime @db.Timestamp(6)
+  updated_at  DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_custom_filters_on_account_id")
+  @@index([user_id], map: "index_custom_filters_on_user_id")
+}
+
+model custom_roles {
+  id          BigInt   @id @default(autoincrement())
+  name        String?  @db.VarChar
+  description String?  @db.VarChar
+  account_id  BigInt
+  permissions String[] @default([])
+  created_at  DateTime @db.Timestamp(6)
+  updated_at  DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_custom_roles_on_account_id")
+}
+
+model dashboard_apps {
+  id         BigInt   @id @default(autoincrement())
+  title      String   @db.VarChar
+  content    Json?    @default("[]")
+  account_id BigInt
+  user_id    BigInt?
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_dashboard_apps_on_account_id")
+  @@index([user_id], map: "index_dashboard_apps_on_user_id")
+}
+
+model data_imports {
+  id                BigInt   @id @default(autoincrement())
+  account_id        BigInt
+  data_type         String   @db.VarChar
+  status            Int      @default(0)
+  processing_errors String?
+  total_records     Int?
+  processed_records Int?
+  created_at        DateTime @db.Timestamp(6)
+  updated_at        DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_data_imports_on_account_id")
+}
+
+model email_templates {
+  id            BigInt   @id @default(autoincrement())
+  name          String   @db.VarChar
+  body          String
+  account_id    Int?
+  template_type Int?     @default(1)
+  locale        Int      @default(0)
+  created_at    DateTime @db.Timestamp(6)
+  updated_at    DateTime @db.Timestamp(6)
+
+  @@unique([name, account_id], map: "index_email_templates_on_name_and_account_id")
+}
+
+model folders {
+  id          BigInt   @id @default(autoincrement())
+  account_id  Int
+  category_id Int
+  name        String?  @db.VarChar
+  created_at  DateTime @db.Timestamp(6)
+  updated_at  DateTime @db.Timestamp(6)
+}
+
+model inbox_members {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  inbox_id   Int
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+
+  @@unique([inbox_id, user_id], map: "index_inbox_members_on_inbox_id_and_user_id")
+  @@index([inbox_id], map: "index_inbox_members_on_inbox_id")
+}
+
+model inboxes {
+  id                            Int      @id @default(autoincrement())
+  channel_id                    Int
+  account_id                    Int
+  name                          String   @db.VarChar
+  created_at                    DateTime @db.Timestamp(6)
+  updated_at                    DateTime @db.Timestamp(6)
+  channel_type                  String?  @db.VarChar
+  enable_auto_assignment        Boolean? @default(true)
+  greeting_enabled              Boolean? @default(false)
+  greeting_message              String?  @db.VarChar
+  email_address                 String?  @db.VarChar
+  working_hours_enabled         Boolean? @default(false)
+  out_of_office_message         String?  @db.VarChar
+  timezone                      String?  @default("UTC") @db.VarChar
+  enable_email_collect          Boolean? @default(true)
+  csat_survey_enabled           Boolean? @default(false)
+  allow_messages_after_resolved Boolean? @default(true)
+  auto_assignment_config        Json?    @default("{}")
+  lock_to_single_conversation   Boolean  @default(false)
+  portal_id                     BigInt?
+  sender_name_type              Int      @default(0)
+  business_name                 String?  @db.VarChar
+  portals                       portals? @relation(fields: [portal_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_rails_a1f654bf2d")
+
+  @@index([account_id], map: "index_inboxes_on_account_id")
+  @@index([channel_id, channel_type], map: "index_inboxes_on_channel_id_and_channel_type")
+  @@index([portal_id], map: "index_inboxes_on_portal_id")
+}
+
+model installation_configs {
+  id               BigInt   @id @default(autoincrement())
+  name             String   @unique(map: "index_installation_configs_on_name") @db.VarChar
+  serialized_value Json     @default("{}")
+  created_at       DateTime @db.Timestamp(6)
+  updated_at       DateTime @db.Timestamp(6)
+  locked           Boolean  @default(true)
+
+  @@unique([name, created_at], map: "index_installation_configs_on_name_and_created_at")
+}
+
+model integrations_hooks {
+  id           BigInt   @id @default(autoincrement())
+  status       Int?     @default(1)
+  inbox_id     Int?
+  account_id   Int?
+  app_id       String?  @db.VarChar
+  hook_type    Int?     @default(0)
+  reference_id String?  @db.VarChar
+  access_token String?  @db.VarChar
+  created_at   DateTime @db.Timestamp(6)
+  updated_at   DateTime @db.Timestamp(6)
+  settings     Json?    @default("{}")
+}
+
+model labels {
+  id              BigInt   @id @default(autoincrement())
+  title           String?  @db.VarChar
+  description     String?
+  color           String   @default("#1f93ff") @db.VarChar
+  show_on_sidebar Boolean?
+  account_id      BigInt?
+  created_at      DateTime @db.Timestamp(6)
+  updated_at      DateTime @db.Timestamp(6)
+
+  @@unique([title, account_id], map: "index_labels_on_title_and_account_id")
+  @@index([account_id], map: "index_labels_on_account_id")
+}
+
+model macros {
+  id            BigInt   @id @default(autoincrement())
+  account_id    BigInt
+  name          String   @db.VarChar
+  visibility    Int?     @default(0)
+  created_by_id BigInt?
+  updated_by_id BigInt?
+  actions       Json     @default("{}")
+  created_at    DateTime @db.Timestamp(6)
+  updated_at    DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_macros_on_account_id")
+}
+
+model mentions {
+  id              BigInt   @id @default(autoincrement())
+  user_id         BigInt
+  conversation_id BigInt
+  account_id      BigInt
+  mentioned_at    DateTime @db.Timestamp(6)
+  created_at      DateTime @db.Timestamp(6)
+  updated_at      DateTime @db.Timestamp(6)
+
+  @@unique([user_id, conversation_id], map: "index_mentions_on_user_id_and_conversation_id")
+  @@index([account_id], map: "index_mentions_on_account_id")
+  @@index([conversation_id], map: "index_mentions_on_conversation_id")
+  @@index([user_id], map: "index_mentions_on_user_id")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model messages {
+  id                        Int      @id @default(autoincrement())
+  content                   String?
+  account_id                Int
+  inbox_id                  Int
+  conversation_id           Int
+  message_type              Int
+  created_at                DateTime @db.Timestamp(6)
+  updated_at                DateTime @db.Timestamp(6)
+  private                   Boolean  @default(false)
+  status                    Int?     @default(0)
+  source_id                 String?  @db.VarChar
+  content_type              Int      @default(0)
+  content_attributes        Json?    @default("{}") @db.Json
+  sender_type               String?  @db.VarChar
+  sender_id                 BigInt?
+  external_source_ids       Json?    @default("{}")
+  additional_attributes     Json?    @default("{}")
+  processed_message_content String?
+  sentiment                 Json?    @default("{}")
+
+  @@index([account_id, created_at, message_type], map: "index_messages_on_account_created_type")
+  @@index([account_id], map: "index_messages_on_account_id")
+  @@index([account_id, inbox_id], map: "index_messages_on_account_id_and_inbox_id")
+  @@index([content(ops: raw("gin_trgm_ops"))], map: "index_messages_on_content", type: Gin)
+  @@index([conversation_id, account_id, message_type, created_at], map: "index_messages_on_conversation_account_type_created")
+  @@index([conversation_id], map: "index_messages_on_conversation_id")
+  @@index([created_at], map: "index_messages_on_created_at")
+  @@index([inbox_id], map: "index_messages_on_inbox_id")
+  @@index([sender_type, sender_id], map: "index_messages_on_sender_type_and_sender_id")
+  @@index([source_id], map: "index_messages_on_source_id")
+}
+
+model notes {
+  id         BigInt   @id @default(autoincrement())
+  content    String
+  account_id BigInt
+  contact_id BigInt
+  user_id    BigInt?
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_notes_on_account_id")
+  @@index([contact_id], map: "index_notes_on_contact_id")
+  @@index([user_id], map: "index_notes_on_user_id")
+}
+
+model notification_settings {
+  id          BigInt   @id @default(autoincrement())
+  account_id  Int?
+  user_id     Int?
+  email_flags Int      @default(0)
+  created_at  DateTime @db.Timestamp(6)
+  updated_at  DateTime @db.Timestamp(6)
+  push_flags  Int      @default(0)
+
+  @@unique([account_id, user_id], map: "by_account_user")
+}
+
+model notification_subscriptions {
+  id                      BigInt   @id @default(autoincrement())
+  user_id                 BigInt
+  subscription_type       Int
+  subscription_attributes Json     @default("{}")
+  created_at              DateTime @db.Timestamp(6)
+  updated_at              DateTime @db.Timestamp(6)
+  identifier              String?  @unique(map: "index_notification_subscriptions_on_identifier")
+
+  @@index([user_id], map: "index_notification_subscriptions_on_user_id")
+}
+
+model notifications {
+  id                   BigInt    @id @default(autoincrement())
+  account_id           BigInt
+  user_id              BigInt
+  notification_type    Int
+  primary_actor_type   String    @db.VarChar
+  primary_actor_id     BigInt
+  secondary_actor_type String?   @db.VarChar
+  secondary_actor_id   BigInt?
+  read_at              DateTime? @db.Timestamp(6)
+  created_at           DateTime  @db.Timestamp(6)
+  updated_at           DateTime  @db.Timestamp(6)
+  snoozed_until        DateTime? @db.Timestamp(6)
+  last_activity_at     DateTime? @default(now()) @db.Timestamp(6)
+  meta                 Json?     @default("{}")
+
+  @@index([account_id], map: "index_notifications_on_account_id")
+  @@index([last_activity_at], map: "index_notifications_on_last_activity_at")
+  @@index([user_id], map: "index_notifications_on_user_id")
+  @@index([primary_actor_type, primary_actor_id], map: "uniq_primary_actor_per_account_notifications")
+  @@index([secondary_actor_type, secondary_actor_id], map: "uniq_secondary_actor_per_account_notifications")
+}
+
+model platform_app_permissibles {
+  id               BigInt   @id @default(autoincrement())
+  platform_app_id  BigInt
+  permissible_type String   @db.VarChar
+  permissible_id   BigInt
+  created_at       DateTime @db.Timestamp(6)
+  updated_at       DateTime @db.Timestamp(6)
+
+  @@unique([platform_app_id, permissible_id, permissible_type], map: "unique_permissibles_index")
+  @@index([permissible_type, permissible_id], map: "index_platform_app_permissibles_on_permissibles")
+  @@index([platform_app_id], map: "index_platform_app_permissibles_on_platform_app_id")
+}
+
+model platform_apps {
+  id         BigInt   @id @default(autoincrement())
+  name       String   @db.VarChar
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+}
+
+model portal_members {
+  id         BigInt   @id @default(autoincrement())
+  portal_id  BigInt?
+  user_id    BigInt?
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+
+  @@unique([portal_id, user_id], map: "index_portal_members_on_portal_id_and_user_id")
+  @@unique([user_id, portal_id], map: "index_portal_members_on_user_id_and_portal_id")
+}
+
+model portals {
+  id                    BigInt    @id @default(autoincrement())
+  account_id            Int
+  name                  String    @db.VarChar
+  slug                  String    @unique(map: "index_portals_on_slug") @db.VarChar
+  custom_domain         String?   @unique(map: "index_portals_on_custom_domain") @db.VarChar
+  color                 String?   @db.VarChar
+  homepage_link         String?   @db.VarChar
+  page_title            String?   @db.VarChar
+  header_text           String?
+  created_at            DateTime  @db.Timestamp(6)
+  updated_at            DateTime  @db.Timestamp(6)
+  config                Json?     @default("{\"allowed_locales\": [\"en\"]}")
+  archived              Boolean?  @default(false)
+  channel_web_widget_id BigInt?
+  inboxes               inboxes[]
+
+  @@index([channel_web_widget_id], map: "index_portals_on_channel_web_widget_id")
+}
+
+model portals_members {
+  portal_id BigInt
+  user_id   BigInt
+
+  @@unique([portal_id, user_id], map: "index_portals_members_on_portal_id_and_user_id")
+  @@index([portal_id], map: "index_portals_members_on_portal_id")
+  @@index([user_id], map: "index_portals_members_on_user_id")
+}
+
+model related_categories {
+  id                  BigInt   @id @default(autoincrement())
+  category_id         BigInt?
+  related_category_id BigInt?
+  created_at          DateTime @db.Timestamp(6)
+  updated_at          DateTime @db.Timestamp(6)
+
+  @@unique([category_id, related_category_id], map: "index_related_categories_on_category_id_and_related_category_id")
+  @@unique([related_category_id, category_id], map: "index_related_categories_on_related_category_id_and_category_id")
+}
+
+model reporting_events {
+  id                      BigInt    @id @default(autoincrement())
+  name                    String?   @db.VarChar
+  value                   Float?
+  account_id              Int?
+  inbox_id                Int?
+  user_id                 Int?
+  conversation_id         Int?
+  created_at              DateTime  @db.Timestamp(6)
+  updated_at              DateTime  @db.Timestamp(6)
+  value_in_business_hours Float?
+  event_start_time        DateTime? @db.Timestamp(6)
+  event_end_time          DateTime? @db.Timestamp(6)
+
+  @@index([account_id], map: "index_reporting_events_on_account_id")
+  @@index([conversation_id], map: "index_reporting_events_on_conversation_id")
+  @@index([created_at], map: "index_reporting_events_on_created_at")
+  @@index([inbox_id], map: "index_reporting_events_on_inbox_id")
+  @@index([name], map: "index_reporting_events_on_name")
+  @@index([user_id], map: "index_reporting_events_on_user_id")
+  @@index([account_id, name, created_at], map: "reporting_events__account_id__name__created_at")
+}
+
+model schema_migrations {
+  version String @id @db.VarChar
+}
+
+model sla_events {
+  id              BigInt   @id @default(autoincrement())
+  applied_sla_id  BigInt
+  conversation_id BigInt
+  account_id      BigInt
+  sla_policy_id   BigInt
+  inbox_id        BigInt
+  event_type      Int?
+  meta            Json?    @default("{}")
+  created_at      DateTime @db.Timestamp(6)
+  updated_at      DateTime @db.Timestamp(6)
+
+  @@index([account_id], map: "index_sla_events_on_account_id")
+  @@index([applied_sla_id], map: "index_sla_events_on_applied_sla_id")
+  @@index([conversation_id], map: "index_sla_events_on_conversation_id")
+  @@index([inbox_id], map: "index_sla_events_on_inbox_id")
+  @@index([sla_policy_id], map: "index_sla_events_on_sla_policy_id")
+}
+
+model sla_policies {
+  id                            BigInt   @id @default(autoincrement())
+  name                          String   @db.VarChar
+  first_response_time_threshold Float?
+  next_response_time_threshold  Float?
+  only_during_business_hours    Boolean? @default(false)
+  account_id                    BigInt
+  created_at                    DateTime @db.Timestamp(6)
+  updated_at                    DateTime @db.Timestamp(6)
+  description                   String?  @db.VarChar
+  resolution_time_threshold     Float?
+
+  @@index([account_id], map: "index_sla_policies_on_account_id")
+}
+
+model taggings {
+  id            Int       @id @default(autoincrement())
+  tag_id        Int?
+  taggable_type String?   @db.VarChar
+  taggable_id   Int?
+  tagger_type   String?   @db.VarChar
+  tagger_id     Int?
+  context       String?   @db.VarChar(128)
+  created_at    DateTime? @db.Timestamp(6)
+
+  @@unique([tag_id, taggable_id, taggable_type, context, tagger_id, tagger_type], map: "taggings_idx")
+  @@index([context], map: "index_taggings_on_context")
+  @@index([tag_id], map: "index_taggings_on_tag_id")
+  @@index([taggable_id], map: "index_taggings_on_taggable_id")
+  @@index([taggable_id, taggable_type, context], map: "index_taggings_on_taggable_id_and_taggable_type_and_context")
+  @@index([taggable_type], map: "index_taggings_on_taggable_type")
+  @@index([tagger_id], map: "index_taggings_on_tagger_id")
+  @@index([tagger_id, tagger_type], map: "index_taggings_on_tagger_id_and_tagger_type")
+  @@index([taggable_id, taggable_type, tagger_id, context], map: "taggings_idy")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model tags {
+  id             Int     @id @default(autoincrement())
+  name           String? @unique(map: "index_tags_on_name") @db.VarChar
+  taggings_count Int?    @default(0)
+}
+
+model team_members {
+  id         BigInt   @id @default(autoincrement())
+  team_id    BigInt
+  user_id    BigInt
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+
+  @@unique([team_id, user_id], map: "index_team_members_on_team_id_and_user_id")
+  @@index([team_id], map: "index_team_members_on_team_id")
+  @@index([user_id], map: "index_team_members_on_user_id")
+}
+
+model teams {
+  id                BigInt   @id @default(autoincrement())
+  name              String   @db.VarChar
+  description       String?
+  allow_auto_assign Boolean? @default(true)
+  account_id        BigInt
+  created_at        DateTime @db.Timestamp(6)
+  updated_at        DateTime @db.Timestamp(6)
+
+  @@unique([name, account_id], map: "index_teams_on_name_and_account_id")
+  @@index([account_id], map: "index_teams_on_account_id")
+}
+
+model telegram_bots {
+  id         Int      @id @default(autoincrement())
+  name       String?  @db.VarChar
+  auth_key   String?  @db.VarChar
+  account_id Int?
+  created_at DateTime @db.Timestamp(6)
+  updated_at DateTime @db.Timestamp(6)
+}
+
+model users {
+  id                     Int       @id @default(autoincrement())
+  provider               String    @default("email") @db.VarChar
+  uid                    String    @default("") @db.VarChar
+  encrypted_password     String    @default("") @db.VarChar
+  reset_password_token   String?   @unique(map: "index_users_on_reset_password_token") @db.VarChar
+  reset_password_sent_at DateTime? @db.Timestamp(6)
+  remember_created_at    DateTime? @db.Timestamp(6)
+  sign_in_count          Int       @default(0)
+  current_sign_in_at     DateTime? @db.Timestamp(6)
+  last_sign_in_at        DateTime? @db.Timestamp(6)
+  current_sign_in_ip     String?   @db.VarChar
+  last_sign_in_ip        String?   @db.VarChar
+  confirmation_token     String?   @db.VarChar
+  confirmed_at           DateTime? @db.Timestamp(6)
+  confirmation_sent_at   DateTime? @db.Timestamp(6)
+  unconfirmed_email      String?   @db.VarChar
+  name                   String    @db.VarChar
+  display_name           String?   @db.VarChar
+  email                  String?   @db.VarChar
+  tokens                 Json?     @db.Json
+  created_at             DateTime  @db.Timestamp(6)
+  updated_at             DateTime  @db.Timestamp(6)
+  pubsub_token           String?   @unique(map: "index_users_on_pubsub_token") @db.VarChar
+  availability           Int?      @default(0)
+  ui_settings            Json?     @default("{}")
+  custom_attributes      Json?     @default("{}")
+  type                   String?   @db.VarChar
+  message_signature      String?
+
+  @@unique([uid, provider], map: "index_users_on_uid_and_provider")
+  @@index([email], map: "index_users_on_email")
+}
+
+model webhooks {
+  id            BigInt   @id @default(autoincrement())
+  account_id    Int?
+  inbox_id      Int?
+  url           String?  @db.VarChar
+  created_at    DateTime @db.Timestamp(6)
+  updated_at    DateTime @db.Timestamp(6)
+  webhook_type  Int?     @default(0)
+  subscriptions Json?    @default("[\"conversation_status_changed\", \"conversation_updated\", \"conversation_created\", \"contact_created\", \"contact_updated\", \"message_created\", \"message_updated\", \"webwidget_triggered\"]")
+
+  @@unique([account_id, url], map: "index_webhooks_on_account_id_and_url")
+}
+
+model working_hours {
+  id             BigInt   @id @default(autoincrement())
+  inbox_id       BigInt?
+  account_id     BigInt?
+  day_of_week    Int
+  closed_all_day Boolean? @default(false)
+  open_hour      Int?
+  open_minutes   Int?
+  close_hour     Int?
+  close_minutes  Int?
+  created_at     DateTime @db.Timestamp(6)
+  updated_at     DateTime @db.Timestamp(6)
+  open_all_day   Boolean? @default(false)
+
+  @@index([account_id], map: "index_working_hours_on_account_id")
+  @@index([inbox_id], map: "index_working_hours_on_inbox_id")
 }
 
 enum BannerType {
@@ -586,8 +1659,8 @@ enum BannerType {
 }
 
 enum BannerMode {
-  MANUAL // admin picks
-  AUTO // system picks from DB (best sellers, new arrivals, etc.)
+  MANUAL
+  AUTO
 }
 
 enum UserRole {
@@ -608,44 +1681,6 @@ enum DocumentStatus {
   REJECTED
 }
 
-//Chat AI Models
-model BotMessage {
-  id        String   @id @default(uuid())
-  phone     String
-  role      String // "user" | "assistant"
-  content   String
-  createdAt DateTime @default(now())
-}
-
-model LeadLink {
-  id        String   @id @default(uuid())
-  phone     String
-  service   String
-  leadName  String // Frappe Lead ID
-  notified  Boolean  @default(false)
-  createdAt DateTime @default(now())
-}
-
-model Contact {
-  id    String  @id @default(cuid())
-  phone String  @unique
-  name  String?
-
-  // control
-  isBlocked Boolean @default(false)
-  isOwner   Boolean @default(false)
-  isVIP     Boolean @default(false)
-
-  // classification
-  type ContactType @default(UNKNOWN)
-
-  // lead info
-  lastMessage String?
-  lastSeen    DateTime @updatedAt
-
-  createdAt DateTime @default(now())
-}
-
 enum ContactType {
   CUSTOMER
   TECHNICIAN_CCTV
@@ -654,30 +1689,11 @@ enum ContactType {
   UNKNOWN
 }
 
-// 🟢 NEW: LEDGER TRANSACTION TRACKING (Manages financial audits for admin bank compliance)
-model PayoutRequest {
-  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  supplierId    String       @db.Uuid
-  userId        String       @db.Uuid // Admin or user processing the payout log
-  amount        Decimal      @db.Decimal(12, 2)
-  paymentMethod String // "M-PESA" | "TIGO_PESA" | "CRDB_BANK"
-  accountNumber String // Mobile line or banking account details sequence
-  status        PayoutStatus @default(PENDING)
-  // PENDING | APPROVED | REJECTED | TRANSFERRED
-
-  adminNote String? // Rejection explanation or transactional receipts hashes
-  createdAt DateTime @default(now()) @db.Timestamp(6)
-  updatedAt DateTime @updatedAt
-
-  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id])
-}
-
 enum ItemPayoutStatus {
-  ESCROW // Held securely until buyer confirms receipt
-  ELIGIBLE // Disbursable immediately to supplier wallet balance
-  REQUESTED // Included in an active withdrawal batch queue
-  PAID // Transferred successfully to vendor account
+  ESCROW
+  ELIGIBLE
+  REQUESTED
+  PAID
 }
 
 enum PayoutStatus {

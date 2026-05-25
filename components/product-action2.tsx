@@ -70,11 +70,16 @@ export default function ProductClientActions({
     setQty((prev) => Math.max(1, prev - 1));
   };
 
+  console.log("Buyer ID:", buyerId);
+  console.log("Supplier User ID:", supplierUserId);
+  console.log("Product ID:", productId);
+
   async function handleStartChat() {
     // 1. Verify User Authentication Session
     if (!buyerId) {
+      const safeCallbackUrl = encodeURIComponent(`/product/${productId}`);
       router.push(
-        `/sign-in?callbackUrl=/product/${productId}&showToastFlag=true`,
+        `/sign-in?callbackUrl=/product/${safeCallbackUrl}&showToastFlag=true`,
       );
       return;
     }

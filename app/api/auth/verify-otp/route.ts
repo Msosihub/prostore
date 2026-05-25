@@ -1,104 +1,97 @@
-// api/auth/verify-otp/route.ts
 import { prisma } from "@/db/prisma";
+import { normalizeIdentifier } from "@/lib/utils";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const { identifier, token } = await req.json();
+  try {
+    const { identifier, token } = await req.json();
 
-  const record = await prisma.verificationToken.findFirst({
-    where: { identifier, token },
-  });
+    if (!identifier || !token) {
+      return NextResponse.json(
+        { success: false, message: "Taarifa hazijakamilika." },
+        { status: 400 },
+      );
+    }
 
-  if (!record)
-    return NextResponse.json({ success: false, message: "OTP si sahihi" });
+    const cleanIdentifier = normalizeIdentifier(identifier.trim());
+    const cleanToken = token.trim();
 
-  if (record.expires < new Date())
-    return NextResponse.json({
-      success: false,
-      message: "OTP imeisha muda wake",
+    console.log("Verifying OTP for:", cleanIdentifier, cleanToken);
+    // 1. Fetch token record
+    const record = await prisma.verificationToken.findFirst({
+      where: { identifier: cleanIdentifier, token: cleanToken },
     });
 
-  await prisma.verificationToken.delete({
-    where: { identifier_token: { identifier, token } },
-  });
+    console.log("OTP Record Found:", record);
 
-  return NextResponse.json({ success: true });
+    if (!record) {
+      return NextResponse.json(
+        { success: false, message: "OTP uliyoweka si sahihi." },
+        { status: 400 },
+      );
+    }
+
+    // 2. Validate expiration timestamp thresholds
+    if (record.expires < new Date()) {
+      await prisma.verificationToken
+        .delete({
+          where: {
+            identifier_token: {
+              identifier: cleanIdentifier,
+              token: cleanToken,
+            },
+          },
+        })
+        .catch(() => {}); // Gracefully catch if already dropped
+
+      return NextResponse.json(
+        { success: false, message: "OTP imeisha muda wake." },
+        { status: 400 },
+      );
+    }
+
+    // 3. Atomically consume token so it can't be reused
+    await prisma.verificationToken.delete({
+      where: {
+        identifier_token: { identifier: cleanIdentifier, token: cleanToken },
+      },
+    });
+
+    // 4. Locate or instantiate the user account (Auto-Registration Sequence)
+    const isEmail = cleanIdentifier.includes("@");
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [{ phone: cleanIdentifier }, { email: cleanIdentifier }],
+      },
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: isEmail ? cleanIdentifier : null,
+          phone: isEmail ? null : cleanIdentifier,
+          name: `Mteja_${Math.floor(1000 + Math.random() * 9000)}`, // Fallback display name
+          isVerified: true,
+        },
+      });
+    } else if (!user.isVerified) {
+      // Mark as active if previously unverified
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Uthibitisho umekamilika.",
+      user: { id: user.id, email: user.email, phone: user.phone },
+    });
+  } catch (error) {
+    console.error("CRITICAL_VERIFY_OTP_ERROR:", error);
+    return NextResponse.json(
+      { success: false, message: "Hitilafu imetokea kwenye seva." },
+      { status: 500 },
+    );
+  }
 }
-//commented out on march 2,2026  12:23am when changing to otp
-
-// export async function POST(req: Request) {
-//   const { identifier, token } = await req.json();
-//   // console.log("Verifying OTP for:", identifier, token);
-
-//   const record = await prisma.verificationToken.findFirst({
-//     where: { identifier, token },
-//   });
-//   // console.log("OTP Record Found:", record);
-
-//   if (record === null) {
-//     return NextResponse.json({ success: false, message: "OTP si sahihi" });
-//     // console.log("NO RECORD");
-//   }
-//   if (record.expires < new Date())
-//     return NextResponse.json({
-//       success: false,
-//       message: "OTP imeisha muda wake",
-//     });
-
-//   //soround with try catch finally
-//   try {
-//     // OTP valid → just delete the token (so it's one-time)
-//     await prisma.verificationToken.delete({
-//       where: { identifier_token: { identifier, token } },
-//     });
-//     return NextResponse.json({ success: true });
-//   } catch (error) {
-//     console.error("Error deleting OTP record:", error);
-//     return NextResponse.json({ success: true });
-//   } finally {
-//     // console.log("OTP record deletion attempted.");
-//     return NextResponse.json({ success: true });
-//   }
-
-//   return NextResponse.json({ success: true });
-// }
-
-// import { prisma } from "@/db/prisma";
-// import { NextResponse } from "next/server";
-// import { hashSync } from "bcrypt-ts-edge";
-
-// export async function POST(req: Request) {
-//   const { identifier, token, password } = await req.json();
-
-//   const record = await prisma.verificationToken.findFirst({
-//     where: { identifier, token },
-//   });
-
-//   if (!record)
-//     return NextResponse.json({ success: false, message: "Invalid code" });
-//   if (record.expires < new Date())
-//     return NextResponse.json({ success: false, message: "Code expired" });
-
-//   // Mark user as verified
-//   const user = await prisma.user.findFirst({
-//     where: { OR: [{ email: identifier }, { phone: identifier }] },
-//   });
-
-//   if (!user)
-//     return NextResponse.json({ success: false, message: "User not found" });
-
-//   await prisma.user.update({
-//     where: { id: user.id },
-//     data: {
-//       isVerified: true,
-//       password: password ? hashSync(password) : user.password,
-//     },
-//   });
-
-//   // Delete token
-//   await prisma.verificationToken.delete({
-//     where: { identifier_token: { identifier, token } },
-//   });
-
-//   return NextResponse.json({ success: true });
-// }

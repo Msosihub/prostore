@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   if (!identifier || typeof identifier !== "string") {
     return NextResponse.json(
       { success: false, message: "Identifier required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     // 3 attempts max
     if (existing.attempts >= 3) {
       const cooldownEnd = new Date(
-        existing.createdAt.getTime() + 15 * 60 * 1000
+        existing.createdAt.getTime() + 15 * 60 * 1000,
       );
 
       if (cooldownEnd > new Date()) {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
             success: false,
             message: "Umezidisha maombi. Jaribu tena baada ya dakika 15.",
           },
-          { status: 429 }
+          { status: 429 },
         );
       }
     }
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     });
   }
 
-  await prisma.verificationToken.create({
+  const ddd = await prisma.verificationToken.create({
     data: {
       identifier,
       token,
@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     },
   });
 
+  console.log("Created OTP record:", ddd);
   // Send OTP
   if (identifier.includes("@")) {
     // TODO: sendEmail

@@ -89,6 +89,36 @@ export default function SignInFormOTP() {
     });
   };
 
+  // const handleVerifyOtp = () => {
+  //   if (!otp.trim()) {
+  //     toast({
+  //       variant: "destructive",
+  //       description: "Tafadhali jaza namba ya OTP uliyotumiwa.",
+  //     });
+  //     return;
+  //   }
+
+  //   startTransition(async () => {
+  //     const res = await signIn("otp-login", {
+  //       identifier: identifier.trim(),
+  //       token: otp.trim(),
+  //       redirect: false,
+  //     });
+
+  //     if (res?.error) {
+  //       toast({
+  //         title: "Msimbo si Sahihi ❌",
+  //         description: "OTP uliyoweka si sahihi au imekwisha muda wake.",
+  //         variant: "destructive",
+  //       });
+  //       return;
+  //     }
+
+  //     router.push(callbackUrl);
+  //     router.refresh(); // Cleans cache instances to display the account initials on the header icon instantly
+  //   });
+  // };
+
   const handleVerifyOtp = () => {
     if (!otp.trim()) {
       toast({
@@ -99,23 +129,36 @@ export default function SignInFormOTP() {
     }
 
     startTransition(async () => {
-      const res = await signIn("otp-login", {
-        identifier: identifier.trim(),
-        token: otp.trim(),
-        redirect: false,
-      });
-
-      if (res?.error) {
-        toast({
-          title: "Msimbo si Sahihi ❌",
-          description: "OTP uliyoweka si sahihi au imekwisha muda wake.",
-          variant: "destructive",
+      try {
+        // 🚀 BYPASS THE SEPARATE API ROUTE ENTIRELY
+        // Hand control directly over to NextAuth to check, delete, and establish the session cookie in one trip
+        const loginRes = await signIn("otp-login", {
+          identifier: identifier.trim(),
+          token: otp.trim(),
+          redirect: false,
         });
-        return;
-      }
 
-      router.push(callbackUrl);
-      router.refresh(); // Cleans cache instances to display the account initials on the header icon instantly
+        console.log("NextAuth Authentication Result:", loginRes);
+
+        if (loginRes?.error) {
+          toast({
+            title: "Msimbo si Sahihi ❌",
+            description: "OTP uliyoweka si sahihi au imekwisha muda wake.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Route back successfully to your callback page layout
+        router.push(callbackUrl);
+        router.refresh();
+      } catch (err: unknown) {
+        console.error("Authentication client transition error:", err);
+        toast({
+          variant: "destructive",
+          description: "Mawasiliano na seva yamefeli wakati wa kuingia.",
+        });
+      }
     });
   };
 
