@@ -73,7 +73,7 @@ export default function ProductClientActions({
   async function handleStartChat() {
     if (!buyerId) {
       router.push(
-        `/sign-in?callbackUrl=/product/${productId}&showToastFlag=true`
+        `/sign-in?callbackUrl=/product/${productId}&showToastFlag=true`,
       );
       return;
     }
@@ -236,7 +236,7 @@ export default function ProductClientActions({
               <button
                 disabled={isChatPending}
                 onClick={handleStartChat}
-                className="flex hidden flex-col items-center justify-center text-[9px] font-medium text-slate-500 hover:text-slate-800 transition-colors px-1 disabled:opacity-50"
+                className="flex  flex-col items-center justify-center text-[9px] font-medium text-slate-500 hover:text-slate-800 transition-colors px-1 disabled:opacity-50"
               >
                 {isChatPending ? (
                   <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
