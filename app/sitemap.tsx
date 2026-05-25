@@ -2,6 +2,8 @@ import { MetadataRoute } from "next";
 import { SERVER_URL } from "@/lib/constants";
 import { prisma } from "@/db/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 🟢 FIXED: Selects 'createdAt' to match your explicit database model schema properties exactly
   const products = await prisma.product.findMany({
