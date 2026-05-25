@@ -20,6 +20,28 @@ export default function ChatWindow({
   const [text, setText] = useState("");
   const messageEndRef = useRef<HTMLDivElement>(null);
 
+  // 🆕 AUTO-FOCUS INCOMING PRODUCTS FROM PRODUCT PAGES
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const productUrlParamId = urlParams.get("selectProduct");
+
+      if (productUrlParamId) {
+        // Look through existing chats to find one matching this productId reference
+        const matchingConversation = conversations.find(
+          (conv) =>
+            conv.productId === productUrlParamId ||
+            conv.Product?.id === productUrlParamId,
+        );
+
+        if (matchingConversation) {
+          // Set this chat room active immediately
+          setActiveId(matchingConversation.id);
+        }
+      }
+    }
+  }, [conversations]);
+
   const activeChat = conversations.find((c) => c.id === activeId);
 
   // 1. Establish the Real-Time Event Stream Connection

@@ -32,7 +32,7 @@ interface ProductClientActionsProps {
 
 export default function ProductClientActions({
   buyerId,
-  supplierId,
+  // supplierId,
   productId,
   supplierUserId,
   item,
