@@ -71,12 +71,15 @@ export default function ProductClientActions({
   };
 
   async function handleStartChat() {
+    // 1. Verify User Authentication Session
     if (!buyerId) {
       router.push(
         `/sign-in?callbackUrl=/product/${productId}&showToastFlag=true`,
       );
       return;
     }
+
+    // 2. Prevent suppliers from starting chats with themselves
     if (buyerId === supplierUserId) {
       toast({
         title: "Hairuhusiwi!",
@@ -88,22 +91,42 @@ export default function ProductClientActions({
 
     try {
       setIsChatPending(true);
-      const res = await fetch("/api/conversations/chat-now", {
+
+      // 💡 Point directly to your high-performance NestJS engine running on api.bmsounds.online (2)
+      const targetUrl = `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "https://api.bmsounds.online"}/chatwoot/initialize`;
+
+      const res = await fetch(targetUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          buyerId,
-          supplierId,
-          productId,
-          supplierUserId,
+          buyerId: buyerId,
+          supplierUserId: supplierUserId,
+          productId: productId,
+          // Optional: you can omit quantity/notes here since this is for instant "Chat Now" tapping
         }),
       });
+
       const data = await res.json();
-      if (res.ok && data.conversation) {
-        router.push(`/chat/${data.conversation.id}`);
+
+      if (res.ok && data.queued) {
+        // 💡 Seamlessly transition the buyer to their beautiful unified chat dashboard workspace
+        router.push(`/buyer/chat?selectProduct=${productId}`);
+      } else {
+        toast({
+          title: "Inasikitisha!",
+          description: "Imefeli kuanzisha chati kwa sasa. Jaribu tena baadae.",
+          variant: "destructive",
+        });
       }
     } catch (err) {
-      console.error(err);
+      console.error("Kosa la muunganiko wa seva ya chati:", err);
+      toast({
+        title: "Hitilafu ya Mtandao!",
+        description: "Angalia muunganiko wako wa mtandao kisha jaribu tena.",
+        variant: "destructive",
+      });
     } finally {
       setIsChatPending(false);
     }
