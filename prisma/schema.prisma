@@ -235,6 +235,8 @@ model Product {
   pricingTiers   ProductPricing[]
   ProductVariant ProductVariant[]
   Review         Review[]
+
+  Inquiry Inquiry[]
 }
 
 model ProductPricing {
@@ -381,10 +383,12 @@ model Inquiry {
   details        String?
   subject        String?
   buyerId        String?
-  productId      String?
-  conversation   Conversation  @relation(fields: [conversationId], references: [id])
-  Message        Message[]
-  Quote          Quote[]
+  productId      String?       @db.Uuid
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  product      Product?     @relation(fields: [productId], references: [id])
+  Message      Message[]
+  Quote        Quote[]
 }
 
 model Quote {

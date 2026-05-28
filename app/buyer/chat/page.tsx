@@ -38,6 +38,24 @@ export default async function BuyerChatPage() {
           createdAt: "asc",
         },
       },
+
+      Inquiry: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              price: true,
+              images: true,
+              stock: true,
+            },
+          },
+        },
+      },
     },
 
     orderBy: {

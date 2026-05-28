@@ -25,65 +25,71 @@ export default function ChatWindow({
 
   // 🆕 AUTO-FOCUS INCOMING PRODUCTS FROM PRODUCT PAGES
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const productUrlParamId = urlParams.get("selectProduct");
+    if (typeof window === "undefined") return;
 
-      if (productUrlParamId) {
-        // Look through existing chats to find one matching this productId reference
-        const matchingConversation = conversations.find(
-          (conv) =>
-            conv.productId === productUrlParamId ||
-            conv.Product?.id === productUrlParamId
-        );
+    const urlParams = new URLSearchParams(window.location.search);
+    const productSlug = urlParams.get("selectProduct");
 
-        if (matchingConversation) {
-          // Set this chat room active immediately
-          setActiveId(matchingConversation.id);
-        }
-      }
+    if (!productSlug) return;
+
+    const matchingConversation = initialConversations.find((conv) => {
+      const latestInquiryProduct = conv.Inquiry?.[0]?.product;
+
+      return (
+        latestInquiryProduct?.slug === productSlug ||
+        conv.Product?.slug === productSlug
+      );
+    });
+
+    if (matchingConversation?.id) {
+      setActiveId(matchingConversation.id);
     }
-  }, [conversations]);
-
-  const activeChat = conversations.find((c) => c.id === activeId);
-
-  // 1. Establish the Real-Time Event Stream Connection
-  useEffect(() => {
-    const eventSource = new EventSource("/api/chat/stream");
-
-    eventSource.onmessage = (event) => {
-      try {
-        const incomingMsg = JSON.parse(event.data);
-
-        setConversations((prev) =>
-          prev.map((conv) => {
-            if (conv.id === incomingMsg.conversationId) {
-              // Avoid adding duplicate messages to the array
-              const exists = conv.messages.some(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (m: any) =>
-                  m.id === incomingMsg.id ||
-                  m.chatwootMessageId === incomingMsg.chatwootMessageId
-              );
-              return {
-                ...conv,
-                messages: exists
-                  ? conv.messages
-                  : [...conv.messages, incomingMsg],
-                updatedAt: new Date().toISOString(),
-              };
-            }
-            return conv;
-          })
-        );
-      } catch (err) {
-        console.error("Error reading SSE stream data packet:", err);
-      }
-    };
-
-    return () => eventSource.close();
+    // run only once on page load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const activeChat = conversations.find((c) => c.id === activeId);
+  const currentProduct =
+    activeChat?.Inquiry?.[0]?.product || activeChat?.Product;
+
+  // 1. Establish the Real-Time Event Stream Connection
+  // useEffect(() => {
+  //   const eventSource = new EventSource("/api/chat/stream");
+
+  //   eventSource.onmessage = (event) => {
+  //     try {
+  //       const incomingMsg = JSON.parse(event.data);
+
+  //       setConversations((prev) =>
+  //         prev.map((conv) => {
+  //           if (conv.id === incomingMsg.conversationId) {
+  //             // Avoid adding duplicate messages to the array
+  //             const exists = conv.messages.some(
+  //               // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //               (m: any) =>
+  //                 m.id === incomingMsg.id ||
+  //                 m.chatwootMessageId === incomingMsg.chatwootMessageId
+  //             );
+  //             return {
+  //               ...conv,
+  //               messages: exists
+  //                 ? conv.messages
+  //                 : [...conv.messages, incomingMsg],
+  //               updatedAt: new Date().toISOString(),
+  //             };
+  //           }
+  //           return conv;
+  //         })
+  //       );
+  //     } catch (err) {
+  //       console.error("Error reading SSE stream data packet:", err);
+  //     }
+  //   };
+
+  //   return () => eventSource.close();
+  // }, []);
+
+  //polling
   useEffect(() => {
     const interval = setInterval(async () => {
       const res = await fetch("/api/chat/conversations");
@@ -91,6 +97,15 @@ export default function ChatWindow({
 
       const data = await res.json();
       setConversations(data);
+
+      setActiveId((current) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (current && data.some((c: any) => c.id === current)) {
+          return current;
+        }
+
+        return data[0]?.id || null;
+      });
     }, 3000);
 
     return () => clearInterval(interval);
@@ -193,21 +208,21 @@ export default function ChatWindow({
               </div>
 
               {/* Alibaba-Style Context Ribbon Frame Container */}
-              {activeChat.Product && (
+              {currentProduct && (
                 <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1.5 max-w-sm">
                   <div className="w-8 h-8 bg-white rounded border overflow-hidden flex-shrink-0">
                     <img
-                      src={activeChat.Product.images?.[0] || "/placeholder.png"}
+                      src={currentProduct.images?.[0] || "/placeholder.png"}
                       className="w-full h-full object-cover"
                       alt=""
                     />
                   </div>
                   <div className="text-left leading-tight truncate">
                     <p className="text-xs font-bold text-slate-700 truncate">
-                      {activeChat.Product.name}
+                      {currentProduct.name}
                     </p>
                     <p className="text-[10px] text-orange-600 font-bold">
-                      TSh {Number(activeChat.Product.price).toLocaleString()}
+                      TSh {Number(currentProduct.price).toLocaleString()}
                     </p>
                   </div>
                 </div>

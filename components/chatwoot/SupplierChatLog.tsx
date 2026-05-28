@@ -35,7 +35,7 @@ export default function SupplierChatLog({
     setText("");
 
     try {
-      await fetch(`${API_URL}/chatwoot/message`, {
+      const res = await fetch(`${API_URL}/chatwoot/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -45,6 +45,11 @@ export default function SupplierChatLog({
           content: payloadText,
         }),
       });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Supplier message failed:", res.status, errorText);
+      }
     } catch (err) {
       console.error("Failed sending text transmission:", err);
     }
@@ -78,16 +83,19 @@ export default function SupplierChatLog({
         {/*  eslint-disable-next-line @typescript-eslint/no-explicit-any */}
         {activeChat.messages.map((msg: any) => {
           const isMe = msg.senderId === supplierUserId;
+          const messageText = msg.content || "";
+
           const isSystemTemplate =
-            msg.content.includes("**Inquiry ya Bidhaa**") ||
-            msg.content.includes("**OFFER / B2B QUOTE**");
+            messageText.includes("🛒 New Product Inquiry") ||
+            messageText.includes("Inquiry ya Bidhaa") ||
+            messageText.includes("OFFER / B2B QUOTE");
 
           if (isSystemTemplate) {
             return (
               <div key={msg.id} className="w-full flex justify-center my-2">
                 <div className="bg-amber-50 border border-amber-200 text-slate-800 rounded-xl px-4 py-3 text-xs max-w-md shadow-sm space-y-1">
                   <p className="whitespace-pre-wrap leading-relaxed">
-                    {msg.content}
+                    {messageText}
                   </p>
                 </div>
               </div>
@@ -107,7 +115,7 @@ export default function SupplierChatLog({
                 }`}
               >
                 <p className="leading-relaxed whitespace-pre-wrap">
-                  {msg.content}
+                  {messageText}
                 </p>
                 <span
                   className={`text-[9px] text-right mt-1 block opacity-75 ${isMe ? "text-indigo-200" : "text-slate-400"}`}

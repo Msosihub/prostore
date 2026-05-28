@@ -25,51 +25,62 @@ export default function SupplierChatWindow({
   const activeChat = conversations.find((c) => c.id === activeId);
 
   // Establish persistent Server-Sent Events stream pipeline listener for live incoming text tracking
-  useEffect(() => {
-    const eventSource = new EventSource("/api/chat/stream");
+  // useEffect(() => {
+  //   const eventSource = new EventSource("/api/chat/stream");
 
-    eventSource.onmessage = (event) => {
-      try {
-        const incomingMsg = JSON.parse(event.data);
+  //   eventSource.onmessage = (event) => {
+  //     try {
+  //       const incomingMsg = JSON.parse(event.data);
 
-        setConversations((prev) =>
-          prev.map((conv) => {
-            if (conv.id === incomingMsg.conversationId) {
-              const messageExists = conv.messages.some(
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (m: any) =>
-                  m.id === incomingMsg.id ||
-                  m.chatwootMessageId === incomingMsg.chatwootMessageId
-              );
-              return {
-                ...conv,
-                messages: messageExists
-                  ? conv.messages
-                  : [...conv.messages, incomingMsg],
-                updatedAt: new Date().toISOString(),
-              };
-            }
-            return conv;
-          })
-        );
-      } catch (err) {
-        console.error(
-          "Error parsing incoming dynamic real-time stream packet:",
-          err
-        );
-      }
-    };
+  //       setConversations((prev) =>
+  //         prev.map((conv) => {
+  //           if (conv.id === incomingMsg.conversationId) {
+  //             const messageExists = conv.messages.some(
+  //               // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  //               (m: any) =>
+  //                 m.id === incomingMsg.id ||
+  //                 m.chatwootMessageId === incomingMsg.chatwootMessageId
+  //             );
+  //             return {
+  //               ...conv,
+  //               messages: messageExists
+  //                 ? conv.messages
+  //                 : [...conv.messages, incomingMsg],
+  //               updatedAt: new Date().toISOString(),
+  //             };
+  //           }
+  //           return conv;
+  //         })
+  //       );
+  //     } catch (err) {
+  //       console.error(
+  //         "Error parsing incoming dynamic real-time stream packet:",
+  //         err
+  //       );
+  //     }
+  //   };
 
-    return () => eventSource.close();
-  }, []);
+  //   return () => eventSource.close();
+  // }, []);
 
+  //polling
   useEffect(() => {
     const interval = setInterval(async () => {
       const res = await fetch("/api/chat/conversations");
       if (!res.ok) return;
 
       const data = await res.json();
+
       setConversations(data);
+
+      setActiveId((current) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (current && data.some((c: any) => c.id === current)) {
+          return current;
+        }
+
+        return data[0]?.id || null;
+      });
     }, 3000);
 
     return () => clearInterval(interval);

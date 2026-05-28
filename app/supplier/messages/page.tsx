@@ -28,21 +28,35 @@ export default async function SupplierMessagesPage() {
           stock: true,
         },
       },
+      messages: {
+        orderBy: { createdAt: "asc" },
+      },
       Inquiry: {
         orderBy: { createdAt: "desc" },
         take: 1,
-      },
-      messages: {
-        orderBy: { createdAt: "asc" },
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              images: true,
+              slug: true,
+              stock: true,
+            },
+          },
+        },
       },
     },
     orderBy: { updatedAt: "desc" },
   });
 
+  const safeConversations = JSON.parse(JSON.stringify(conversations));
+
   return (
     <div className="w-full h-[calc(100vh-120px)] bg-slate-50">
       <SupplierChatWindow
-        initialConversations={conversations}
+        initialConversations={safeConversations}
         supplierUserId={session.user.id || ""}
       />
     </div>

@@ -44,7 +44,11 @@ export default function SupplierChatList({
             </span>
           </div>
           <div className="text-xs text-slate-500 font-medium truncate max-w-full">
-            {conv.Product?.name ? `📦 ${conv.Product.name}` : "Mjadala mkuu..."}
+            {conv.Inquiry?.[0]?.product?.name
+              ? `📦 ${conv.Inquiry[0].product.name}`
+              : conv.Product?.name
+                ? `📦 ${conv.Product.name}`
+                : "Mjadala mkuu..."}
           </div>
           <p className="text-xs text-slate-400 truncate italic">
             {conv.messages[conv.messages.length - 1]?.content ||

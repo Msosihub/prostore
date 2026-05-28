@@ -79,7 +79,7 @@ export default function ProductClientActions({
     if (!buyerId) {
       const safeCallbackUrl = encodeURIComponent(`/product/${productId}`);
       router.push(
-        `/sign-in?callbackUrl=/product/${safeCallbackUrl}&showToastFlag=true`,
+        `/sign-in?callbackUrl=/${safeCallbackUrl}&showToastFlag=true`
       );
       return;
     }
@@ -102,26 +102,32 @@ export default function ProductClientActions({
 
       const res = await fetch(targetUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          buyerId: buyerId,
-          supplierUserId: supplierUserId,
-          productId: productId,
-          // Optional: you can omit quantity/notes here since this is for instant "Chat Now" tapping
+          buyerId,
+          supplierUserId,
+          productId,
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any = {};
 
-      if (res.ok && data.queued) {
-        // 💡 Seamlessly transition the buyer to their beautiful unified chat dashboard workspace
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
+      }
+
+      console.log("Initialize response:", res.status, data);
+
+      if (res.ok) {
         router.push(`/buyer/chat?selectProduct=${productId}`);
       } else {
         toast({
           title: "Inasikitisha!",
-          description: "Imefeli kuanzisha chati kwa sasa. Jaribu tena baadae.",
+          description: data?.message || "Imefeli kuanzisha chati kwa sasa.",
           variant: "destructive",
         });
       }

@@ -30,8 +30,8 @@ type ProductCardProps = {
 
 const ProductCard = ({ product }: ProductCardProps) => {
   const {
-    id,
     name,
+    slug,
     brand,
     category,
     subcategory,
@@ -52,7 +52,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <Card className="w-full max-w-sm overflow-hidden group transition-shadow hover:shadow-lg border border-transparent hover:border-gray-200">
       <CardHeader className="p-2 items-center">
-        <Link href={`/product/${id}`}>
+        <Link href={`/product/${slug}`}>
           <Image
             src={images?.[0] || "null"}
             alt={name}
@@ -69,7 +69,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
           {brand} • {category} • {subcategory}
         </div>
 
-        <Link href={`/product/${id}`}>
+        <Link href={`/product/${slug}`}>
           <h2 className="font-medium text-sm sm:text-base md:text-lg line-clamp-2">
             {name}
           </h2>
