@@ -92,10 +92,11 @@ export default function SupplierChatWindow({
   };
 
   return (
-    <div className="w-full h-full flex bg-white border-t border-slate-200 overflow-hidden">
+    // <div className="w-full h-full flex bg-white border-t border-slate-200 overflow-hidden">
+    <div className="w-full h-full min-h-0 flex bg-white border-t border-slate-200 overflow-hidden">
       {/* COLUMN 1: BUYER CONVERSATION INBOX THREADS */}
       <div
-        className={`w-full md:w-80 border-r border-slate-200 h-full flex flex-col bg-slate-50 flex-shrink-0 ${
+        className={`w-full md:w-80 border-r border-slate-200 h-full min-h-0 flex flex-col bg-slate-50 flex-shrink-0 ${
           viewMode === "chat" ? "hidden md:flex" : "flex"
         }`}
       >
@@ -114,7 +115,9 @@ export default function SupplierChatWindow({
 
       {/* COLUMN 2: MAIN WORKSPACE MESSAGE VIEWPORT LOG */}
       <div
-        className={`flex-1 h-full flex flex-col bg-slate-100 ${viewMode === "list" ? "hidden md:flex" : "flex"}`}
+        className={`flex-1 h-full min-h-0 flex flex-col bg-slate-100 ${
+          viewMode === "list" ? "hidden md:flex" : "flex"
+        }`}
       >
         {activeChat ? (
           <SupplierChatLog
@@ -133,7 +136,7 @@ export default function SupplierChatWindow({
       </div>
 
       {/* COLUMN 3: SIDEBAR B2B COMMERCIAL NEGOTIATIONS ENGINE TERMINAL */}
-      {activeChat && activeChat.Product && (
+      {activeChat && (
         <SupplierChatContext
           activeChat={activeChat}
           supplierUserId={supplierUserId}
