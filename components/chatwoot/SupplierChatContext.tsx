@@ -59,6 +59,8 @@ export default function SupplierChatContext({
     return "/placeholder.png";
   };
 
+  const currentProduct = activeChat.Inquiry?.[0]?.product || activeChat.Product;
+
   return (
     <div className="w-72 border-l border-slate-200 h-full hidden lg:flex flex-col bg-slate-50 overflow-y-auto p-4 space-y-4">
       <div className="bg-white border rounded-xl p-3 shadow-sm space-y-2">
@@ -68,20 +70,20 @@ export default function SupplierChatContext({
         <div className="flex gap-2">
           <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden border flex-shrink-0">
             <img
-              src={getProductImage(activeChat.Product)}
+              src={getProductImage(currentProduct)}
               className="w-full h-full object-cover"
               alt=""
             />
           </div>
           <div className="leading-tight min-w-0">
             <p className="text-xs font-bold text-slate-800 truncate">
-              {activeChat.Product?.name}
+              {currentProduct?.name}
             </p>
             <p className="text-xs text-orange-600 font-bold mt-0.5">
-              TSh {Number(activeChat.Product?.price).toLocaleString()}
+              TSh {Number(currentProduct?.price).toLocaleString()}
             </p>
             <span className="text-[10px] text-slate-400 font-medium">
-              Stock iliyopo: {activeChat.Product?.stock} Pcs
+              Stock iliyopo: {currentProduct?.stock} Pcs
             </span>
           </div>
         </div>
