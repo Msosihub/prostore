@@ -5,6 +5,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Store, Package } from "lucide-react";
 
+const API_URL =
+  process.env.NEXT_PUBLIC_BACKEND_API_URL || "https://api.bmsounds.online";
+
 export default function ChatWindow({
   initialConversations,
   currentUserId,
@@ -15,7 +18,7 @@ export default function ChatWindow({
 }) {
   const [conversations, setConversations] = useState(initialConversations);
   const [activeId, setActiveId] = useState<string | null>(
-    conversations[0]?.id || null,
+    conversations[0]?.id || null
   );
   const [text, setText] = useState("");
   const messageEndRef = useRef<HTMLDivElement>(null);
@@ -31,7 +34,7 @@ export default function ChatWindow({
         const matchingConversation = conversations.find(
           (conv) =>
             conv.productId === productUrlParamId ||
-            conv.Product?.id === productUrlParamId,
+            conv.Product?.id === productUrlParamId
         );
 
         if (matchingConversation) {
@@ -60,7 +63,7 @@ export default function ChatWindow({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 (m: any) =>
                   m.id === incomingMsg.id ||
-                  m.chatwootMessageId === incomingMsg.chatwootMessageId,
+                  m.chatwootMessageId === incomingMsg.chatwootMessageId
               );
               return {
                 ...conv,
@@ -71,7 +74,7 @@ export default function ChatWindow({
               };
             }
             return conv;
-          }),
+          })
         );
       } catch (err) {
         console.error("Error reading SSE stream data packet:", err);
@@ -79,6 +82,18 @@ export default function ChatWindow({
     };
 
     return () => eventSource.close();
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const res = await fetch("/api/chat/conversations");
+      if (!res.ok) return;
+
+      const data = await res.json();
+      setConversations(data);
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Auto-scroll to the newest message whenever the active thread changes or updates
@@ -108,13 +123,13 @@ export default function ChatWindow({
       prev.map((c) =>
         c.id === activeChat.id
           ? { ...c, messages: [...c.messages, optimisticMsg] }
-          : c,
-      ),
+          : c
+      )
     );
 
     // Send the message to your backend API route
     try {
-      await fetch("https://bmsounds.online", {
+      await fetch(`${API_URL}/chatwoot/message`, {
         // Your Ubuntu NestJS API URL route entry point
         method: "POST",
         headers: { "Content-Type": "application/json" },

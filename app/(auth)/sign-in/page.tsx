@@ -9,17 +9,17 @@ import SignInFormOTP from "@/components/auth/SignInFormOTP";
 //   );
 // }
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+// import {
+//   Card,
+//   CardContent,
+//   CardDescription,
+//   CardHeader,
+//   CardTitle,
+// } from "@/components/ui/card";
 import { Metadata } from "next";
-import Link from "next/link";
-import Image from "next/image";
-import { APP_NAME } from "@/lib/constants";
+// import Link from "next/link";
+// import Image from "next/image";
+// import { APP_NAME } from "@/lib/constants";
 // import CredentialsSignInForm from "./credentials-signin-form";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -46,7 +46,7 @@ const SignInPage = async (props: {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <Card>
+      {/* <Card>
         <CardHeader className="space-y-4">
           <Link href="/" className="flex-center">
             <Image
@@ -65,7 +65,9 @@ const SignInPage = async (props: {
         <CardContent className="space-y-4">
           <SignInFormOTP />
         </CardContent>
-      </Card>
+      </Card> */}
+
+      <SignInFormOTP />
     </div>
   );
 };

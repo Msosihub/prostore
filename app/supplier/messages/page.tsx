@@ -1,50 +1,61 @@
-// app/supplier/messages/page.tsx
-export const dynamic = "force-dynamic";
-
-import Link from "next/link";
-import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { prisma } from "@/db/prisma";
+import SupplierChatWindow from "@/components/chatwoot/SupplierChatWindow";
 
 export default async function SupplierMessagesPage() {
   const session = await auth();
-  const supplierId = session?.user.id;
 
+  // Verify user authentication state and restrict access if they aren't a Supplier
+  if (!session?.user || session.user.role !== "SUPPLIER") {
+    redirect("/sign-in?callbackUrl=/supplier/messages");
+  }
+
+  // Fetch all recent conversations where this specific user is the assigned supplier
   const conversations = await prisma.conversation.findMany({
-    where: { supplierId },
+    where: { supplierId: session.user.id },
     include: {
-      buyer: true,
-      messages: {
+      buyer: {
+        select: { id: true, name: true, email: true },
+      },
+      Product: {
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          images: true,
+          slug: true,
+          stock: true,
+        },
+      },
+      Inquiry: {
         orderBy: { createdAt: "desc" },
         take: 1,
+      },
+      messages: {
+        orderBy: { createdAt: "asc" },
       },
     },
     orderBy: { updatedAt: "desc" },
   });
 
   return (
-    <div className="max-w-3xl mx-auto p-6">
-      <h1 className="text-xl font-semibold mb-4">Buyer Messages</h1>
-      <div className="space-y-4">
-        {conversations.map((c) => (
-          <Link
-            key={c.id}
-            href={`/chat/${c.id}`}
-            className="block p-4 border rounded-lg hover:bg-gray-50"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="font-medium">{c.buyer.name}</p>
-              </div>
-              <span className="text-xs text-gray-400">
-                {c.messages[0]?.createdAt.toLocaleDateString()}
-              </span>
-            </div>
-            <p className="text-sm text-gray-700 truncate">
-              {c.messages[0]?.content ?? "No messages yet"}
-            </p>
-          </Link>
-        ))}
-      </div>
+    <div className="w-full h-[calc(100vh-120px)] bg-slate-50">
+      <SupplierChatWindow
+        initialConversations={conversations}
+        supplierUserId={session.user.id || ""}
+      />
     </div>
   );
 }
+
+// This server component verifies the supplier's active session,
+// queries your shared Neon database to fetch the conversation historical logs,
+// and maps the associated B2B inquiries automatically.
+
+// Because B2B suppliers must manage pricing negotiations, bulk orders, and shipping timelines directly from the chat screen,
+// the interface will feature a Three-Column Split Layout on desktop that stacks into a clean mobile-responsive view:
+// 1. Left Column: The list of active incoming buyer message threads with a badge showing unread counts.
+// 2. Center Column: The active chat log with instantaneous real-time Server-Sent Events (SSE) message streaming.
+// 3. Right Column (Context Sidebar): An interactive B2B panel showing the direct buyer details, the target product specification ribbon,
+//  and an instant actionable "Tengeneza Quote / Generate B2B Quote" control panel. This lets suppliers submit financial quotes straight into the chat window.

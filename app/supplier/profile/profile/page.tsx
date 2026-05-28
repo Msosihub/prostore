@@ -14,18 +14,34 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card"; // ✅ your uploader
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; // ✅ your uploader
 import { toast } from "@/hooks/use-toast";
-import { allowedPolicyTypes, formSchema } from "@/lib/validators";
+import { formSchema } from "@/lib/validators";
 import { UploadButton } from "@/lib/uploadthing";
 import { APP_NAME, DEFAULT_WORKING_HOURS } from "@/lib/constants";
 import Image from "next/image";
 import { Check, ImagePlus, Loader2, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const allowedPolicyTypes = [
+  "Return Policy",
+  "Shipping Policy",
+  "Privacy Policy",
+  "Terms of Service",
+  "Custom",
+];
 
 export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updated, setUpdated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
@@ -618,63 +634,84 @@ export default function Profile() {
 
           {/* Policies (dropdown with Custom) */}
 
-          <Card>
-            <CardContent className="space-y-4 pt-4">
-              <h2 className="font-semibold">Sera</h2>
-
+          {/* Dynamic Policies Section */}
+          <Card className="shadow-sm border-slate-100 rounded-2xl bg-white overflow-hidden">
+            <CardHeader className="p-4 bg-slate-50/40 border-b border-slate-100">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Sera za Biashara (Store Policies)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
               {policyFields.length === 0 && (
-                <div className="text-sm text-muted-foreground">
-                  Hakuna sera zilizoongezwa bado.
+                <div className="text-xs text-slate-400 italic bg-slate-50/50 p-4 border border-dashed rounded-xl text-center">
+                  Hakuna sera zilizoongezwa bado. Tafadhali ongeza angalau sera
+                  moja ya biashara.
                 </div>
               )}
-              <section id="policies" className="scroll-mt-24">
+
+              <section id="policies" className="scroll-mt-24 space-y-3.5">
                 {policyFields.map((p, i) => (
-                  <div key={p.id} className="space-y-2 border p-3 rounded-md">
-                    <div className="grid md:grid-cols-3 gap-2">
+                  <div
+                    key={p.id}
+                    className="space-y-4 border border-slate-100 p-4 rounded-xl bg-white relative animate-in fade-in duration-200 shadow-sm"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Policy Type Selection */}
                       <Controller
                         control={form.control}
-                        name={`policies.${i}.type`}
+                        name={`policies.${i}.type` as const}
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Aina</FormLabel>
-                            <FormControl>
-                              <select
-                                className="input"
-                                {...field}
-                                onChange={(e) => {
-                                  field.onChange(e.target.value);
-                                  // clear customLabel if switching away from Custom
-                                  if (e.target.value !== "Custom") {
-                                    form.setValue(
-                                      `policies.${i}.customLabel`,
-                                      ""
-                                    );
-                                  }
-                                }}
-                              >
-                                <option value="">Chagua aina</option>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-xs font-semibold text-slate-700">
+                              Aina ya Sera *
+                            </FormLabel>
+                            <Select
+                              onValueChange={(val) => {
+                                field.onChange(val);
+                                if (val !== "Custom") {
+                                  form.setValue(
+                                    `policies.${i}.customLabel` as const,
+                                    ""
+                                  );
+                                }
+                              }}
+                              value={field.value || ""}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-10 text-xs rounded-xl focus:ring-orange-500 bg-slate-50/30 border-slate-200 text-slate-700 font-medium">
+                                  <SelectValue placeholder="Chagua aina ya sera" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="bg-white text-xs rounded-xl shadow-xl border">
                                 {allowedPolicyTypes.map((t) => (
-                                  <option key={t} value={t}>
+                                  <SelectItem
+                                    key={t}
+                                    value={t}
+                                    className="cursor-pointer focus:bg-slate-50"
+                                  >
                                     {t}
-                                  </option>
+                                  </SelectItem>
                                 ))}
-                              </select>
-                            </FormControl>
+                              </SelectContent>
+                            </Select>
                           </FormItem>
                         )}
                       />
 
-                      {/* show custom label input when type === Custom */}
+                      {/* Custom Policy Label Input (Conditional Render) */}
                       {form.watch(`policies.${i}.type`) === "Custom" && (
                         <Controller
                           control={form.control}
-                          name={`policies.${i}.customLabel`}
+                          name={`policies.${i}.customLabel` as const}
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Lebo Maalum</FormLabel>
+                            <FormItem className="space-y-1 animate-in fade-in duration-200">
+                              <FormLabel className="text-xs font-semibold text-slate-700">
+                                Lebo Maalum (Custom Label) *
+                              </FormLabel>
                               <FormControl>
                                 <Input
-                                  placeholder="e.g. Holiday Shipping"
+                                  placeholder="Mfano: Sera ya Likizo / Ramadhani"
+                                  className="h-10 text-xs rounded-xl focus-visible:ring-orange-500 bg-slate-50/40 border-slate-200"
                                   {...field}
                                 />
                               </FormControl>
@@ -684,92 +721,90 @@ export default function Profile() {
                       )}
                     </div>
 
+                    {/* Policy Narrative Content Textarea */}
                     <Controller
                       control={form.control}
-                      name={`policies.${i}.content`}
+                      name={`policies.${i}.content` as const}
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Maudhui</FormLabel>
+                        <FormItem className="space-y-1">
+                          <FormLabel className="text-xs font-semibold text-slate-700">
+                            Maudhui ya Sera *
+                          </FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Maelezo ya sera..."
+                              placeholder="Eleza kwa ufasaha maelezo, utaratibu na masharti ya sera hii..."
                               rows={4}
+                              className="text-xs focus-visible:ring-orange-500 rounded-xl bg-slate-50/30 resize-none leading-relaxed"
                               {...field}
                             />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-[11px]" />
                         </FormItem>
                       )}
                     />
 
-                    <div className="flex gap-2">
+                    <div className="flex justify-end pt-1">
                       <Button
                         type="button"
-                        variant="destructive"
+                        variant="ghost"
                         size="sm"
                         onClick={() => removePolicy(i)}
+                        className="h-8 text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50/60 rounded-xl px-3 flex items-center gap-1"
                       >
-                        <Trash className="mr-2 h-4 w-4" /> Ondoa
+                        <Trash className="h-3.5 w-3.5" /> Ondoa Sera
                       </Button>
                     </div>
                   </div>
                 ))}
               </section>
 
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  appendPolicy({
-                    type: "Return Policy",
-                    customLabel: "",
-                    content: "",
-                  })
-                }
-              >
-                + Ongeza Sera
-              </Button>
+              <div className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    appendPolicy({
+                      type: "Return Policy",
+                      customLabel: "",
+                      content: "",
+                    })
+                  }
+                  className="h-9 text-[11px] font-bold border-dashed border-slate-200 text-slate-600 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50/10 rounded-xl px-3 flex items-center gap-1"
+                >
+                  + Ongeza Sera Mpya
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Gallery Upload */}
+          {/* Store Gallery Images Grid Section */}
           <section id="gallery" className="scroll-mt-24">
-            <Card>
-              <CardContent className="space-y-4 pt-4">
-                <h2 className="font-semibold">Gallery (max 6)</h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Pakia picha za bidhaa zako ili zionekane kwenye profile yako.
+            <Card className="shadow-sm border-slate-100 rounded-2xl bg-white overflow-hidden">
+              <CardHeader className="p-4 bg-slate-50/40 border-b border-slate-100">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Picha za Ofisi / Showroom (Gallery)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-4">
+                <p className="text-xs text-slate-400">
+                  Pakia picha za ofisi yako, ghala au viwanda ili kuwapa
+                  uaminifu wanunuzi wanaotembelea wasifu wa duka lako.
                 </p>
 
-                <div className="grid gap-4">
-                  <div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="border border-dashed border-slate-200 rounded-xl p-4 bg-slate-50/40 flex flex-col items-center justify-center cursor-pointer relative min-h-[90px]">
                     <UploadButton
                       endpoint="galleryImageUploader"
                       onUploadBegin={() => setUploading(true)}
                       disabled={uploading}
-                      content={{
-                        button: uploading ? (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="animate-spin h-4 w-4" />
-                            Inapakia...
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center gap-1 text-sm">
-                            <ImagePlus
-                              className="h-6 w-6 pt-1"
-                              color="#2563eb"
-                            />
-                            <span className="font-medium text-blue-600">
-                              Bonyeza hapa kupakia picha
-                            </span>
-                          </div>
-                        ),
-                        allowedContent: (
-                          <span className="text-xs text-muted-foreground">
-                            Zisizidi: 4MB, Picha 6 pekee.
-                          </span>
-                        ),
+                      appearance={{
+                        button:
+                          "bg-slate-900 text-white text-[11px] font-bold h-8 px-4 rounded-xl shadow-sm cursor-pointer hover:bg-slate-800 transition-colors",
+                        allowedContent:
+                          "text-[9px] text-slate-400 font-medium mt-1",
                       }}
+                      content={{ button: "Pakia Picha za Ghala" }}
                       onClientUploadComplete={(res) => {
                         setUploading(false);
                         handleGalleryUploadComplete(res);
@@ -778,38 +813,51 @@ export default function Profile() {
                         setUploading(false);
                         toast({
                           variant: "destructive",
-                          description: err.message,
+                          description:
+                            err.message ||
+                            "Hitilafu imetokea wakati wa kupakia.",
                         });
                       }}
                     />
+
+                    {uploading && (
+                      <div className="absolute inset-0 bg-white/95 rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-slate-800">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-orange-500" />
+                        <span>Mifumo inapokea picha...</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* previews */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {/* Image Grid Preview Panels Matrix */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 pt-1">
                     {gallery.map((url: string, idx: number) => (
-                      <div key={idx} className="relative   w-full h-28">
+                      <div
+                        key={idx}
+                        className="relative w-full h-24 rounded-xl overflow-hidden border border-slate-100 bg-white shadow-sm group"
+                      >
                         <Image
                           src={url}
                           alt={`gallery-${idx}`}
                           fill
                           sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                          className="object-cover rounded"
+                          className="object-cover transition-transform group-hover:scale-105 duration-300"
                         />
                         <button
                           type="button"
-                          aria-label="Remove"
-                          className="absolute top-1 right-1 bg-white/80 rounded p-1"
+                          aria-label="Remove image from showroom gallery grid link"
                           onClick={() => handleRemoveGallery(idx)}
+                          className="absolute top-1.5 right-1.5 bg-white/90 text-rose-600 rounded-lg p-1.5 shadow-sm opacity-90 hover:bg-white hover:text-rose-700 transition-colors outline-none"
                         >
-                          <Trash className="h-4 w-4 text-red-600" />
+                          <Trash className="h-3.5 w-3.5 stroke-[2.2]" />
                         </button>
                       </div>
                     ))}
                   </div>
 
                   {gallery.length === 0 && (
-                    <div className="text-sm text-muted-foreground">
-                      Hakuna picha za gallery.
+                    <div className="text-[11px] text-slate-400 italic text-center py-4 bg-slate-50/30 rounded-xl border border-dashed">
+                      Hakuna picha za duka au ghala zilizowekwa bado (Upeo ni
+                      picha 6).
                     </div>
                   )}
                 </div>
@@ -817,11 +865,11 @@ export default function Profile() {
             </Card>
           </section>
 
-          {/* Save CTA */}
-          <div className="sticky bottom-6">
+          {/* 🟢 FIXED SEALED STICKY BOTTOM SAVE BUTTON CONTROLS */}
+          <div className="sticky bottom-4 pt-4 mt-6 border-t border-slate-100 bg-white/80 backdrop-blur-md pb-2 z-30">
             <Button
               type="submit"
-              className="w-full"
+              className="w-full h-11 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-slate-900/10 transition-colors"
               disabled={
                 uploading ||
                 saving ||
@@ -831,16 +879,14 @@ export default function Profile() {
             >
               {saving ? (
                 <>
-                  <Loader2 className="animate-spin w-4 h-4 mr-2" />
-                  Saving...
-                </>
-              ) : updated ? (
-                <>
-                  <Check className=" w-4 h-4 mr-2" color="green" />
-                  Mabadiliko yamehifadhiwa
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                  Tunahifadhi mabadiliko...
                 </>
               ) : (
-                "Nakili Mabadiliko"
+                <>
+                  <Check className="w-4 h-4 text-orange-400 stroke-[2.5]" />
+                  Hifadhi Wasifu wa Duka (Save Profile)
+                </>
               )}
             </Button>
           </div>
