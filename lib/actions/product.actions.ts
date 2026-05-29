@@ -164,7 +164,7 @@ export async function getProductBySlug(slug: string) {
 // Get single product by it's ID
 export async function getProductById(productId: string) {
   const data = await prisma.product.findFirst({
-    where: { id: productId },
+    where: { slug: productId },
     include: {
       pricingTiers: true,
     },
