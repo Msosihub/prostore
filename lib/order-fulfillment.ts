@@ -67,6 +67,17 @@ export async function fulfillOrder(orderId: string) {
       if (currentProduct.supplierId) {
         const lineItemWholesaleTotal = Number(item.price) * item.qty;
 
+        //This prevents double credit if webhook retries.
+        const existingLedger = await tx.supplierLedger.findUnique({
+          where: {
+            reference: `ESCROW_CREDIT_${orderId}_${item.productId}`,
+          },
+        });
+
+        if (existingLedger) {
+          continue;
+        }
+
         await tx.supplier.update({
           where: { id: currentProduct.supplierId },
           data: {
@@ -75,6 +86,25 @@ export async function fulfillOrder(orderId: string) {
             },
           },
         });
+
+        await tx.supplierLedger.create({
+          data: {
+            supplierId: currentProduct.supplierId,
+            orderId,
+            orderItemId: item.orderId,
+            type: "ESCROW_CREDIT",
+            amount: lineItemWholesaleTotal,
+            status: "COMPLETED",
+            reference: `ESCROW_CREDIT_${orderId}_${item.productId}`,
+            metadata: {
+              productId: item.productId,
+              productName: item.name,
+              qty: item.qty,
+              price: item.price,
+            },
+          },
+        });
+
         console.log(
           `TZS ${lineItemWholesaleTotal} locked in pending escrow wallet balance for Supplier ID: ${currentProduct.supplierId}`
         );

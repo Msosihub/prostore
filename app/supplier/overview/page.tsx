@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Sparkles,
   ArrowUpRight,
+  ShieldCheck,
 } from "lucide-react";
 // import { Order } from "@/types";
 import Charts from "./charts";
@@ -51,7 +52,7 @@ export default async function SupplierOverviewPage() {
       </div>
 
       {/* 🟢 STAGE 1: PROFESSIONAL FINTECH SCORECARDS GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {/* Metric Card 1: Total Sales Revenues */}
         <Card className="shadow-sm border-slate-100 bg-white rounded-2xl overflow-hidden flex flex-col justify-between">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3.5 pb-2">
@@ -69,8 +70,42 @@ export default async function SupplierOverviewPage() {
             </p>
           </CardContent>
         </Card>
+        {/* 2 */}
+        <Card className="shadow-sm border-slate-100 bg-white rounded-2xl overflow-hidden flex flex-col justify-between">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3.5 pb-2">
+            <CardTitle className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Escrow Pending
+            </CardTitle>
+            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+              {formatCurrency(summary.pendingEscrow || 0)}
+            </div>
+            <p className="text-[10px] text-slate-400 pt-0.5">
+              Fedha zinasubiri delivery
+            </p>
+          </CardContent>
+        </Card>
+        {/* 3 */}
+        <Card className="shadow-sm border-slate-100 bg-white rounded-2xl overflow-hidden flex flex-col justify-between">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3.5 pb-2">
+            <CardTitle className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Wallet
+            </CardTitle>
+            <CreditCard className="w-4 h-4 text-emerald-600 shrink-0" />
+          </CardHeader>
+          <CardContent className="p-3.5 pt-0">
+            <div className="text-base sm:text-xl font-black text-slate-900 tracking-tight">
+              {formatCurrency(summary.walletBalance || 0)}
+            </div>
+            <p className="text-[10px] text-slate-400 pt-0.5">
+              Fedha tayari kutolewa
+            </p>
+          </CardContent>
+        </Card>
 
-        {/* Metric Card 2: Total Completed Orders Count */}
+        {/* Metric Card 4: Total Completed Orders Count */}
         <Card className="shadow-sm border-slate-100 bg-white rounded-2xl overflow-hidden flex flex-col justify-between">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3.5 pb-2">
             <CardTitle className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -88,7 +123,7 @@ export default async function SupplierOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Metric Card 3: Unique Customers Count Matrix */}
+        {/* Metric Card 5: Unique Customers Count Matrix */}
         <Card className="shadow-sm border-slate-100 bg-white rounded-2xl overflow-hidden flex flex-col justify-between">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3.5 pb-2">
             <CardTitle className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -106,7 +141,7 @@ export default async function SupplierOverviewPage() {
           </CardContent>
         </Card>
 
-        {/* Metric Card 4: Live Inventory Catalogs Count */}
+        {/* Metric Card 6: Live Inventory Catalogs Count */}
         <Card className="shadow-sm border-slate-100 bg-white rounded-2xl overflow-hidden flex flex-col justify-between">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3.5 pb-2">
             <CardTitle className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">

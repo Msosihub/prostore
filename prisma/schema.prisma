@@ -330,6 +330,21 @@ model Supplier {
   SupplierPolicy    SupplierPolicy[]
 }
 
+model SupplierLedger {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplierId  String  @db.Uuid
+  orderId     String  @db.Uuid
+  orderItemId String? @db.Uuid
+
+  type      String // ESCROW_CREDIT, ESCROW_RELEASE, PAYOUT, REFUND, ADJUSTMENT
+  amount    Decimal @db.Decimal(12, 2)
+  status    String // PENDING, COMPLETED, FAILED
+  reference String? @unique
+  metadata  Json?
+
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+}
+
 model Certification {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   supplierId      String    @db.Uuid

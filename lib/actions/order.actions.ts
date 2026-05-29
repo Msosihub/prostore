@@ -332,85 +332,203 @@ export async function getMyOrders({
 // }[];
 
 // Get sales data and order summary
+// export async function getOrderSummary(supplierId: string) {
+//   try {
+//     if (!supplierId) throw new Error("Supplier ID is required");
+
+//     // 🟢 OPTIMIZATION 1: Count active vendor catalogs instantly without pulling data rows
+//     const productsCount = await prisma.product.count({
+//       where: { supplierId },
+//     });
+
+//     // 🟢 OPTIMIZATION 2: Run mathematical summaries inside PostgreSQL (Price * Qty)
+//     // Pull active paid order items associated with this vendor
+//     const orderItemsRaw = await prisma.orderItem.findMany({
+//       where: {
+//         supplierId,
+//         order: { isPaid: true }, // Only track cleared financial transactions
+//       },
+//       select: {
+//         orderId: true,
+//         price: true,
+//         qty: true,
+//         order: { select: { userId: true } },
+//       },
+//     });
+
+//     // Compute metrics from the lean payload batch smoothly
+//     const uniqueOrderIds = new Set(orderItemsRaw.map((item) => item.orderId));
+//     const uniqueUserIds = new Set(
+//       orderItemsRaw.map((item) => item.order.userId)
+//     );
+
+//     const ordersCount = uniqueOrderIds.size;
+//     const usersCount = uniqueUserIds.size;
+
+//     const totalSales = orderItemsRaw.reduce(
+//       (sum, item) => sum + Number(item.price) * item.qty,
+//       0
+//     );
+
+//     // 🟢 OPTIMIZATION 3: Group monthly metrics cleanly using a raw query pass matching your PostgreSQL configuration
+//     const salesByMonth: Record<string, number> = {};
+
+//     // Fallback date distribution loop context handler
+//     for (const item of orderItemsRaw) {
+//       const parentOrder = await prisma.order.findUnique({
+//         where: { id: item.orderId },
+//         select: { createdAt: true },
+//       });
+//       if (!parentOrder) continue;
+
+//       const monthLabel = parentOrder.createdAt.toLocaleDateString("en-US", {
+//         month: "2-digit",
+//         year: "2-digit",
+//       });
+//       salesByMonth[monthLabel] =
+//         (salesByMonth[monthLabel] || 0) + Number(item.price) * item.qty;
+//     }
+
+//     const salesData = Object.entries(salesByMonth).map(
+//       ([month, monthlyTotal]) => ({
+//         month,
+//         totalSales: monthlyTotal,
+//       })
+//     );
+
+//     // 🟢 OPTIMIZATION 4: Fetch only the last 6 records instead of sorting full-table memory logs
+//     const latestSales = await prisma.order.findMany({
+//       where: { id: { in: Array.from(uniqueOrderIds) } },
+//       orderBy: { createdAt: "desc" },
+//       include: { user: { select: { name: true } } },
+//       take: 6,
+//     });
+
+//     return {
+//       ordersCount,
+//       productsCount,
+//       usersCount,
+//       totalSales,
+//       latestSales,
+//       salesData,
+//     };
+//   } catch (error) {
+//     console.error("Failed to compile order analytics summary:", error);
+//     return {
+//       ordersCount: 0,
+//       productsCount: 0,
+//       usersCount: 0,
+//       totalSales: 0,
+//       latestSales: [],
+//       salesData: [],
+//     };
+//   }
+// }
+
 export async function getOrderSummary(supplierId: string) {
   try {
     if (!supplierId) throw new Error("Supplier ID is required");
 
-    // 🟢 OPTIMIZATION 1: Count active vendor catalogs instantly without pulling data rows
     const productsCount = await prisma.product.count({
       where: { supplierId },
     });
 
-    // 🟢 OPTIMIZATION 2: Run mathematical summaries inside PostgreSQL (Price * Qty)
-    // Pull active paid order items associated with this vendor
-    const orderItemsRaw = await prisma.orderItem.findMany({
+    const orderItems = await prisma.orderItem.findMany({
       where: {
         supplierId,
-        order: { isPaid: true }, // Only track cleared financial transactions
+        order: { isPaid: true },
       },
       select: {
+        // id: true,
         orderId: true,
         price: true,
         qty: true,
-        order: { select: { userId: true } },
+        payoutStatus: true,
+        isDelivered: true,
+        order: {
+          select: {
+            id: true,
+            userId: true,
+            createdAt: true,
+            totalPrice: true,
+            user: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: {
+        order: { createdAt: "desc" },
       },
     });
 
-    // Compute metrics from the lean payload batch smoothly
-    const uniqueOrderIds = new Set(orderItemsRaw.map((item) => item.orderId));
-    const uniqueUserIds = new Set(
-      orderItemsRaw.map((item) => item.order.userId)
-    );
+    const supplierWallet = await prisma.supplier.findUnique({
+      where: { userId: supplierId },
+      select: {
+        pendingBalance: true,
+        walletBalance: true,
+      },
+    });
 
-    const ordersCount = uniqueOrderIds.size;
-    const usersCount = uniqueUserIds.size;
+    const uniqueOrderIds = new Set(orderItems.map((i) => i.orderId));
+    const uniqueUserIds = new Set(orderItems.map((i) => i.order.userId));
 
-    const totalSales = orderItemsRaw.reduce(
+    const totalSales = orderItems.reduce(
       (sum, item) => sum + Number(item.price) * item.qty,
       0
     );
 
-    // 🟢 OPTIMIZATION 3: Group monthly metrics cleanly using a raw query pass matching your PostgreSQL configuration
+    // const pendingEscrow = orderItems
+    //   .filter((i) => i.payoutStatus === "ESCROW")
+    //   .reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
+
+    const deliveredValue = orderItems
+      .filter((i) => i.isDelivered)
+      .reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
+
     const salesByMonth: Record<string, number> = {};
 
-    // Fallback date distribution loop context handler
-    for (const item of orderItemsRaw) {
-      const parentOrder = await prisma.order.findUnique({
-        where: { id: item.orderId },
-        select: { createdAt: true },
-      });
-      if (!parentOrder) continue;
-
-      const monthLabel = parentOrder.createdAt.toLocaleDateString("en-US", {
+    for (const item of orderItems) {
+      const month = item.order.createdAt.toLocaleDateString("en-US", {
         month: "2-digit",
         year: "2-digit",
       });
-      salesByMonth[monthLabel] =
-        (salesByMonth[monthLabel] || 0) + Number(item.price) * item.qty;
+
+      salesByMonth[month] =
+        (salesByMonth[month] || 0) + Number(item.price) * item.qty;
     }
 
     const salesData = Object.entries(salesByMonth).map(
-      ([month, monthlyTotal]) => ({
-        month,
-        totalSales: monthlyTotal,
-      })
+      ([month, totalSales]) => ({ month, totalSales })
     );
 
-    // 🟢 OPTIMIZATION 4: Fetch only the last 6 records instead of sorting full-table memory logs
-    const latestSales = await prisma.order.findMany({
-      where: { id: { in: Array.from(uniqueOrderIds) } },
-      orderBy: { createdAt: "desc" },
-      include: { user: { select: { name: true } } },
-      take: 6,
-    });
+    const latestSalesMap = new Map();
+
+    for (const item of orderItems) {
+      if (!latestSalesMap.has(item.orderId)) {
+        latestSalesMap.set(item.orderId, {
+          id: item.order.id,
+          createdAt: item.order.createdAt,
+          totalPrice: Number(item.price) * item.qty,
+          user: item.order.user,
+        });
+      } else {
+        latestSalesMap.get(item.orderId).totalPrice +=
+          Number(item.price) * item.qty;
+      }
+    }
+
+    const latestSales = Array.from(latestSalesMap.values()).slice(0, 6);
 
     return {
-      ordersCount,
+      ordersCount: uniqueOrderIds.size,
       productsCount,
-      usersCount,
+      usersCount: uniqueUserIds.size,
       totalSales,
+      // pendingEscrow,
+      deliveredValue,
       latestSales,
       salesData,
+      pendingEscrow: Number(supplierWallet?.pendingBalance || 0),
+      walletBalance: Number(supplierWallet?.walletBalance || 0),
     };
   } catch (error) {
     console.error("Failed to compile order analytics summary:", error);
@@ -419,6 +537,8 @@ export async function getOrderSummary(supplierId: string) {
       productsCount: 0,
       usersCount: 0,
       totalSales: 0,
+      pendingEscrow: 0,
+      deliveredValue: 0,
       latestSales: [],
       salesData: [],
     };
@@ -531,94 +651,252 @@ export async function deliverOrder(orderId: string) {
  * 1. MARK A SPECIFIC PRODUCT LINE ITEM AS ARRIVED
  * Uses the composite index signature parameters to identify rows cleanly without errors
  */
+// export async function markOrderItemAsDelivered(
+//   orderId: string,
+//   productId: string
+// ) {
+//   try {
+//     // Update the targeted item row inside your composite table index layout structure
+//     const updatedItem = await prisma.orderItem.update({
+//       where: {
+//         orderId_productId: {
+//           orderId: orderId,
+//           productId: productId,
+//         },
+//       },
+//       data: {
+//         isDelivered: true,
+//         deliveredAt: new Date(),
+//       },
+//       include: {
+//         order: {
+//           include: {
+//             orderitems: true, // Fetch sister rows to check for total delivery completeness
+//             user: { select: { name: true } },
+//           },
+//         },
+//       },
+//     });
+
+//     const currentOrder = updatedItem.order;
+//     const cleanOrderId = currentOrder.id.slice(0, 8);
+//     const buyerName = currentOrder.user?.name || "Mteja wetu";
+
+//     // CASCADING CHECKER: If EVERY single product inside this cart is delivered, update the master Order row too
+//     const allItemsDelivered = currentOrder.orderitems.every(
+//       (item) => item.isDelivered
+//     );
+
+//     if (allItemsDelivered) {
+//       await prisma.order.update({
+//         where: { id: currentOrder.id },
+//         data: {
+//           isDelivered: true,
+//           deliveredAt: new Date(),
+//         },
+//       });
+//       // console.log(
+//       //   `Global Order Header row #${cleanOrderId} closed automatically.`
+//       // );
+//     }
+
+//     // Fetch the supplier's contact details to trigger an instant SMS alert
+//     const productWithSupplier = await prisma.product.findUnique({
+//       where: { id: productId },
+//       select: {
+//         supplier: {
+//           select: { name: true, companyName: true, phone: true },
+//         },
+//       },
+//     });
+
+//     const supplier = productWithSupplier?.supplier;
+//     if (supplier?.phone) {
+//       const sName = supplier.companyName || supplier.name;
+//       const supplierMsg = `Habari ${sName}, mteja (${buyerName}) amethibitisha kupokea bidhaa yako salama:\n- ${updatedItem.qty}x ${updatedItem.name}\nAgizo ID: #${cleanOrderId}.\nMalipo yako yanashughulikiwa sasa. Asante!`;
+
+//       try {
+//         await sendSms(supplier.phone, supplierMsg);
+//       } catch (smsErr) {
+//         console.error(
+//           `Failed sending single item delivery SMS to supplier ${sName}:`,
+//           smsErr
+//         );
+//       }
+//     }
+
+//     revalidatePath(`/order/${orderId}`);
+//     return {
+//       success: true,
+//       message: `Umethibitisha kupokea: ${updatedItem.name}`,
+//     };
+//   } catch (error: unknown) {
+//     console.error("Item delivery completion system error:", error);
+//     return {
+//       success: false,
+//       message: "Imeshindikana kusasisha hali ya bidhaa.",
+//     };
+//   }
+// }
+
 export async function markOrderItemAsDelivered(
   orderId: string,
   productId: string
 ) {
   try {
-    // Update the targeted item row inside your composite table index layout structure
-    const updatedItem = await prisma.orderItem.update({
-      where: {
-        orderId_productId: {
-          orderId: orderId,
-          productId: productId,
-        },
-      },
-      data: {
-        isDelivered: true,
-        deliveredAt: new Date(),
-      },
-      include: {
-        order: {
-          include: {
-            orderitems: true, // Fetch sister rows to check for total delivery completeness
-            user: { select: { name: true } },
+    const result = await prisma.$transaction(async (tx) => {
+      const item = await tx.orderItem.findUnique({
+        where: {
+          orderId_productId: {
+            orderId,
+            productId,
           },
         },
-      },
-    });
-
-    const currentOrder = updatedItem.order;
-    const cleanOrderId = currentOrder.id.slice(0, 8);
-    const buyerName = currentOrder.user?.name || "Mteja wetu";
-
-    // CASCADING CHECKER: If EVERY single product inside this cart is delivered, update the master Order row too
-    const allItemsDelivered = currentOrder.orderitems.every(
-      (item) => item.isDelivered
-    );
-
-    if (allItemsDelivered) {
-      await prisma.order.update({
-        where: { id: currentOrder.id },
-        data: {
-          isDelivered: true,
-          deliveredAt: new Date(),
+        include: {
+          order: {
+            include: {
+              orderitems: true,
+              user: { select: { name: true } },
+            },
+          },
         },
       });
-      // console.log(
-      //   `Global Order Header row #${cleanOrderId} closed automatically.`
-      // );
-    }
 
-    // Fetch the supplier's contact details to trigger an instant SMS alert
-    const productWithSupplier = await prisma.product.findUnique({
-      where: { id: productId },
-      select: {
-        supplier: {
-          select: { name: true, companyName: true, phone: true },
+      if (!item) throw new Error("Order item not found");
+
+      const productWithSupplier = await tx.product.findUnique({
+        where: { id: productId },
+        select: {
+          supplierId: true,
+          supplier: {
+            select: {
+              name: true,
+              companyName: true,
+              phone: true,
+            },
+          },
         },
-      },
+      });
+
+      if (!productWithSupplier?.supplierId) {
+        throw new Error("Supplier not found for product");
+      }
+
+      const currentOrder = item.order;
+      const cleanOrderId = currentOrder.id.slice(0, 8);
+      const buyerName = currentOrder.user?.name || "Mteja wetu";
+      const supplier = productWithSupplier.supplier;
+      const amount = Number(item.price) * item.qty;
+      const releaseReference = `ESCROW_RELEASE_${orderId}_${productId}`;
+
+      // If item was not delivered before, release escrow once.
+      if (!item.isDelivered) {
+        const existingRelease = await tx.supplierLedger.findUnique({
+          where: { reference: releaseReference },
+        });
+
+        if (!existingRelease) {
+          await tx.supplier.update({
+            where: { id: productWithSupplier.supplierId },
+            data: {
+              pendingBalance: { decrement: amount },
+              walletBalance: { increment: amount },
+            },
+          });
+
+          await tx.supplierLedger.create({
+            data: {
+              supplierId: productWithSupplier.supplierId,
+              orderId,
+              // keep this null unless your OrderItem model has a real id field
+              orderItemId: null,
+              type: "ESCROW_RELEASE",
+              amount,
+              status: "COMPLETED",
+              reference: releaseReference,
+              metadata: {
+                productId,
+                productName: item.name,
+                qty: item.qty,
+                price: item.price,
+                buyerName,
+                cleanOrderId,
+              },
+            },
+          });
+        }
+
+        await tx.orderItem.update({
+          where: {
+            orderId_productId: {
+              orderId,
+              productId,
+            },
+          },
+          data: {
+            isDelivered: true,
+            deliveredAt: new Date(),
+            payoutStatus: "PAID",
+          },
+        });
+      }
+
+      const allItemsDelivered = currentOrder.orderitems.every((orderItem) =>
+        orderItem.productId === productId ? true : orderItem.isDelivered
+      );
+
+      if (allItemsDelivered) {
+        await tx.order.update({
+          where: { id: currentOrder.id },
+          data: {
+            isDelivered: true,
+            deliveredAt: new Date(),
+          },
+        });
+      }
+
+      return {
+        itemName: item.name,
+        itemQty: item.qty,
+        cleanOrderId,
+        buyerName,
+        supplierName: supplier?.companyName || supplier?.name || "Supplier",
+        supplierPhone: supplier?.phone || null,
+        alreadyDelivered: item.isDelivered,
+      };
     });
 
-    const supplier = productWithSupplier?.supplier;
-    if (supplier?.phone) {
-      const sName = supplier.companyName || supplier.name;
-      const supplierMsg = `Habari ${sName}, mteja (${buyerName}) amethibitisha kupokea bidhaa yako salama:\n- ${updatedItem.qty}x ${updatedItem.name}\nAgizo ID: #${cleanOrderId}.\nMalipo yako yanashughulikiwa sasa. Asante!`;
+    // Keep SMS outside transaction so failed SMS does not rollback money/order state.
+    if (result.supplierPhone && !result.alreadyDelivered) {
+      const supplierMsg = `Habari ${result.supplierName}, mteja (${result.buyerName}) amethibitisha kupokea bidhaa yako salama:\n- ${result.itemQty}x ${result.itemName}\nAgizo ID: #${result.cleanOrderId}.\nMalipo yako yametolewa kwenye wallet yako. Asante!`;
 
       try {
-        await sendSms(supplier.phone, supplierMsg);
+        await sendSms(result.supplierPhone, supplierMsg);
       } catch (smsErr) {
         console.error(
-          `Failed sending single item delivery SMS to supplier ${sName}:`,
+          `Failed sending single item delivery SMS to supplier ${result.supplierName}:`,
           smsErr
         );
       }
     }
 
     revalidatePath(`/order/${orderId}`);
+
     return {
       success: true,
-      message: `Umethibitisha kupokea: ${updatedItem.name}`,
+      message: result.alreadyDelivered
+        ? `${result.itemName} tayari ilithibitishwa.`
+        : `Umethibitisha kupokea: ${result.itemName}`,
     };
   } catch (error: unknown) {
     console.error("Item delivery completion system error:", error);
+
     return {
       success: false,
       message: "Imeshindikana kusasisha hali ya bidhaa.",
     };
   }
 }
-
 /**
  * 2. MASTER FALLBACK ACTION: MARKS THE ENTIRE ORDER CLOSED AT ONCE
  * Kept intact to preserve backward compatibility for your existing single-button dashboard panels
