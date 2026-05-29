@@ -2,7 +2,6 @@
 
 "use client";
 
-import { User } from "lucide-react";
 
 interface SupplierChatListProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,8 +29,27 @@ export default function SupplierChatList({
         >
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-1.5 font-bold text-slate-800 text-sm">
-              <User className="w-3.5 h-3.5 text-slate-400" />
-              {conv.buyer?.name || "Mteja wa Nimboya"}
+              <div className="relative">
+                {conv.buyer?.image ? (
+                  <img
+                    src={conv.buyer.image}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover border"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
+                    {(conv.buyer?.name || "M")[0].toUpperCase()}
+                  </div>
+                )}
+
+                {conv.unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                  </span>
+                )}
+              </div>
+
+              <span>{conv.buyer?.name || "Mteja wa Nimboya"}</span>
             </div>
             <span className="text-[10px] text-slate-400">
               {conv.messages.length > 0 &&

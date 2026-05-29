@@ -62,7 +62,8 @@ export default function SupplierChatContext({
   const currentProduct = activeChat.Inquiry?.[0]?.product || activeChat.Product;
 
   return (
-    <div className="w-72 border-l border-slate-200 h-full hidden lg:flex flex-col bg-slate-50 overflow-y-auto p-4 space-y-4">
+    // <div className="w-72 border-l border-slate-200 h-full hidden lg:flex flex-col bg-slate-50 overflow-y-auto p-4 space-y-4">
+    <div className="w-80 xl:w-96 border-l border-slate-200 h-full hidden lg:flex flex-col bg-slate-50 overflow-y-auto p-4 space-y-4">
       <div className="bg-white border rounded-xl p-3 shadow-sm space-y-2">
         <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
           <ShoppingBag className="w-3.5 h-3.5" /> Bidhaa Inayojadiliwa

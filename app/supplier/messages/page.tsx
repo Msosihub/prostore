@@ -16,7 +16,7 @@ export default async function SupplierMessagesPage() {
     where: { supplierId: session.user.id },
     include: {
       buyer: {
-        select: { id: true, name: true, email: true },
+        select: { id: true, name: true, email: true, image: true },
       },
       Product: {
         select: {
@@ -47,11 +47,31 @@ export default async function SupplierMessagesPage() {
           },
         },
       },
+      _count: {
+        select: {
+          messages: {
+            where: {
+              seen: false,
+              senderId: {
+                not: session.user.id,
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
 
-  const safeConversations = JSON.parse(JSON.stringify(conversations));
+  //const safeConversations = JSON.parse(JSON.stringify(conversations));
+  const safeConversations = JSON.parse(
+    JSON.stringify(
+      conversations.map((conv) => ({
+        ...conv,
+        unreadCount: conv._count.messages,
+      }))
+    )
+  );
 
   return (
     <div className="fixed inset-0 pt-[80px] bg-slate-50 overflow-hidden z-40">

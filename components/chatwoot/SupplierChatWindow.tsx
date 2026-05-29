@@ -86,9 +86,19 @@ export default function SupplierChatWindow({
     return () => clearInterval(interval);
   }, []);
 
-  const handleSelectChat = (id: string) => {
+  const handleSelectChat = async (id: string) => {
     setActiveId(id);
     setViewMode("chat");
+
+    setConversations((prev) =>
+      prev.map((conv) => (conv.id === id ? { ...conv, unreadCount: 0 } : conv))
+    );
+
+    await fetch("/api/chat/mark-seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: id }),
+    });
   };
 
   return (
