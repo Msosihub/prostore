@@ -65,12 +65,13 @@ export default async function BuyerChatPage() {
 
   const safeConversation = JSON.parse(JSON.stringify(conversations));
   return (
-    // <div className="container mx-auto max-w-6xl h-[calc(100vh-140px)] my-4 px-2 md:px-4">
-    <div className="fixed inset-0 pt-[80px] bg-slate-50 overflow-hidden">
-      <ChatWindow
-        initialConversations={safeConversation}
-        currentUserId={session.user.id || ""}
-      />
+    <div className="fixed inset-0 pt-[80px] bg-slate-50 overflow-hidden z-40">
+      <div className="w-full h-full min-h-0 overflow-hidden">
+        <ChatWindow
+          initialConversations={safeConversation}
+          currentUserId={session.user.id || ""}
+        />
+      </div>
     </div>
   );
 }

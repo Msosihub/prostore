@@ -17,7 +17,7 @@ export default function SupplierChatList({
   onSelectChat,
 }: SupplierChatListProps) {
   return (
-    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+    <div className="flex-1 min-h-0  overflow-y-auto p-2 space-y-1">
       {conversations.map((conv) => (
         <button
           key={conv.id}

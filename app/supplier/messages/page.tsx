@@ -54,12 +54,13 @@ export default async function SupplierMessagesPage() {
   const safeConversations = JSON.parse(JSON.stringify(conversations));
 
   return (
-    // <div className="w-full h-[calc(100vh-120px)] bg-slate-50">
-    <div className="fixed inset-0 pt-[80px] bg-slate-50 overflow-hidden">
-      <SupplierChatWindow
-        initialConversations={safeConversations}
-        supplierUserId={session.user.id || ""}
-      />
+    <div className="fixed inset-0 pt-[80px] bg-slate-50 overflow-hidden z-40">
+      <div className="w-full h-full min-h-0 overflow-hidden">
+        <SupplierChatWindow
+          initialConversations={safeConversations}
+          supplierUserId={session.user.id || ""}
+        />
+      </div>
     </div>
   );
 }

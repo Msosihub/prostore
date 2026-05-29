@@ -230,7 +230,7 @@ export default function ChatWindow({
             </div>
 
             {/* Chat Body Window Grid View Log */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
               {/*  eslint-disable-next-line @typescript-eslint/no-explicit-any */}
               {activeChat.messages.map((msg: any) => {
                 const isMe = msg.senderId === currentUserId;
