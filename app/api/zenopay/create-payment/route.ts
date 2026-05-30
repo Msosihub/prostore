@@ -7,11 +7,24 @@ export async function POST(req: Request) {
   const { orderId } = await req.json();
 
   console.log("ORDER ID SUBMITTED FOR PAYMENT: ", orderId);
+  console.time("Prisma Fetch Order");
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { orderitems: true, user: true },
+    select: {
+      id: true,
+      totalPrice: true,
+      shippingAddress: true,
+      user: {
+        select: {
+          email: true,
+          paymentPhone: true,
+        },
+      },
+    },
   });
+
+  console.timeEnd("Prisma Fetch Order");
 
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -28,6 +41,7 @@ export async function POST(req: Request) {
   );
 
   console.log("payment number: ", paymentPhone);
+  console.log("Webhook url: ", process.env.NEXT_PUBLIC_SERVER_URL);
 
   // 🟢 SOLUTION: Append a dynamic timestamp suffix to bypass Selcom unique constraint blocks
   const uniqueZenopayOrderId = `${order.id}=${Date.now()}`;
@@ -43,17 +57,20 @@ export async function POST(req: Request) {
 
   console.log("Zenopay Payload:", payload);
 
+  console.time("Zenopay API Call");
   const response = await zenopayRequest(
     "/api/payments/mobile_money_tanzania",
     payload
   );
 
+  console.timeEnd("Zenopay API Call");
   if (response.status !== "success") {
     console.error("Zenopay error response:", response);
     return NextResponse.json({ error: response.message }, { status: 400 });
   }
 
   // Save pending state under the core clean order ID
+  console.time("Prisma Update Order");
   await prisma.order.update({
     where: { id: order.id },
     data: {
@@ -66,6 +83,7 @@ export async function POST(req: Request) {
       },
     },
   });
+  console.timeEnd("Prisma Update Order");
 
   return NextResponse.json({
     success: true,
