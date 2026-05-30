@@ -145,7 +145,7 @@ export async function createBuyNowOrder({
     // }
 
     const product = await prisma.product.findUnique({
-      where: { id: productId },
+      where: { slug: productId },
       include: {
         pricingTiers: true,
       },
