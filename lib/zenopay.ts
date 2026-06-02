@@ -24,5 +24,7 @@ export async function zenopayRequest(endpoint: string, body: ZenoBody) {
     throw new Error(data.message || "Zenopay request failed");
   }
 
+  console.log("ZENOPAY RESPONSE DAYA: ", data);
+
   return data;
 }

@@ -2,7 +2,7 @@
 export async function sendSms(to: string, message: string) {
   const username = "BmContractors"; // Put in .env if you prefer
   const apiKey =
-    "atsk_99123f199c2cbacfa14da22fdb190d293d50248ad8753a62e379182f97c4082ed78bc2f3";
+    "atsk_e38f6d677b54c336bc49b1975dad48a767caf646d4c07159234f32f01c11e4497f2ea2f5";
   const senderId = "BM SECURITY";
 
   const url = "https://api.africastalking.com/version1/messaging";
