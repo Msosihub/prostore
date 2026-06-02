@@ -174,7 +174,7 @@ export default async function SupplierProductsPage(props: {
                               ? "text-rose-600 bg-rose-50"
                               : ratingVal <= 3.9
                                 ? "text-slate-600 bg-slate-100"
-                                : "text-amber-700 bg-amber-50"
+                                : "text-amber-700 bg-amber-50",
                           )}
                         >
                           {ratingVal.toFixed(1)}
@@ -191,7 +191,7 @@ export default async function SupplierProductsPage(props: {
                             size="sm"
                             className="h-7 px-2 text-[11px] rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
                           >
-                            <Link href={`/supplier/products/${product.id}`}>
+                            <Link href={`/supplier/products/${product.slug}`}>
                               Badili
                             </Link>
                           </Button>

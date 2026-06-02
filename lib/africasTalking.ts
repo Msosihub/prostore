@@ -2,6 +2,7 @@
 export async function sendSms(to: string, message: string) {
   const username = "BmContractors"; // Put in .env if you prefer
   const apiKey =
+    process.env.AT_API_KEY ||
     "atsk_e38f6d677b54c336bc49b1975dad48a767caf646d4c07159234f32f01c11e4497f2ea2f5";
   const senderId = "BM SECURITY";
 
