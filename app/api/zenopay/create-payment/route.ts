@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   };
 
   const paymentPhone = formatTanzaniaPhonetToStarZero(
-    order.user.paymentPhone || ""
+    order.user.paymentPhone || "",
   );
 
   console.log("payment number: ", paymentPhone);
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   console.time("Zenopay API Call");
   const response = await zenopayRequest(
     "/api/payments/mobile_money_tanzania",
-    payload
+    payload,
   );
 
   console.timeEnd("Zenopay API Call");

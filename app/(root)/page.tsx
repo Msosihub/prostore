@@ -1,5 +1,5 @@
 import HeroCarousel from "@/components/shared/banner/HeroCarousel";
-import ProductList from "@/components/shared/product/product-list";
+// import ProductList from "@/components/shared/product/product-list";
 import ProductCarousel from "@/components/shared/product/product-carousel";
 import {
   getFeaturedProducts,
@@ -13,6 +13,7 @@ import { Metadata } from "next";
 import { APP_NAME } from "@/lib/constants";
 import Link from "next/link";
 import { Banner } from "@/types";
+import NimboyaTrustBlock from "@/components/shared/nimboya-trust-block";
 
 export const revalidate = 120;
 
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const locale: "en" | "sw" = "sw";
+  // const locale: "en" | "sw" = "sw";
 
   let banners: Banner[] = [];
   try {
@@ -88,7 +89,7 @@ export default async function Home() {
       )}
 
       {/* 🟢 LATEST PRODUCT GRID (Removed background card container and strict internal padding bounds) */}
-      <div className="space-y-2">
+      {/* <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-bold md:text-lg text-slate-900 tracking-tight">
             Mizigo Mipya
@@ -109,6 +110,10 @@ export default async function Home() {
           variant="grid"
           notext={true}
         />
+      </div> */}
+
+      <div className="space-y-2">
+        <NimboyaTrustBlock />
       </div>
 
       {/* 🟢 SUPPLIERS SECTION (Removed grey block background layer and container cards) */}

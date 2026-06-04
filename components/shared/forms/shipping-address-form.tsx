@@ -25,7 +25,7 @@ import { useRouter } from "next/navigation";
 
 type ShippingAddressFormProps = {
   address: ShippingAddress;
-  onSuccess?: () => void;
+  onSuccess?: (address: ShippingAddress) => void;
 };
 
 export default function ShippingAddressForm({
@@ -50,7 +50,7 @@ export default function ShippingAddressForm({
   }, [useSamePhone, form]);
 
   const onSubmit: SubmitHandler<z.infer<typeof shippingAddressSchema>> = async (
-    values
+    values,
   ) => {
     startTransition(async () => {
       const res = await updateUserAddress(values);
@@ -61,7 +61,8 @@ export default function ShippingAddressForm({
       }
 
       router.refresh();
-      onSuccess?.();
+
+      onSuccess?.(values as ShippingAddress);
     });
   };
 

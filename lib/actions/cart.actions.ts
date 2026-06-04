@@ -23,7 +23,7 @@ const calcPriceWithTiers = async (items: CartItem[]) => {
 
     if (product && product.pricingTiers && product.pricingTiers.length > 0) {
       const sortedTiers = [...product.pricingTiers].sort(
-        (a, b) => b.minQty - a.minQty
+        (a, b) => b.minQty - a.minQty,
       );
       const matchedTier = sortedTiers.find((tier) => item.qty >= tier.minQty);
 
@@ -101,7 +101,7 @@ export async function addItemToCart(data: CartItem) {
 
         if (product.stock < targetedNewQty) {
           throw new Error(
-            `Mzigo uliopo hautoshi. Kiwango cha juu ni ${product.stock}`
+            `Mzigo uliopo hautoshi. Kiwango cha juu ni ${product.stock}`,
           );
         }
 
@@ -110,10 +110,10 @@ export async function addItemToCart(data: CartItem) {
         // 2. 🟢 CRITICAL PRICE FIX: Update the base item price property to match the new wholesale tier
         if (product.pricingTiers && product.pricingTiers.length > 0) {
           const sortedTiers = [...product.pricingTiers].sort(
-            (a, b) => b.minQty - a.minQty
+            (a, b) => b.minQty - a.minQty,
           );
           const matchedTier = sortedTiers.find(
-            (tier) => existItem.qty >= tier.minQty
+            (tier) => existItem.qty >= tier.minQty,
           );
 
           // Update item configuration value inside the loop so Prisma records matching totals
@@ -183,10 +183,10 @@ export async function removeItemFromCart(productId: string) {
       });
       if (product && product.pricingTiers && product.pricingTiers.length > 0) {
         const sortedTiers = [...product.pricingTiers].sort(
-          (a, b) => b.minQty - a.minQty
+          (a, b) => b.minQty - a.minQty,
         );
         const matchedTier = sortedTiers.find(
-          (tier) => exist.qty >= tier.minQty
+          (tier) => exist.qty >= tier.minQty,
         );
         exist.price = matchedTier
           ? Number(matchedTier.price).toString()

@@ -81,6 +81,7 @@ const PlaceOrderPage = ({
       name: product.name,
       qty,
       image: product.images?.[0] ?? "",
+      status: "PREPARING",
       price: product.price.toString(),
       supplierId: product.supplierId,
       slug: product.slug ?? "",

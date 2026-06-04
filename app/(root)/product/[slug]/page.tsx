@@ -18,6 +18,7 @@ import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import { Metadata, ResolvingMetadata } from "next";
 import { APP_NAME } from "@/lib/constants";
 import ShareButton from "@/components/ShareButton";
+import NimboyaTrustBlock from "@/components/shared/nimboya-trust-block";
 
 export const revalidate = 60;
 
@@ -165,6 +166,8 @@ const ProductDetailsPagez = async (props: {
                 stock={product.stock}
               />
             </div>
+
+            <NimboyaTrustBlock compact />
 
             <div className="space-y-2 border-t border-slate-100 pt-3">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">

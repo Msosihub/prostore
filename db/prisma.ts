@@ -35,6 +35,11 @@ export const prisma = new PrismaClient({
           return product.rating.toString();
         },
       },
+      supplierId: {
+        compute(product) {
+          return product.supplierId;
+        },
+      },
     },
     cart: {
       itemsPrice: {

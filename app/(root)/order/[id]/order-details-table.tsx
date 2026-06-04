@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 
 import { formatCurrency, formatDateTime, formatId } from "@/lib/utils";
 import {
-  Loader2,
   RefreshCw,
   PackageCheck,
   ChevronLeft,
@@ -18,11 +17,11 @@ import {
   Truck,
 } from "lucide-react";
 import PaymentLoadingScreen from "@/components/payment-loading-screen";
-import GeneralReviewDialog from "@/components/shared/dialogs/general-review-dialog";
 import ShippingAddressDrawer from "@/components/shared/forms/ShippingAddressDrawer";
 // import { updateOrderShippingAddress } from "@/lib/actions/order-update.actions";
 import { ShippingAddress } from "@/types";
-import { markOrderItemAsDelivered } from "@/lib/actions/order.actions";
+import OrderItemDeliveryConfirmDialog from "@/components/shared/dialogs/order-item-delivery-dialog";
+import NimboyaTrustBlock from "@/components/shared/nimboya-trust-block";
 
 interface LocalOrderItem {
   name: string;
@@ -36,6 +35,16 @@ interface LocalOrderItem {
   deliveredAt: Date | null;
   supplierId: string | undefined; // Safely accepts null
   supplierName: string | undefined; // Safely accepts null
+  status?:
+    | "PAID"
+    | "PREPARING"
+    | "DISPATCHED"
+    | "DELIVERED"
+    | "REJECTED"
+    | "RETURNED"
+    | "CANCELLED";
+  dispatchNote?: string | null;
+  dispatchedAt?: Date | null;
 }
 
 interface LocalOrder {
@@ -58,9 +67,133 @@ interface LocalOrder {
   };
   orderitems: LocalOrderItem[];
 }
+
 interface OrderDetailsTableProps {
   order: LocalOrder;
 }
+
+function OrderItemTimeline({
+  item,
+  isPaid,
+  paidAt,
+}: {
+  item: LocalOrderItem;
+  isPaid: boolean;
+  paidAt: Date | null;
+}) {
+  const isDispatched = item.status === "DISPATCHED" || !!item.dispatchedAt;
+  const isDelivered = item.isDelivered;
+
+  return (
+    <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 space-y-3">
+      <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+        Safari ya Mzigo
+      </p>
+
+      <div className="space-y-3">
+        <div className="flex gap-3">
+          <div className="w-5 flex flex-col items-center">
+            <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">
+              ✓
+            </span>
+            <span className="flex-1 w-px bg-slate-200 mt-1" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-black text-slate-900">
+              Payment received
+            </p>
+            <p className="text-[11px] text-slate-500">
+              {isPaid && paidAt
+                ? formatDateTime(paidAt).dateTime
+                : "Inasubiri malipo"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <div className="w-5 flex flex-col items-center">
+            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-black">
+              ✓
+            </span>
+            <span className="flex-1 w-px bg-slate-200 mt-1" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-black text-slate-900">
+              Supplier preparing order
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Supplier anaandaa mzigo wako.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <div className="w-5 flex flex-col items-center">
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                isDispatched
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-slate-100 text-slate-400"
+              }`}
+            >
+              {isDispatched ? "✓" : "•"}
+            </span>
+            <span className="flex-1 w-px bg-slate-200 mt-1" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-black text-slate-900">
+              Order dispatched
+            </p>
+            <p className="text-[11px] text-slate-500">
+              {item.dispatchedAt
+                ? formatDateTime(item.dispatchedAt).dateTime
+                : "Bado haijatumwa na supplier"}
+            </p>
+
+            {item.dispatchNote && (
+              <div className="mt-2 rounded-xl border border-amber-100 bg-white p-2">
+                <p className="text-[10px] font-black uppercase text-amber-600">
+                  Tracking / Dispatch Note
+                </p>
+                <p className="mt-1 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {item.dispatchNote}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <div className="w-5 flex flex-col items-center">
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                isDelivered
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-slate-100 text-slate-400"
+              }`}
+            >
+              {isDelivered ? "✓" : "⏳"}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-black text-slate-900">
+              {isDelivered
+                ? "Buyer confirmed delivery"
+                : "Waiting for buyer confirmation"}
+            </p>
+            <p className="text-[11px] text-slate-500">
+              {isDelivered && item.deliveredAt
+                ? formatDateTime(item.deliveredAt).dateTime
+                : "Ukipokea mzigo, bonyeza Nimepokea Bidhaa Hii."}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
   const {
     id,
@@ -74,13 +207,18 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
     deliveredAt,
   } = order;
 
-  const shippingAddress = order.shippingAddress as ShippingAddress;
+  const [shippingAddress, setShippingAddress] = useState(
+    order.shippingAddress as ShippingAddress,
+  );
 
   const [paymentStage, setPaymentStage] = useState<
     "idle" | "creating" | "push_sent" | "completed"
   >("idle");
-  const [showGeneralReview, setShowGeneralReview] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [deliveryDialogItem, setDeliveryDialogItem] = useState<{
+    orderId: string;
+    productId: string;
+    itemName: string;
+  } | null>(null);
 
   const handleReinitializePayment = async () => {
     try {
@@ -129,40 +267,21 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
 
   const shipmentPackages = groupItemsBySupplier(orderitems);
 
-  const handleItemReceiptConfirmation = (
-    orderId: string,
-    productId: string,
-    itemName: string
-  ) => {
-    if (!confirm(`Je, una uhakika umepokea "${itemName}" salama?`)) return;
-
-    startTransition(async () => {
-      // 🟢 FIXED CALL: Pass both composite identifiers to target the exact row securely
-      const res = await markOrderItemAsDelivered(orderId, productId);
-
-      if (res.success) {
-        // Count how many items remain undelivered to trigger the final feedback modal
-        const remainingOpenItems = orderitems.filter(
-          (i: LocalOrderItem) => !i.isDelivered
-        ).length;
-        if (remainingOpenItems <= 1) {
-          setShowGeneralReview(true);
-        }
-        alert(res.message);
-      } else {
-        alert(res.message);
-      }
-    });
-  };
-
   return (
     <>
       {paymentStage !== "idle" && <PaymentLoadingScreen stage={paymentStage} />}
 
-      <GeneralReviewDialog
-        open={showGeneralReview}
-        onOpenChange={setShowGeneralReview}
-        orderId={id}
+      <OrderItemDeliveryConfirmDialog
+        open={!!deliveryDialogItem}
+        onOpenChange={(open) => {
+          if (!open) setDeliveryDialogItem(null);
+        }}
+        orderId={deliveryDialogItem?.orderId || ""}
+        productId={deliveryDialogItem?.productId || ""}
+        itemName={deliveryDialogItem?.itemName || ""}
+        onSuccess={() => {
+          setDeliveryDialogItem(null);
+        }}
       />
 
       <div className="pb-28 md:pb-12 max-w-5xl mx-auto px-2 md:px-4 space-y-4">
@@ -201,6 +320,7 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                       }
                       address={shippingAddress}
                       openByDefault={false}
+                      onSaved={(newAddress) => setShippingAddress(newAddress)}
                     />
                   )}
                 </div>
@@ -250,6 +370,7 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                       }
                       address={shippingAddress}
                       openByDefault={false}
+                      onSaved={(newAddress) => setShippingAddress(newAddress)}
                     />
                   )}
                 </div>
@@ -281,6 +402,8 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
               </CardContent>
             </Card>
 
+            <NimboyaTrustBlock />
+
             {/* 🟢 MULTI-VENDOR SPLIT SHIPMENT CART ROW LISTS CONTAINER */}
             <div className="space-y-3 pt-1">
               {shipmentPackages.map((pkg, pIdx) => (
@@ -309,74 +432,78 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                     {pkg.list.map((item: LocalOrderItem) => (
                       <div
                         key={`${item.orderId}-${item.productId}`}
-                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white"
+                        className="p-3.5 bg-white space-y-3"
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 shrink-0">
-                            <Image
-                              src={item.image}
-                              alt={item.name}
-                              fill
-                              className="object-cover"
-                            />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-50 border border-slate-100 shrink-0">
+                              <Image
+                                src={item.image}
+                                alt={item.name}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+
+                            <div className="min-w-0">
+                              <Link
+                                href={`/product/${item.slug}`}
+                                className="text-xs font-bold text-slate-800 hover:text-orange-600 hover:underline transition-colors line-clamp-1"
+                              >
+                                {item.name}
+                              </Link>
+
+                              <p className="text-[11px] text-slate-400 font-medium pt-0.5">
+                                Idadi:{" "}
+                                <span className="font-bold text-slate-600">
+                                  {item.qty}
+                                </span>{" "}
+                                • Thamani:{" "}
+                                {formatCurrency(Number(item.price) * item.qty)}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <Link
-                              href={`/product/${item.slug}`}
-                              className="text-xs font-bold text-slate-800 hover:text-orange-600 hover:underline transition-colors line-clamp-1"
-                            >
-                              {item.name}
-                            </Link>
-                            <p className="text-[11px] text-slate-400 font-medium pt-0.5">
-                              Idadi:{" "}
-                              <span className="font-bold text-slate-600">
-                                {item.qty}
-                              </span>{" "}
-                              • Thamani:{" "}
-                              {formatCurrency(Number(item.price) * item.qty)}
-                            </p>
+
+                          <div className="flex items-center sm:justify-end shrink-0 pt-2 sm:pt-0 border-t border-dashed border-slate-50 sm:border-0 w-full sm:w-auto">
+                            {item.isDelivered ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 select-none">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                Umekwisha Pokea Hii
+                              </span>
+                            ) : (
+                              <div className="w-full sm:w-auto">
+                                {isPaid ? (
+                                  <Button
+                                    size="sm"
+                                    disabled={!!deliveryDialogItem}
+                                    onClick={() =>
+                                      setDeliveryDialogItem({
+                                        orderId: id,
+                                        productId: item.productId,
+                                        itemName: item.name,
+                                      })
+                                    }
+                                    className="h-8 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl px-3 flex items-center justify-center gap-1 shadow-sm w-full sm:w-auto"
+                                  >
+                                    <PackageCheck className="w-3.5 h-3.5" />
+                                    Nimepokea Bidhaa Hii
+                                  </Button>
+                                ) : (
+                                  <span className="text-[10px] font-medium text-slate-400 italic flex items-center gap-1 px-1">
+                                    <Truck className="w-3.5 h-3.5 text-slate-300 animate-pulse" />{" "}
+                                    Inasubiri Malipo
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        {/* Item actions handler controller cell */}
-                        <div className="flex items-center sm:justify-end shrink-0 pt-2 sm:pt-0 border-t border-dashed border-slate-50 sm:border-0 w-full sm:w-auto">
-                          {item.isDelivered ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 select-none">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              Umekwisha Pokea Hii
-                            </span>
-                          ) : (
-                            <div className="w-full sm:w-auto">
-                              {isPaid ? (
-                                <Button
-                                  size="sm"
-                                  disabled={isPending}
-                                  // 🟢 PASS BOTH: orderId and productId inside our loop parameters accurately
-                                  onClick={() =>
-                                    handleItemReceiptConfirmation(
-                                      id,
-                                      item.productId,
-                                      item.name
-                                    )
-                                  }
-                                  className="h-8 text-[11px] font-bold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl px-3 flex items-center justify-center gap-1 shadow-sm w-full sm:w-auto"
-                                >
-                                  {isPending ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <PackageCheck className="w-3.5 h-3.5" />
-                                  )}
-                                  Nimepokea Bidhaa Hii
-                                </Button>
-                              ) : (
-                                <span className="text-[10px] font-medium text-slate-400 italic flex items-center gap-1 px-1">
-                                  <Truck className="w-3.5 h-3.5 text-slate-300 animate-pulse" />{" "}
-                                  Inasubiri Malipo
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <OrderItemTimeline
+                          item={item}
+                          isPaid={isPaid}
+                          paidAt={paidAt}
+                        />
                       </div>
                     ))}
                   </CardContent>

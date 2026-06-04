@@ -3,7 +3,6 @@
 import {
   BarChart,
   Bar,
-  Cell,
   XAxis,
   YAxis,
   ResponsiveContainer,
@@ -29,12 +28,6 @@ export default function Charts({ data: { salesData } }: ChartsProps) {
     if (value >= 1000) return `${(value / 1000).toFixed(0)}K TZS`;
     return `${value} TZS`;
   };
-
-  // Dynamically calculate current calendar month in identical "MM/YY" format
-  const currentMonthStr = new Date().toLocaleDateString("en-US", {
-    month: "2-digit",
-    year: "2-digit",
-  });
 
   return (
     <div className="w-full h-[320px] pt-2 select-none">
@@ -79,15 +72,12 @@ export default function Charts({ data: { salesData } }: ChartsProps) {
             }}
           />
 
-          {/* Iterates cells explicitly to assign professional dark slate #0f172a accent color on current months */}
-          <Bar dataKey="totalSales" radius={[6, 6, 0, 0]} maxBarSize={45}>
-            {salesData.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={entry.month === currentMonthStr ? "#0d9488" : "#ea580c"}
-              />
-            ))}
-          </Bar>
+          <Bar
+            dataKey="totalSales"
+            fill="#ea580c" // Stable dynamic brand corporate Orange Hex code color profile
+            radius={[6, 6, 0, 0]}
+            maxBarSize={45}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

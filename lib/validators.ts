@@ -32,7 +32,7 @@ const currency = z
   .string()
   .refine(
     (value) => /^\d+(\.\d{2})?$/.test(formatNumberWithDecimal(Number(value))),
-    "price need 2 decimal places"
+    "price need 2 decimal places",
   );
 // .transform((val) => new Decimal(val));
 
@@ -112,7 +112,7 @@ export const resetPasswordSSchema = z
     {
       message: "Namba ya simu sio sahihi",
       path: ["phone"],
-    }
+    },
   );
 // Schema for signing up a user
 export const signUpFormSchema = z
@@ -144,6 +144,7 @@ export const cartItemSchema = z.object({
   qty: z.number().int().nonnegative("quantity lazima iwe namba chanya"),
   image: z.string().min(1, "image inahitajika"),
   supplierId: z.string().optional(),
+  status: z.string().optional(),
   supplierName: z.string().optional(),
   price: currency,
   priceTiers: z.array(pricingTierSchema).default([]),
@@ -319,7 +320,7 @@ export const supplierProfileFormSchema = z.object({
       open: z.string().optional(),
       close: z.string().optional(),
       closed: z.boolean().default(false),
-    })
+    }),
   ),
 
   // Dynamic Text Arrays
@@ -328,7 +329,7 @@ export const supplierProfileFormSchema = z.object({
       id: z.string().optional(),
       type: z.string().min(1, "Sera ya nini?"),
       content: z.string().min(1, "Maelezo ya sera yanahitajika"),
-    })
+    }),
   ),
 
   // Media Array URLs

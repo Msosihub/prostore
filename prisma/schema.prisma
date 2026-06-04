@@ -137,7 +137,71 @@ model OrderItem {
   order        Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product      Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  status               OrderItemStatus @default(PREPARING)
+  dispatchNote         String?
+  dispatchedAt         DateTime?       @db.Timestamp(6)
+  buyerDeliveryComment String?
+  buyerDeliveryRating  Int?
+  rejectedAt           DateTime?       @db.Timestamp(6)
+  rejectionReason      String?
+
   @@id([orderId, productId], map: "orderitems_orderId_productId_pk")
+}
+
+enum OrderItemStatus {
+  PAID
+  PREPARING
+  DISPATCHED
+  DELIVERED
+  REJECTED
+  RETURNED
+  CANCELLED
+}
+
+enum ReturnRequestStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+model OrderItemEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId   String   @db.Uuid
+  productId String   @db.Uuid
+  actorId   String?  @db.Uuid
+  type      String
+  note      String?
+  metadata  Json?
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+}
+
+model OrderDeliveryFeedback {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId    String   @db.Uuid
+  productId  String   @db.Uuid
+  buyerId    String   @db.Uuid
+  supplierId String   @db.Uuid
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now()) @db.Timestamp(6)
+
+  @@unique([orderId, productId])
+}
+
+model ReturnRequest {
+  id         String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId    String              @db.Uuid
+  productId  String              @db.Uuid
+  buyerId    String              @db.Uuid
+  supplierId String              @db.Uuid
+  reason     String
+  status     ReturnRequestStatus @default(REQUESTED)
+  adminNote  String?
+  createdAt  DateTime            @default(now()) @db.Timestamp(6)
+  updatedAt  DateTime            @updatedAt
+
+  @@unique([orderId, productId])
 }
 
 model Review {

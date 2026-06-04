@@ -29,14 +29,14 @@ export async function fulfillOrder(orderId: string) {
 
       if (!currentProduct) {
         throw new Error(
-          `Bidhaa ${item.name} haikupatikana wakati wa kukamilisha agizo.`
+          `Bidhaa ${item.name} haikupatikana wakati wa kukamilisha agizo.`,
         );
       }
 
       // Strict race condition stock checker guard
       if (currentProduct.stock < item.qty) {
         throw new Error(
-          `Mzigo wa "${currentProduct.name}" hautoshi kukamilisha agizo hili. Unaomba: ${item.qty}, Zilizopo: ${currentProduct.stock}`
+          `Mzigo wa "${currentProduct.name}" hautoshi kukamilisha agizo hili. Unaomba: ${item.qty}, Zilizopo: ${currentProduct.stock}`,
         );
       }
 
@@ -59,6 +59,7 @@ export async function fulfillOrder(orderId: string) {
           },
         },
         data: {
+          status: "PAID",
           payoutStatus: "ESCROW",
         },
       });
@@ -106,7 +107,7 @@ export async function fulfillOrder(orderId: string) {
         });
 
         console.log(
-          `TZS ${lineItemWholesaleTotal} locked in pending escrow wallet balance for Supplier ID: ${currentProduct.supplierId}`
+          `TZS ${lineItemWholesaleTotal} locked in pending escrow wallet balance for Supplier ID: ${currentProduct.supplierId}`,
         );
       }
     }
@@ -176,7 +177,7 @@ export async function fulfillOrder(orderId: string) {
       } catch (smsErr) {
         console.error(
           `Failed sending fulfillment alert SMS to supplier ${group.name}:`,
-          smsErr
+          smsErr,
         );
       }
     }

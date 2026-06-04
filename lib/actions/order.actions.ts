@@ -77,6 +77,8 @@ export async function createOrder() {
           data: {
             ...orderItemData,
             price: item.price,
+            status: "PREPARING",
+            supplierId: item?.supplierId,
             orderId: insertedOrder.id,
             slug: item.slug || "",
           },
@@ -157,6 +159,7 @@ export async function createBuyNowOrder({
 
     const item: CartItem & { qty: number } = {
       productId: product.id,
+      supplierId: product.supplierId,
       name: product.name,
       image: product.images?.[0] ?? "",
       price: product.price.toString(),
@@ -170,6 +173,7 @@ export async function createBuyNowOrder({
         : [],
     };
 
+    console.log("CREATED BUY ITEAM: ", item);
     const cartLike = {
       items: [item],
       itemsPrice: (Number(product.price) * qty).toString(),
@@ -197,6 +201,7 @@ export async function createBuyNowOrder({
             name: it.name,
             image: it.image,
             price: it.price,
+            supplierId: it.supplierId,
             qty: it.qty,
             orderId: insertedOrder.id,
             slug: it.slug || "",
@@ -429,13 +434,24 @@ export async function getOrderSummary(supplierId: string) {
   try {
     if (!supplierId) throw new Error("Supplier ID is required");
 
+    const supplierWallet = await prisma.supplier.findUnique({
+      where: { userId: supplierId },
+      select: {
+        id: true,
+        pendingBalance: true,
+        walletBalance: true,
+      },
+    });
+
+    const supplierIdid = supplierWallet?.id;
+
     const productsCount = await prisma.product.count({
-      where: { supplierId },
+      where: { supplierId: supplierIdid },
     });
 
     const orderItems = await prisma.orderItem.findMany({
       where: {
-        supplierId,
+        supplierId: supplierIdid,
         order: { isPaid: true },
       },
       select: {
@@ -460,20 +476,16 @@ export async function getOrderSummary(supplierId: string) {
       },
     });
 
-    const supplierWallet = await prisma.supplier.findUnique({
-      where: { userId: supplierId },
-      select: {
-        pendingBalance: true,
-        walletBalance: true,
-      },
-    });
+    //console.log("Order Items: ", orderItems);
 
     const uniqueOrderIds = new Set(orderItems.map((i) => i.orderId));
     const uniqueUserIds = new Set(orderItems.map((i) => i.order.userId));
 
+    //console.log("uniqueOrderIds: ", uniqueOrderIds);
+
     const totalSales = orderItems.reduce(
       (sum, item) => sum + Number(item.price) * item.qty,
-      0
+      0,
     );
 
     // const pendingEscrow = orderItems
@@ -484,6 +496,7 @@ export async function getOrderSummary(supplierId: string) {
       .filter((i) => i.isDelivered)
       .reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
 
+    //START: GRAPH YA MAUZO YA MWEZI
     const salesByMonth: Record<string, number> = {};
 
     for (const item of orderItems) {
@@ -497,7 +510,7 @@ export async function getOrderSummary(supplierId: string) {
     }
 
     const salesData = Object.entries(salesByMonth).map(
-      ([month, totalSales]) => ({ month, totalSales })
+      ([month, totalSales]) => ({ month, totalSales }),
     );
 
     const latestSalesMap = new Map();
@@ -516,17 +529,88 @@ export async function getOrderSummary(supplierId: string) {
       }
     }
 
+    //END: GRAPH YA MAUZO YA MWEZI
+    //START: GRAPH YA MAUZO YA SIKU
+
+    // 1. Group raw data points by local calendar days
+    const salesByDay: Record<string, number> = {};
+
+    for (const item of orderItems) {
+      const day = item.order.createdAt.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "2-digit",
+      });
+
+      salesByDay[day] = (salesByDay[day] || 0) + Number(item.price) * item.qty;
+    }
+
+    // 2. Format into an array and strictly sort chronologically (Oldest -> Newest)
+    const salesByDayData = Object.entries(salesByDay)
+      .map(([day, totalSales]) => ({ day, totalSales }))
+      .sort((a, b) => {
+        // Explicitly split MM/DD/YY to guarantee robust cross-platform parsing
+        const [monthA, dayA, yearA] = a.day.split("/").map(Number);
+        const [monthB, dayB, yearB] = b.day.split("/").map(Number);
+
+        // Add century prefix to 2-digit years (e.g., 26 -> 2026)
+        const dateA = new Date(2000 + yearA, monthA - 1, dayA).getTime();
+        const dateB = new Date(2000 + yearB, monthB - 1, dayB).getTime();
+
+        return dateA - dateB;
+      });
+
+    //END: GRAPH YA MAUZO YA SIKU
+
+    const rejectedOrdersCount = await prisma.orderItem.count({
+      where: {
+        supplierId: supplierIdid,
+        status: { in: ["REJECTED", "RETURNED"] },
+      },
+    });
+
+    const dispatchedCount = await prisma.orderItem.count({
+      where: {
+        supplierId: supplierIdid,
+        status: "DISPATCHED",
+        isDelivered: false,
+      },
+    });
+
+    const awaitingDispatchCount = await prisma.orderItem.count({
+      where: {
+        supplierId: supplierIdid,
+        status: "PREPARING",
+        isDelivered: false,
+        order: { isPaid: true },
+      },
+    });
+
+    const awaitingConfirmationCount = await prisma.orderItem.count({
+      where: {
+        supplierId: supplierIdid,
+        status: "DISPATCHED",
+        isDelivered: false,
+        order: { isPaid: true },
+      },
+    });
+
     const latestSales = Array.from(latestSalesMap.values()).slice(0, 6);
 
     return {
       ordersCount: uniqueOrderIds.size,
       productsCount,
+      rejectedOrdersCount,
+      dispatchedCount,
+      awaitingDispatchCount,
+      awaitingConfirmationCount,
       usersCount: uniqueUserIds.size,
       totalSales,
       // pendingEscrow,
       deliveredValue,
       latestSales,
       salesData,
+      salesByDayData,
       pendingEscrow: Number(supplierWallet?.pendingBalance || 0),
       walletBalance: Number(supplierWallet?.walletBalance || 0),
     };
@@ -535,12 +619,17 @@ export async function getOrderSummary(supplierId: string) {
     return {
       ordersCount: 0,
       productsCount: 0,
+      rejectedOrdersCount: 0,
+      dispatchedCount: 0,
+      awaitingDispatchCount: 0,
+      awaitingConfirmationCount: 0,
       usersCount: 0,
       totalSales: 0,
       pendingEscrow: 0,
       deliveredValue: 0,
       latestSales: [],
       salesData: [],
+      salesByDayData: [],
     };
   }
 }
@@ -741,130 +830,137 @@ export async function deliverOrder(orderId: string) {
 
 export async function markOrderItemAsDelivered(
   orderId: string,
-  productId: string
+  productId: string,
 ) {
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const item = await tx.orderItem.findUnique({
-        where: {
-          orderId_productId: {
-            orderId,
-            productId,
-          },
-        },
-        include: {
-          order: {
-            include: {
-              orderitems: true,
-              user: { select: { name: true } },
-            },
-          },
-        },
-      });
-
-      if (!item) throw new Error("Order item not found");
-
-      const productWithSupplier = await tx.product.findUnique({
-        where: { id: productId },
-        select: {
-          supplierId: true,
-          supplier: {
-            select: {
-              name: true,
-              companyName: true,
-              phone: true,
-            },
-          },
-        },
-      });
-
-      if (!productWithSupplier?.supplierId) {
-        throw new Error("Supplier not found for product");
-      }
-
-      const currentOrder = item.order;
-      const cleanOrderId = currentOrder.id.slice(0, 8);
-      const buyerName = currentOrder.user?.name || "Mteja wetu";
-      const supplier = productWithSupplier.supplier;
-      const amount = Number(item.price) * item.qty;
-      const releaseReference = `ESCROW_RELEASE_${orderId}_${productId}`;
-
-      // If item was not delivered before, release escrow once.
-      if (!item.isDelivered) {
-        const existingRelease = await tx.supplierLedger.findUnique({
-          where: { reference: releaseReference },
-        });
-
-        if (!existingRelease) {
-          await tx.supplier.update({
-            where: { id: productWithSupplier.supplierId },
-            data: {
-              pendingBalance: { decrement: amount },
-              walletBalance: { increment: amount },
-            },
-          });
-
-          await tx.supplierLedger.create({
-            data: {
-              supplierId: productWithSupplier.supplierId,
-              orderId,
-              // keep this null unless your OrderItem model has a real id field
-              orderItemId: null,
-              type: "ESCROW_RELEASE",
-              amount,
-              status: "COMPLETED",
-              reference: releaseReference,
-              metadata: {
-                productId,
-                productName: item.name,
-                qty: item.qty,
-                price: item.price,
-                buyerName,
-                cleanOrderId,
-              },
-            },
-          });
-        }
-
-        await tx.orderItem.update({
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const item = await tx.orderItem.findUnique({
           where: {
             orderId_productId: {
               orderId,
               productId,
             },
           },
-          data: {
-            isDelivered: true,
-            deliveredAt: new Date(),
-            payoutStatus: "PAID",
+          include: {
+            order: {
+              include: {
+                orderitems: true,
+                user: { select: { name: true } },
+              },
+            },
           },
         });
-      }
 
-      const allItemsDelivered = currentOrder.orderitems.every((orderItem) =>
-        orderItem.productId === productId ? true : orderItem.isDelivered
-      );
+        if (!item) throw new Error("Order item not found");
 
-      if (allItemsDelivered) {
-        await tx.order.update({
-          where: { id: currentOrder.id },
-          data: {
-            isDelivered: true,
-            deliveredAt: new Date(),
+        const productWithSupplier = await tx.product.findUnique({
+          where: { id: productId },
+          select: {
+            supplierId: true,
+            supplier: {
+              select: {
+                name: true,
+                companyName: true,
+                phone: true,
+              },
+            },
           },
         });
-      }
 
-      return {
-        itemName: item.name,
-        itemQty: item.qty,
-        cleanOrderId,
-        buyerName,
-        supplierName: supplier?.companyName || supplier?.name || "Supplier",
-        supplierPhone: supplier?.phone || null,
-        alreadyDelivered: item.isDelivered,
-      };
-    });
+        if (!productWithSupplier?.supplierId) {
+          throw new Error("Supplier not found for product");
+        }
+
+        const currentOrder = item.order;
+        const cleanOrderId = currentOrder.id.slice(0, 8);
+        const buyerName = currentOrder.user?.name || "Mteja wetu";
+        const supplier = productWithSupplier.supplier;
+        const amount = Number(item.price) * item.qty;
+        const releaseReference = `ESCROW_RELEASE_${orderId}_${productId}`;
+
+        // If item was not delivered before, release escrow once.
+        if (!item.isDelivered) {
+          const existingRelease = await tx.supplierLedger.findUnique({
+            where: { reference: releaseReference },
+          });
+
+          if (!existingRelease) {
+            await tx.supplier.update({
+              where: { id: productWithSupplier.supplierId },
+              data: {
+                pendingBalance: { decrement: amount },
+                walletBalance: { increment: amount },
+              },
+            });
+
+            await tx.supplierLedger.create({
+              data: {
+                supplierId: productWithSupplier.supplierId,
+                orderId,
+                // keep this null unless your OrderItem model has a real id field
+                orderItemId: null,
+                type: "ESCROW_RELEASE",
+                amount,
+                status: "COMPLETED",
+                reference: releaseReference,
+                metadata: {
+                  productId,
+                  productName: item.name,
+                  qty: item.qty,
+                  price: item.price,
+                  buyerName,
+                  cleanOrderId,
+                },
+              },
+            });
+          }
+
+          await tx.orderItem.update({
+            where: {
+              orderId_productId: {
+                orderId,
+                productId,
+              },
+            },
+            data: {
+              isDelivered: true,
+              deliveredAt: new Date(),
+              payoutStatus: "PAID",
+              status: "DELIVERED",
+            },
+          });
+        }
+
+        const allItemsDelivered = currentOrder.orderitems.every((orderItem) =>
+          orderItem.productId === productId ? true : orderItem.isDelivered,
+        );
+
+        if (allItemsDelivered) {
+          await tx.order.update({
+            where: { id: currentOrder.id },
+            data: {
+              isDelivered: true,
+              deliveredAt: new Date(),
+            },
+          });
+        }
+
+        return {
+          itemName: item.name,
+          itemQty: item.qty,
+          cleanOrderId,
+          buyerName,
+          supplierName: supplier?.companyName || supplier?.name || "Supplier",
+          supplierPhone: supplier?.phone || null,
+          alreadyDelivered: item.isDelivered,
+        };
+      },
+      {
+        timeout: 15000,
+        maxWait: 10000,
+      },
+    );
 
     // Keep SMS outside transaction so failed SMS does not rollback money/order state.
     if (result.supplierPhone && !result.alreadyDelivered) {
@@ -875,7 +971,7 @@ export async function markOrderItemAsDelivered(
       } catch (smsErr) {
         console.error(
           `Failed sending single item delivery SMS to supplier ${result.supplierName}:`,
-          smsErr
+          smsErr,
         );
       }
     }
@@ -952,6 +1048,90 @@ export async function markOrderAsDelivered(orderId: string) {
 }
 
 //for suppliers page
+// export async function getSupplierOrderItems({
+//   supplierId,
+//   page = 1,
+//   limit = 10,
+//   query = "",
+// }: {
+//   supplierId: string;
+//   page?: number;
+//   limit?: number;
+//   query?: string;
+// }) {
+//   try {
+//     const skip = (page - 1) * limit;
+
+//     // Filter by buyer name or order tracking ID securely
+//     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+//     const whereClause: any = {
+//       supplierId,
+//       order: {
+//         isPaid: true, // Only show cleared paid items on the vendor dashboard
+//         OR: [
+//           { id: query ? { contains: query, mode: "insensitive" } : undefined },
+//           {
+//             user: {
+//               name: query
+//                 ? { contains: query, mode: "insensitive" }
+//                 : undefined,
+//             },
+//           },
+//         ].filter(Boolean),
+//       },
+//     };
+
+//     const data = await prisma.orderItem.findMany({
+//       where: whereClause,
+//       select: {
+//         orderId: true,
+//         productId: true,
+//         qty: true,
+//         price: true,
+//         name: true,
+//         image: true,
+//         slug: true,
+//         supplierId: true,
+//         isDelivered: true,
+//         deliveredAt: true,
+//         payoutStatus: true,
+//         status: true,
+//         dispatchedAt: true,
+//         dispatchNote: true,
+//         buyerDeliveryComment: true,
+//         buyerDeliveryRating: true,
+//         rejectedAt: true,
+//         rejectionReason: true,
+//         order: {
+//           include: {
+//             user: {
+//               select: {
+//                 id: true,
+//                 name: true,
+//                 phone: true,
+//                 paymentPhone: true,
+//               },
+//             },
+//           },
+//         },
+//       },
+//       orderBy: { order: { createdAt: "desc" } },
+//       take: limit,
+//       skip,
+//     });
+
+//     const totalCount = await prisma.orderItem.count({ where: whereClause });
+
+//     return {
+//       data,
+//       totalPages: Math.ceil(totalCount / limit),
+//     };
+//   } catch (error) {
+//     console.error("Failed to query supplier split items:", error);
+//     return { data: [], totalPages: 0 };
+//   }
+// }
+
 export async function getSupplierOrderItems({
   supplierId,
   page = 1,
@@ -966,45 +1146,416 @@ export async function getSupplierOrderItems({
   try {
     const skip = (page - 1) * limit;
 
-    // Filter by buyer name or order tracking ID securely
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const whereClause: any = {
+    const whereClause = {
       supplierId,
       order: {
-        isPaid: true, // Only show cleared paid items on the vendor dashboard
-        OR: [
-          { id: query ? { contains: query, mode: "insensitive" } : undefined },
-          {
-            user: {
-              name: query
-                ? { contains: query, mode: "insensitive" }
-                : undefined,
-            },
-          },
-        ].filter(Boolean),
+        isPaid: true,
+        ...(query
+          ? {
+              OR: [
+                { id: { contains: query, mode: "insensitive" as const } },
+                {
+                  user: {
+                    name: { contains: query, mode: "insensitive" as const },
+                  },
+                },
+              ],
+            }
+          : {}),
       },
     };
 
-    const data = await prisma.orderItem.findMany({
-      where: whereClause,
-      include: {
-        order: {
-          include: { user: { select: { name: true } } },
+    const [data, totalCount, stats] = await prisma.$transaction([
+      prisma.orderItem.findMany({
+        where: whereClause,
+        select: {
+          orderId: true,
+          productId: true,
+          qty: true,
+          price: true,
+          name: true,
+          image: true,
+          slug: true,
+          supplierId: true,
+          isDelivered: true,
+          deliveredAt: true,
+          payoutStatus: true,
+          status: true,
+          dispatchedAt: true,
+          dispatchNote: true,
+          buyerDeliveryComment: true,
+          buyerDeliveryRating: true,
+          rejectedAt: true,
+          rejectionReason: true,
+          order: {
+            select: {
+              id: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  phone: true,
+                  paymentPhone: true,
+                },
+              },
+            },
+          },
         },
-      },
-      orderBy: { order: { createdAt: "desc" } },
-      take: limit,
-      skip,
-    });
+        orderBy: { order: { createdAt: "desc" } },
+        take: limit,
+        skip,
+      }),
 
-    const totalCount = await prisma.orderItem.count({ where: whereClause });
+      prisma.orderItem.count({ where: whereClause }),
+
+      prisma.orderItem.groupBy({
+        by: ["status"],
+        where: {
+          supplierId,
+          order: { isPaid: true },
+        },
+        _count: { status: true },
+      }),
+    ]);
+
+    const statusCounts = stats.reduce(
+      (acc, item) => {
+        acc[item.status] = item._count.status;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       data,
       totalPages: Math.ceil(totalCount / limit),
+      statusCounts,
+      totalCount,
     };
   } catch (error) {
     console.error("Failed to query supplier split items:", error);
-    return { data: [], totalPages: 0 };
+    return { data: [], totalPages: 0, statusCounts: {}, totalCount: 0 };
+  }
+}
+
+// export async function confirmOrderItemDeliveryWithFeedback({
+//   orderId,
+//   productId,
+//   rating,
+//   comment,
+// }: {
+//   orderId: string;
+//   productId: string;
+//   rating: number;
+//   comment?: string;
+// }) {
+//   try {
+//     const session = await auth();
+//     if (!session?.user?.id) throw new Error("Unauthorized");
+
+//     if (rating < 1 || rating > 5) {
+//       return { success: false, message: "Rating si sahihi." };
+//     }
+
+//     const item = await prisma.orderItem.findFirst({
+//       where: {
+//         orderId,
+//         productId,
+//         order: {
+//           userId: session.user.id,
+//           isPaid: true,
+//         },
+//       },
+//       include: {
+//         product: {
+//           select: {
+//             supplierId: true,
+//           },
+//         },
+//       },
+//     });
+
+//     if (!item) {
+//       return { success: false, message: "Bidhaa haijapatikana kwenye agizo." };
+//     }
+
+//     if (item.isDelivered) {
+//       return { success: false, message: "Bidhaa hii tayari imethibitishwa." };
+//     }
+
+//     await prisma.$transaction(async (tx) => {
+//       await tx.orderDeliveryFeedback.upsert({
+//         where: {
+//           orderId_productId: {
+//             orderId,
+//             productId,
+//           },
+//         },
+//         update: {
+//           rating,
+//           comment: comment || "",
+//         },
+//         create: {
+//           orderId,
+//           productId,
+//           buyerId: session?.user?.id || "",
+//           supplierId: item.product.supplierId,
+//           rating,
+//           comment: comment || "",
+//         },
+//       });
+
+//       await tx.orderItem.update({
+//         where: {
+//           orderId_productId: {
+//             orderId,
+//             productId,
+//           },
+//         },
+//         data: {
+//           buyerDeliveryRating: rating,
+//           buyerDeliveryComment: comment || "",
+//         },
+//       });
+//     });
+
+//     const deliveryRes = await markOrderItemAsDelivered(orderId, productId);
+
+//     revalidatePath(`/order/${orderId}`);
+//     revalidatePath("/supplier/orders");
+//     revalidatePath("/supplier/overview");
+
+//     return deliveryRes;
+//   } catch (error) {
+//     console.error("Delivery feedback failed:", error);
+//     return {
+//       success: false,
+//       message: "Imeshindikana kuthibitisha delivery.",
+//     };
+//   }
+// }
+
+export async function confirmOrderItemDeliveryWithFeedback({
+  orderId,
+  productId,
+  rating,
+  comment,
+}: {
+  orderId: string;
+  productId: string;
+  rating: number;
+  comment?: string;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    if (rating < 1 || rating > 5) {
+      return { success: false, message: "Rating si sahihi." };
+    }
+
+    const item = await prisma.orderItem.findFirst({
+      where: {
+        orderId,
+        productId,
+        order: {
+          userId: session.user.id,
+          isPaid: true,
+        },
+      },
+      include: {
+        product: {
+          select: {
+            supplierId: true,
+          },
+        },
+      },
+    });
+
+    if (!item) {
+      return { success: false, message: "Bidhaa haijapatikana kwenye agizo." };
+    }
+
+    if (item.isDelivered) {
+      return { success: false, message: "Bidhaa hii tayari imethibitishwa." };
+    }
+
+    // Save buyer feedback first, without interactive transaction.
+    await prisma.orderDeliveryFeedback.upsert({
+      where: {
+        orderId_productId: {
+          orderId,
+          productId,
+        },
+      },
+      update: {
+        rating,
+        comment: comment || "",
+      },
+      create: {
+        orderId,
+        productId,
+        buyerId: session.user.id,
+        supplierId: item.product.supplierId,
+        rating,
+        comment: comment || "",
+      },
+    });
+
+    await prisma.orderItem.update({
+      where: {
+        orderId_productId: {
+          orderId,
+          productId,
+        },
+      },
+      data: {
+        buyerDeliveryRating: rating,
+        buyerDeliveryComment: comment || "",
+      },
+    });
+
+    // Keep all old important delivery logic here:
+    // escrow release, ledger, delivered status, supplier SMS, full-order cascade.
+    const deliveryRes = await markOrderItemAsDelivered(orderId, productId);
+
+    revalidatePath(`/order/${orderId}`);
+    revalidatePath("/supplier/orders");
+    revalidatePath("/supplier/overview");
+
+    return deliveryRes;
+  } catch (error) {
+    console.error("Delivery feedback failed:", error);
+    return {
+      success: false,
+      message: "Imeshindikana kuthibitisha delivery.",
+    };
+  }
+}
+
+export async function reportOrderItemProblem({
+  orderId,
+  productId,
+  reason,
+}: {
+  orderId: string;
+  productId: string;
+  reason: string;
+}) {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    if (!reason || reason.trim().length < 10) {
+      return {
+        success: false,
+        message: "Tafadhali eleza tatizo kwa urefu kidogo.",
+      };
+    }
+
+    const item = await prisma.orderItem.findFirst({
+      where: {
+        orderId,
+        productId,
+        order: {
+          userId: session.user.id,
+          isPaid: true,
+        },
+      },
+      include: {
+        product: {
+          select: {
+            supplierId: true,
+          },
+        },
+      },
+    });
+
+    if (!item) {
+      return {
+        success: false,
+        message: "Bidhaa haijapatikana kwenye agizo lako.",
+      };
+    }
+
+    if (item.isDelivered) {
+      return {
+        success: false,
+        message:
+          "Bidhaa hii tayari ilithibitishwa. Tafadhali wasiliana na support.",
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.returnRequest.upsert({
+        where: {
+          orderId_productId: {
+            orderId,
+            productId,
+          },
+        },
+        create: {
+          orderId,
+          productId,
+          buyerId: session.user.id || "",
+          supplierId: item.product.supplierId,
+          reason: reason.trim(),
+          status: "REQUESTED",
+        },
+        update: {
+          reason: reason.trim(),
+          status: "REQUESTED",
+        },
+      });
+
+      await tx.orderItem.update({
+        where: {
+          orderId_productId: {
+            orderId,
+            productId,
+          },
+        },
+        data: {
+          status: "REJECTED",
+          rejectedAt: new Date(),
+          rejectionReason: reason.trim(),
+        },
+      });
+
+      await tx.orderItemEvent.create({
+        data: {
+          orderId,
+          productId,
+          actorId: session.user.id,
+          type: "BUYER_REPORTED_PROBLEM",
+          note: reason.trim(),
+          metadata: {
+            itemName: item.name,
+            qty: item.qty,
+          },
+        },
+      });
+    });
+
+    revalidatePath(`/order/${orderId}`);
+    revalidatePath("/supplier/orders");
+    revalidatePath("/supplier/overview");
+
+    return {
+      success: true,
+      message:
+        "Tumepokea taarifa yako. Admin atakagua tatizo hili kabla ya malipo kutolewa.",
+    };
+  } catch (error) {
+    console.error("Report order item problem failed:", error);
+
+    return {
+      success: false,
+      message: "Imeshindikana kutuma taarifa ya tatizo.",
+    };
   }
 }

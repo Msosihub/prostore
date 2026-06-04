@@ -17,17 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Pagination from "@/components/shared/pagination";
-import DeleteDialog from "@/components/shared/delete-dialog";
-import { deleteOrder } from "@/lib/actions/order.actions";
-import {
-  Search,
-  X,
-  ClipboardList,
-  Eye,
-  Truck,
-  CheckCircle2,
-  User,
-} from "lucide-react";
+import { Search, X, ClipboardList, Eye, User } from "lucide-react";
+import SupplierOrderActions from "@/components/supplier/orders/SupplierOrderActions";
+import SupplierOrderStatusBadge from "@/components/supplier/orders/SupplierOrderStatusBadge";
 
 export const metadata: Metadata = {
   title: "Maagizo ya Duka (Vendor Orders) | Nimboya",
@@ -38,7 +30,7 @@ interface SupplierOrdersPageProps {
 }
 
 export default async function SupplierOrdersPage(
-  props: SupplierOrdersPageProps
+  props: SupplierOrdersPageProps,
 ) {
   await requireSupplier();
   const session = await auth();
@@ -136,6 +128,26 @@ export default async function SupplierOrdersPage(
         )}
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+        {[
+          ["Paid", ordersPayload.statusCounts.PAID || 0],
+          ["Dispatched", ordersPayload.statusCounts.DISPATCHED || 0],
+          ["Delivered", ordersPayload.statusCounts.DELIVERED || 0],
+          ["Rejected", ordersPayload.statusCounts.REJECTED || 0],
+          ["Returned", ordersPayload.statusCounts.RETURNED || 0],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm"
+          >
+            <p className="text-[10px] uppercase tracking-wider font-black text-slate-400">
+              {label}
+            </p>
+            <p className="text-lg font-black text-slate-900">{value}</p>
+          </div>
+        ))}
+      </div>
+
       {ordersPayload.data.length === 0 ? (
         <div className="text-center py-16 border border-dashed rounded-2xl bg-white space-y-2">
           <p className="text-xs sm:text-sm text-slate-400 italic">
@@ -179,22 +191,10 @@ export default async function SupplierOrdersPage(
 
                   <div className="flex items-center justify-between pt-2.5 border-t border-slate-50">
                     <div className="flex gap-1.5 items-center">
-                      {item.isDelivered ? (
-                        <Badge
-                          variant="outline"
-                          className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] font-bold px-2 py-0 rounded-full flex items-center gap-0.5"
-                        >
-                          <CheckCircle2 className="w-2.5 h-2.5" /> Amepokea
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="bg-amber-50 text-amber-700 border-amber-100 text-[10px] font-bold px-2 py-0 rounded-full flex items-center gap-0.5"
-                        >
-                          <Truck className="w-2.5 h-2.5 animate-pulse" /> Njia
-                          Kuu
-                        </Badge>
-                      )}
+                      <SupplierOrderStatusBadge
+                        status={item.status}
+                        isDelivered={item.isDelivered}
+                      />
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -211,7 +211,13 @@ export default async function SupplierOrdersPage(
                           <Eye className="w-3 h-3" /> Maelezo
                         </Link>
                       </Button>
-                      <DeleteDialog id={item.orderId} action={deleteOrder} />
+
+                      <SupplierOrderActions
+                        orderId={item.orderId}
+                        productId={item.productId}
+                        isDelivered={item.isDelivered}
+                        status={item.status}
+                      />
                     </div>
                   </div>
                 </div>
@@ -278,17 +284,10 @@ export default async function SupplierOrdersPage(
                         {item.qty}
                       </TableCell>
                       <TableCell className="text-center">
-                        {item.isDelivered ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />{" "}
-                            Imefika
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-100">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />{" "}
-                            Njia Kuu
-                          </span>
-                        )}
+                        <SupplierOrderStatusBadge
+                          status={item.status}
+                          isDelivered={item.isDelivered}
+                        />
                       </TableCell>
                       <TableCell className="text-right font-black text-xs text-slate-900 pr-4">
                         {formatCurrency(itemTotalRevenue)}
@@ -302,15 +301,18 @@ export default async function SupplierOrdersPage(
                             className="h-7 px-2 text-[11px] rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50"
                           >
                             <Link
-                              href={`/order/${item.orderId}`}
+                              href={`/supplier/orders/${item.orderId}?productId=${item.productId}`}
                               className="flex items-center gap-0.5"
                             >
                               <Eye className="w-3 h-3 text-slate-400" /> Details
                             </Link>
                           </Button>
-                          <DeleteDialog
-                            id={item.orderId}
-                            action={deleteOrder}
+
+                          <SupplierOrderActions
+                            orderId={item.orderId}
+                            productId={item.productId}
+                            isDelivered={item.isDelivered}
+                            status={item.status}
                           />
                         </div>
                       </TableCell>

@@ -15,12 +15,14 @@ type Props = {
   trigger?: React.ReactNode;
   openByDefault?: boolean;
   address: ShippingAddress;
+  onSaved?: (address: ShippingAddress) => void;
 };
 
 export default function ShippingAddressDrawer({
   trigger,
   openByDefault = false,
   address,
+  onSaved,
 }: Props) {
   const [open, setOpen] = useState(openByDefault);
 
@@ -40,7 +42,10 @@ export default function ShippingAddressDrawer({
         <div className="flex-1 overflow-y-auto px-4 py-4 no-scrollbar">
           <ShippingAddressForm
             address={address}
-            onSuccess={() => setOpen(false)}
+            onSuccess={(updatedAddress) => {
+              onSaved?.(updatedAddress);
+              setOpen(false);
+            }}
           />
         </div>
       </DrawerContent>
