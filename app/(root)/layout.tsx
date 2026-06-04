@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { redirect } from "next/navigation";
+// import { redirect } from "next/navigation";
 import BottomNav from "@/components/customComponents/bottom-nav-main";
 import Header from "@/components/shared/header";
 import { prisma } from "@/db/prisma";
@@ -14,9 +14,9 @@ export default async function RootLayout({
   let unreadMessagesCount = 0;
 
   if (session?.user?.id) {
-    if (session.user?.name === "NO_NAME") {
-      redirect("/onboarding");
-    }
+    // if (session.user?.name === "NO_NAME") {
+    //   //redirect("/onboarding");
+    // }
 
     const cart = await prisma.cart.findFirst({
       where: { userId: session.user.id },
