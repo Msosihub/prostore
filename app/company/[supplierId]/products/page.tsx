@@ -83,7 +83,9 @@ export default async function HomeProducts({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-8 lg:col-span-3">
         {/* Services introduction */}
-        {username && <SupplierServicesIntro username={username} />}
+        {username == "hikvisiontz" && (
+          <SupplierServicesIntro username={username} />
+        )}
 
         {/* Supplier products */}
         <section id="products" className="scroll-mt-24">
