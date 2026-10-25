@@ -26,7 +26,7 @@ export async function reconcileZenopay(orderId: string, attempt: string) {
   if (payment.amount !== Number(order.totalPrice))
     throw new Error("Payment amount mismatch");
   if (payment.payment_status === "COMPLETED") {
-    await fulfillOrder(orderId, attempt, payment.reference!);
+    await fulfillOrder(orderId, attempt, payment.reference!, payment.amount);
   } else if (payment.payment_status === "FAILED") {
     await prisma.order.updateMany({
       where: {

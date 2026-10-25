@@ -1,3 +1,8 @@
+jest.mock("@/lib/order-delivery", () => ({
+  confirmDelivery: jest.fn(async () => {
+    throw new Error("Unauthorized");
+  }),
+}));
 jest.mock("query-string", () => ({ __esModule: true, default: {} }));
 jest.mock("@/auth", () => ({ auth: jest.fn() }));
 jest.mock("@/db/prisma", () => ({
@@ -11,6 +16,7 @@ jest.mock("@/lib/actions/cart.actions", () => ({ getMyCart: jest.fn() }));
 jest.mock("@/lib/actions/user.actions", () => ({ getUserById: jest.fn() }));
 jest.mock("@/lib/africasTalking", () => ({ sendSms: jest.fn() }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
+import { confirmDelivery } from "@/lib/order-delivery";
 import { auth } from "@/auth";
 import { prisma } from "@/db/prisma";
 import {
@@ -54,12 +60,15 @@ test("order detail lookup scopes to the signed-in buyer", async () => {
     expect.objectContaining({ where: { id: "other-order", userId: "buyer" } }),
   );
 });
-test("standalone item confirmation requires a paid owned order", async () => {
+test("standalone item confirmation delegates the signed buyer identity", async () => {
   prisma.order.findFirst.mockResolvedValue(null);
   expect(
     await markOrderItemAsDelivered("other-order", "product"),
   ).toMatchObject({ success: false });
-  expect(prisma.$transaction).not.toHaveBeenCalled();
+  expect(confirmDelivery).toHaveBeenCalledWith("other-order", "product", {
+    kind: "buyer",
+    userId: "buyer",
+  });
 });
 
 test("anonymous order detail access never queries an order", async () => {

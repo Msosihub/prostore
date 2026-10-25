@@ -41,7 +41,12 @@ test("amount mismatch never settles", async () => {
 });
 test("verified completion settles with verified reference", async () => {
   await expect(reconcileZenopay("id", "id=attempt")).resolves.toBe("COMPLETED");
-  expect(fulfillOrder).toHaveBeenCalledWith("id", "id=attempt", "verified");
+  expect(fulfillOrder).toHaveBeenCalledWith(
+    "id",
+    "id=attempt",
+    "verified",
+    1000,
+  );
 });
 test("pending does not become failed", async () => {
   getZenopayStatus.mockResolvedValue({

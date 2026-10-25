@@ -16,6 +16,7 @@ beforeEach(() => {
   queue = Promise.resolve();
   prisma.order.findUnique.mockResolvedValue({
     id: "order",
+    paymentMethod: "ZENOPAY",
     user: { phone: "test-phone", name: "Buyer" },
     totalPrice: "2000",
     orderitems: [

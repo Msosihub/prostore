@@ -1,3 +1,5 @@
+jest.mock("query-string", () => ({ __esModule: true, default: {} }));
+jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 // Keep Prisma null sentinels and the injected client on the same generated runtime.
 jest.mock("@prisma/client", () => require(process.env.PROSTORE_TEST_CLIENT));
 jest.mock("@/db/prisma", () => ({ prisma: require("./database.cjs").prisma }));
@@ -6,8 +8,17 @@ jest.mock("@/lib/zenopay", () => ({
   getZenopayStatus: jest.fn(),
   zenopayRequest: jest.fn(),
 }));
+jest.mock("@/lib/pesapal", () => ({ getPesapalStatus: jest.fn() }));
 jest.mock("@/auth", () => ({ auth: jest.fn() }));
-import { fulfillOrder } from "@/lib/order-fulfillment";
+import { getPesapalStatus } from "@/lib/pesapal";
+import { POST as pesapalIpn } from "@/app/api/pesapal/ipn/route";
+import {
+  markOrderAsDelivered,
+  markOrderItemAsDelivered,
+  updateOrderToPaidCOD,
+} from "@/lib/actions/order.actions";
+import { confirmDelivery, openOrderDispute } from "@/lib/order-delivery";
+import { fulfillOrder, settleOrder } from "@/lib/order-fulfillment";
 import { reconcileZenopay } from "@/lib/zenopay-reconciliation";
 import { sendSms } from "@/lib/africasTalking";
 import { auth } from "@/auth";
@@ -247,4 +258,320 @@ test("real initiation route reserves once across concurrent HTTP requests", asyn
     delete process.env.ZENOPAY_API_KEY;
     delete process.env.NEXT_PUBLIC_SERVER_URL;
   }
+});
+
+async function paidFixture({ twoItems = false } = {}) {
+  const data = await fixture();
+  if (twoItems) {
+    const { randomUUID } = require("node:crypto");
+    const second = await prisma.product.create({
+      data: { ...data.product, id: randomUUID(), slug: "second", price: 500 },
+    });
+    await prisma.orderItem.create({
+      data: {
+        orderId: data.order.id,
+        productId: second.id,
+        supplierId: data.supplier.id,
+        qty: 1,
+        price: 500,
+        name: "Second",
+        slug: "second",
+        image: "test",
+      },
+    });
+    await prisma.order.update({
+      where: { id: data.order.id },
+      data: { itemsPrice: 2500, totalPrice: 2500 },
+    });
+    data.second = second;
+  }
+  await fulfillOrder(data.order.id, attempt(data.order), "verified");
+  sendSms.mockClear();
+  return data;
+}
+const buyer = (data) => ({ kind: "buyer", userId: data.user.id });
+const admin = (data) => ({ kind: "admin", userId: data.user.id });
+const releases = () =>
+  prisma.supplierLedger.count({ where: { type: "ESCROW_RELEASE" } });
+
+test("duplicate COD settlement creates escrow and decrements inventory once", async () => {
+  const data = await fixture({ paymentResult: Prisma.DbNull });
+  await prisma.order.update({
+    where: { id: data.order.id },
+    data: { paymentMethod: "CashOnDelivery" },
+  });
+  const results = await Promise.all(
+    Array.from({ length: 6 }, () =>
+      settleOrder(data.order.id, { gateway: "COD", actorId: data.user.id }),
+    ),
+  );
+  expect(results.filter(Boolean)).toHaveLength(1);
+  expect(
+    (await prisma.product.findUnique({ where: { id: data.product.id } })).stock,
+  ).toBe(3);
+  expect(await prisma.supplierLedger.count()).toBe(1);
+  expect(
+    Number(
+      (await prisma.supplier.findUnique({ where: { id: data.supplier.id } }))
+        .pendingBalance,
+    ),
+  ).toBe(2000);
+});
+test("COD versus Pesapal notification cannot cross payment methods", async () => {
+  const data = await fixture({ paymentResult: Prisma.DbNull });
+  await prisma.order.update({
+    where: { id: data.order.id },
+    data: { paymentMethod: "COD" },
+  });
+  const tracking = require("node:crypto").randomUUID();
+  getPesapalStatus.mockResolvedValue({
+    merchant_reference: data.order.id,
+    amount: 2000,
+    currency: "TZS",
+    payment_status_description: "COMPLETED",
+    confirmation_code: "verified",
+  });
+  const [cash, callback] = await Promise.all([
+    settleOrder(data.order.id, { gateway: "COD", actorId: data.user.id }),
+    pesapalIpn(
+      new Request("https://example.test", {
+        method: "POST",
+        body: JSON.stringify({ OrderTrackingId: tracking }),
+      }),
+    ),
+  ]);
+  expect(cash).toBe(true);
+  expect(callback.status).toBe(409);
+  expect(await prisma.supplierLedger.count()).toBe(1);
+  expect(
+    (await prisma.product.findUnique({ where: { id: data.product.id } })).stock,
+  ).toBe(3);
+});
+test("COD cannot settle a ZenoPay attempt during webhook settlement", async () => {
+  const data = await fixture();
+  const results = await Promise.allSettled([
+    settleOrder(data.order.id, { gateway: "COD", actorId: data.user.id }),
+    fulfillOrder(data.order.id, attempt(data.order), "verified"),
+  ]);
+  expect(results[0].status).toBe("rejected");
+  expect(results[1].status).toBe("fulfilled");
+  expect(await prisma.supplierLedger.count()).toBe(1);
+});
+test.each(["id", "trackingId"])(
+  "verified Pesapal duplicate callbacks settle legacy %s reference once",
+  async (key) => {
+    const tracking = require("node:crypto").randomUUID();
+    const data = await fixture({ paymentResult: { [key]: tracking } });
+    await prisma.order.update({
+      where: { id: data.order.id },
+      data: { paymentMethod: "Pesapal" },
+    });
+    getPesapalStatus.mockResolvedValue({
+      merchant_reference: data.order.id,
+      amount: 2000,
+      currency: "TZS",
+      payment_status_description: "COMPLETED",
+      confirmation_code: "verified",
+    });
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        pesapalIpn(
+          new Request("https://example.test", {
+            method: "POST",
+            body: JSON.stringify({ OrderTrackingId: tracking }),
+          }),
+        ),
+      ),
+    );
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(await prisma.supplierLedger.count()).toBe(1);
+    expect(
+      (await prisma.order.findUnique({ where: { id: data.order.id } })).isPaid,
+    ).toBe(true);
+  },
+);
+test("whole-order and single-item delivery race release each escrow credit once", async () => {
+  const data = await paidFixture({ twoItems: true });
+  await Promise.all([
+    confirmDelivery(data.order.id, undefined, admin(data)),
+    confirmDelivery(data.order.id, data.product.id, buyer(data)),
+  ]);
+  const supplier = await prisma.supplier.findUnique({
+    where: { id: data.supplier.id },
+  });
+  expect(Number(supplier.pendingBalance)).toBe(0);
+  expect(Number(supplier.walletBalance)).toBe(2500);
+  expect(await releases()).toBe(2);
+  expect(sendSms).toHaveBeenCalledTimes(2);
+  expect(
+    (await prisma.order.findUnique({ where: { id: data.order.id } }))
+      .isDelivered,
+  ).toBe(true);
+});
+test("simultaneous final two item confirmations complete the parent order", async () => {
+  const data = await paidFixture({ twoItems: true });
+  await Promise.all(
+    [data.product.id, data.second.id].map((id) =>
+      confirmDelivery(data.order.id, id, buyer(data)),
+    ),
+  );
+  expect(
+    (await prisma.order.findUnique({ where: { id: data.order.id } }))
+      .isDelivered,
+  ).toBe(true);
+  expect(await releases()).toBe(2);
+});
+test.each([true, false])(
+  "dispute/delivery race has one financial winner (dispute first: %s)",
+  async (disputeFirst) => {
+    const data = await paidFixture();
+    const dispute = () =>
+      openOrderDispute(
+        data.order.id,
+        data.product.id,
+        data.user.id,
+        "Item is damaged",
+      );
+    const delivery = () =>
+      confirmDelivery(data.order.id, data.product.id, buyer(data));
+    const outcomes = await Promise.allSettled(
+      (disputeFirst ? [dispute, delivery] : [delivery, dispute]).map((run) =>
+        run(),
+      ),
+    );
+    expect(
+      outcomes.filter((outcome) => outcome.status === "fulfilled"),
+    ).toHaveLength(1);
+    const item = await prisma.orderItem.findFirst();
+    expect(await releases()).toBe(item.isDelivered ? 1 : 0);
+    expect(await prisma.returnRequest.count()).toBe(item.isDelivered ? 0 : 1);
+    const supplier = await prisma.supplier.findUnique({
+      where: { id: data.supplier.id },
+    });
+    expect(Number(supplier.pendingBalance)).toBe(item.isDelivered ? 0 : 2000);
+  },
+);
+test.each(["REJECTED", "RETURNED", "CANCELLED"])(
+  "%s item cannot release escrow",
+  async (status) => {
+    const data = await paidFixture();
+    await prisma.orderItem.updateMany({ data: { status } });
+    await expect(
+      confirmDelivery(data.order.id, data.product.id, buyer(data)),
+    ).rejects.toThrow();
+    expect(await releases()).toBe(0);
+    expect(sendSms).not.toHaveBeenCalled();
+  },
+);
+test.each(["REQUESTED", "APPROVED", "REFUNDED"])(
+  "active or resolved refund state %s blocks release even with stale item status",
+  async (status) => {
+    const data = await paidFixture();
+    await prisma.returnRequest.create({
+      data: {
+        orderId: data.order.id,
+        productId: data.product.id,
+        buyerId: data.user.id,
+        supplierId: data.supplier.id,
+        reason: "Problem reported",
+        status,
+      },
+    });
+    await expect(
+      confirmDelivery(data.order.id, data.product.id, buyer(data)),
+    ).rejects.toThrow();
+    expect(await releases()).toBe(0);
+  },
+);
+test("whole-order delivery rolls back all items if any item is disputed", async () => {
+  const data = await paidFixture({ twoItems: true });
+  await openOrderDispute(
+    data.order.id,
+    data.second.id,
+    data.user.id,
+    "Problem reported",
+  );
+  await expect(
+    confirmDelivery(data.order.id, undefined, admin(data)),
+  ).rejects.toThrow();
+  expect(await releases()).toBe(0);
+  expect(await prisma.orderItem.count({ where: { isDelivered: true } })).toBe(
+    0,
+  );
+});
+test("insufficient wallet escrow cannot become a negative balance", async () => {
+  const data = await paidFixture();
+  await prisma.supplier.update({
+    where: { id: data.supplier.id },
+    data: { pendingBalance: 1 },
+  });
+  await expect(
+    confirmDelivery(data.order.id, data.product.id, buyer(data)),
+  ).rejects.toThrow();
+  expect(await releases()).toBe(0);
+  expect((await prisma.orderItem.findFirst()).isDelivered).toBe(false);
+});
+test("feedback commits with delivery and duplicate confirmation cannot overwrite it", async () => {
+  const data = await paidFixture();
+  await confirmDelivery(data.order.id, data.product.id, buyer(data), {
+    rating: 5,
+    comment: "Received",
+  });
+  await confirmDelivery(data.order.id, data.product.id, buyer(data), {
+    rating: 1,
+    comment: "Replay",
+  });
+  expect((await prisma.orderDeliveryFeedback.findFirst()).rating).toBe(5);
+  expect(await releases()).toBe(1);
+});
+test("a foreign buyer or an unpaid order cannot release escrow", async () => {
+  const data = await paidFixture();
+  await expect(
+    confirmDelivery(data.order.id, data.product.id, {
+      kind: "buyer",
+      userId: require("node:crypto").randomUUID(),
+    }),
+  ).rejects.toThrow();
+  await prisma.order.update({
+    where: { id: data.order.id },
+    data: { isPaid: false },
+  });
+  await expect(
+    confirmDelivery(data.order.id, data.product.id, admin(data)),
+  ).rejects.toThrow();
+  expect(await releases()).toBe(0);
+});
+
+test("public whole-order and item actions share one release transaction", async () => {
+  const data = await paidFixture({ twoItems: true });
+  await prisma.user.update({
+    where: { id: data.user.id },
+    data: { role: "ADMIN" },
+  });
+  auth.mockResolvedValue({ user: { id: data.user.id, role: "ADMIN" } });
+  const results = await Promise.all([
+    markOrderAsDelivered(data.order.id),
+    markOrderItemAsDelivered(data.order.id, data.product.id),
+  ]);
+  expect(results.every((result) => result.success)).toBe(true);
+  expect(await releases()).toBe(2);
+  expect(
+    Number(
+      (await prisma.supplier.findUnique({ where: { id: data.supplier.id } }))
+        .walletBalance,
+    ),
+  ).toBe(2500);
+});
+test("admin COD action cannot mark a digital order paid", async () => {
+  const data = await fixture();
+  await prisma.user.update({
+    where: { id: data.user.id },
+    data: { role: "ADMIN" },
+  });
+  auth.mockResolvedValue({ user: { id: data.user.id, role: "ADMIN" } });
+  expect((await updateOrderToPaidCOD(data.order.id)).success).toBe(false);
+  expect(await prisma.supplierLedger.count()).toBe(0);
+  expect(
+    (await prisma.order.findUnique({ where: { id: data.order.id } })).isPaid,
+  ).toBe(false);
 });

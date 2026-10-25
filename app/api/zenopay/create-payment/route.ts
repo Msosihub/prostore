@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { COD_METHODS, PESAPAL_METHODS } from "@/lib/payment-methods";
 import { auth } from "@/auth";
 import { zenopayRequest } from "@/lib/zenopay";
 import { paymentAttempt, reconcileZenopay } from "@/lib/zenopay-reconciliation";
@@ -25,6 +26,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     if (order.isPaid)
       return NextResponse.json({ success: true, status: "COMPLETED" });
+
+    if ([...COD_METHODS, ...PESAPAL_METHODS].includes(order.paymentMethod)) {
+      return NextResponse.json(
+        { error: "Use the selected payment method" },
+        { status: 409 },
+      );
+    }
 
     const existingAttempt = paymentAttempt(order.paymentResult);
     if (existingAttempt) {

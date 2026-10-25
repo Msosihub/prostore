@@ -160,3 +160,13 @@ test("phone-only OTP buyers retain checkout without an unrelated email fallback"
     expect.objectContaining({ buyer_email: "buyer@payments.invalid" }),
   );
 });
+
+test.each(["COD", "CashOnDelivery", "PESAPAL", "Pesapal"])(
+  "mobile initiation cannot replace selected %s method",
+  async (method) => {
+    order.paymentMethod = method;
+    expect((await POST(request({ orderId: id }))).status).toBe(409);
+    expect(zenopayRequest).not.toHaveBeenCalled();
+    expect(prisma.order.updateMany).not.toHaveBeenCalled();
+  },
+);

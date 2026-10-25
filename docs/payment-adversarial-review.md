@@ -1,5 +1,7 @@
 # Adversarial review and isolated validation
 
+The subsequent [shared settlement/release tranche](settlement-release-invariants.md) addresses the legacy financial-path follow-ups below and records newer validation totals.
+
 Review base: `f518603dfd936d6349e681c1ea00f5b4bd45a521`, branch `fix/zenopay-payment-reliability`. This report supplements the first-tranche product map and supersedes its validation limitations where explicitly stated below.
 
 ## Compact review packet

@@ -28,6 +28,9 @@ const models = [
   "Order",
   "OrderItem",
   "SupplierLedger",
+  "ReturnRequest",
+  "OrderItemEvent",
+  "OrderDeliveryFeedback",
 ];
 const quote = (value) => '"' + value.replaceAll('"', '""') + '"';
 const literal = (value) => "'" + String(value).replaceAll("'", "''") + "'";
@@ -134,6 +137,14 @@ async function prepare() {
           .map((f) => quote(f.trim()))
           .join(",")})`,
       );
+    for (const unique of source.matchAll(/@@unique\(\[([^\]]+)\]/g)) {
+      columns.push(
+        `UNIQUE (${unique[1]
+          .split(",")
+          .map((field) => quote(field.trim()))
+          .join(",")})`,
+      );
+    }
     await prisma.$executeRawUnsafe(
       `CREATE TABLE ${quote(model.name)} (${columns.join(",")})`,
     );
