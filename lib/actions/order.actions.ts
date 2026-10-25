@@ -4,7 +4,10 @@ import { convertToPlainObject, formatError, isRedirectError } from "../utils";
 import { settleOrder } from "@/lib/order-fulfillment";
 import { confirmDelivery, openOrderDispute } from "@/lib/order-delivery";
 import { auth } from "@/auth";
-import { requireAdmin as requireOrderAdmin } from "@/lib/auth-guard";
+import {
+  requireAdmin as requireOrderAdmin,
+  requireSupplierScope,
+} from "@/lib/auth-guard";
 import { getMyCart } from "./cart.actions";
 import { getUserById } from "./user.actions";
 import { insertOrderSchema } from "../validators";
@@ -286,17 +289,24 @@ export async function getMyOrders({
   page: number;
 }) {
   const session = await auth();
-  if (!session) throw new Error("User is not authorized");
+  if (!session?.user?.id) throw new Error("User is not authorized");
 
   const data = await prisma.order.findMany({
-    where: { userId: session?.user?.id },
+    where: { userId: session.user.id },
+    select: {
+      id: true,
+      createdAt: true,
+      totalPrice: true,
+      paymentStatus: true,
+      isDelivered: true,
+    },
     orderBy: { createdAt: "desc" },
     take: limit,
     skip: (page - 1) * limit,
   });
 
   const dataCount = await prisma.order.count({
-    where: { userId: session?.user?.id },
+    where: { userId: session.user.id },
   });
 
   return {
@@ -406,18 +416,8 @@ export async function getMyOrders({
 
 export async function getOrderSummary(supplierId: string) {
   try {
-    if (!supplierId) throw new Error("Supplier ID is required");
-
-    const supplierWallet = await prisma.supplier.findUnique({
-      where: { userId: supplierId },
-      select: {
-        id: true,
-        pendingBalance: true,
-        walletBalance: true,
-      },
-    });
-
-    const supplierIdid = supplierWallet?.id;
+    const supplierWallet = await requireSupplierScope({ userId: supplierId });
+    const supplierIdid = supplierWallet.id;
 
     const productsCount = await prisma.product.count({
       where: { supplierId: supplierIdid },
@@ -440,7 +440,6 @@ export async function getOrderSummary(supplierId: string) {
             id: true,
             userId: true,
             createdAt: true,
-            totalPrice: true,
             user: { select: { name: true } },
           },
         },
@@ -824,10 +823,11 @@ export async function getSupplierOrderItems({
   query?: string;
 }) {
   try {
+    const supplier = await requireSupplierScope({ id: supplierId });
     const skip = (page - 1) * limit;
 
     const whereClause = {
-      supplierId,
+      supplierId: supplier.id,
       order: {
         isPaid: true,
         ...(query
@@ -873,10 +873,7 @@ export async function getSupplierOrderItems({
               createdAt: true,
               user: {
                 select: {
-                  id: true,
                   name: true,
-                  phone: true,
-                  paymentPhone: true,
                 },
               },
             },
@@ -892,7 +889,7 @@ export async function getSupplierOrderItems({
       prisma.orderItem.groupBy({
         by: ["status"],
         where: {
-          supplierId,
+          supplierId: supplier.id,
           order: { isPaid: true },
         },
         _count: { status: true },
