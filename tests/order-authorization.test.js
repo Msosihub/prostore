@@ -61,3 +61,9 @@ test("standalone item confirmation requires a paid owned order", async () => {
   ).toMatchObject({ success: false });
   expect(prisma.$transaction).not.toHaveBeenCalled();
 });
+
+test("anonymous order detail access never queries an order", async () => {
+  auth.mockResolvedValue(null);
+  await expect(getOrderById("order")).rejects.toThrow("Unauthorized");
+  expect(prisma.order.findFirst).not.toHaveBeenCalled();
+});

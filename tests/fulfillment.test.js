@@ -2,6 +2,7 @@ jest.mock("@/db/prisma", () => ({
   prisma: {
     order: { findUnique: jest.fn() },
     product: { findUnique: jest.fn() },
+    supplier: { findUnique: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -20,6 +21,7 @@ beforeEach(() => {
     orderitems: [
       {
         productId: "product",
+        supplierId: "supplier",
         qty: 2,
         name: "Item",
         price: "1000",
@@ -27,8 +29,10 @@ beforeEach(() => {
       },
     ],
   });
-  prisma.product.findUnique.mockResolvedValue({
-    supplier: { id: "supplier", name: "Supplier", phone: "test-phone" },
+  prisma.supplier.findUnique.mockResolvedValue({
+    id: "supplier",
+    name: "Supplier",
+    phone: "test-phone",
   });
   sendSms.mockResolvedValue(undefined);
   tx = {
@@ -128,4 +132,20 @@ test("legacy escrow with an unpaid header requires review without another decrem
   expect(state.stock).toBe(5);
   expect(state.paid).toBe(false);
   expect(sendSms).not.toHaveBeenCalled();
+});
+
+test("supplier reassignment cannot credit the wrong wallet", async () => {
+  tx.product.findUnique.mockResolvedValue({
+    supplierId: "other-supplier",
+    stock: 5,
+  });
+  await expect(fulfillOrder("order", "attempt", "ref")).rejects.toThrow();
+  expect(state.paid).toBe(false);
+  expect(tx.product.updateMany).not.toHaveBeenCalled();
+  expect(tx.supplier.update).not.toHaveBeenCalled();
+});
+test("orders without items cannot settle", async () => {
+  prisma.order.findUnique.mockResolvedValue({ id: "order", orderitems: [] });
+  await expect(fulfillOrder("order", "attempt", "ref")).rejects.toThrow();
+  expect(prisma.$transaction).not.toHaveBeenCalled();
 });

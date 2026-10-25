@@ -18,7 +18,7 @@ export async function fulfillOrder(
     },
   });
 
-  if (!order) {
+  if (!order || order.orderitems.length === 0) {
     throw new Error(`Order ${orderId} sio halali kwenye mfumo wa malipo.`);
   }
 
@@ -45,14 +45,20 @@ export async function fulfillOrder(
       },
     });
     if (!claim.count) return false;
-    for (const item of order.orderitems) {
+    for (const item of [...order.orderitems].sort((a, b) =>
+      a.productId.localeCompare(b.productId),
+    )) {
       // Retrieve the current live database product profile record
       const currentProduct = await tx.product.findUnique({
         where: { id: item.productId },
         select: { stock: true, name: true, supplierId: true },
       });
 
-      if (!currentProduct) {
+      if (
+        !currentProduct ||
+        !item.supplierId ||
+        currentProduct.supplierId !== item.supplierId
+      ) {
         throw new Error(
           `Bidhaa ${item.name} haikupatikana wakati wa kukamilisha agizo.`,
         );
@@ -71,7 +77,11 @@ export async function fulfillOrder(
 
       // Test and decrement in one SQL statement to prevent overselling.
       const stock = await tx.product.updateMany({
-        where: { id: item.productId, stock: { gte: item.qty } },
+        where: {
+          id: item.productId,
+          supplierId: item.supplierId,
+          stock: { gte: item.qty },
+        },
         data: { stock: { decrement: item.qty } },
       });
       if (!stock.count) throw new Error("Insufficient stock for paid order");
@@ -156,16 +166,12 @@ export async function fulfillOrder(
   > = {};
 
   for (const item of order.orderitems) {
-    const productData = await prisma.product.findUnique({
-      where: { id: item.productId },
-      select: {
-        supplier: {
+    const supplier = item.supplierId
+      ? await prisma.supplier.findUnique({
+          where: { id: item.supplierId },
           select: { id: true, name: true, companyName: true, phone: true },
-        },
-      },
-    });
-
-    const supplier = productData?.supplier;
+        })
+      : null;
     if (!supplier) continue;
 
     const sName = supplier.companyName || supplier.name;

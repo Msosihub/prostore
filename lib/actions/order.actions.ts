@@ -2,6 +2,7 @@
 
 import { convertToPlainObject, formatError, isRedirectError } from "../utils";
 import { auth } from "@/auth";
+import { requireAdmin as requireOrderAdmin } from "@/lib/auth-guard";
 import { getMyCart } from "./cart.actions";
 import { getUserById } from "./user.actions";
 import { insertOrderSchema } from "../validators";
@@ -15,16 +16,6 @@ import { calcPriceWithTiers } from "@/lib/cart-pricing";
 import { sendSms } from "../africasTalking";
 // import { ShippingAddress } from "@/types";
 //import { sendPurchaseReceipt } from "@/email";
-
-async function requireOrderAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (user?.role !== "ADMIN") throw new Error("Unauthorized");
-}
 
 // Create order and create the order items
 export async function createOrder() {

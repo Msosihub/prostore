@@ -97,3 +97,42 @@ test.each([
   reply({ resultcode: "000", data: [record] });
   await expect(getZenopayStatus(body.order_id)).rejects.toThrow();
 });
+
+test("contradictory initiation result code never becomes success", async () => {
+  reply({ status: "success", resultcode: "999" });
+  await expect(zenopayRequest("/test", body)).rejects.toThrow();
+});
+test("ambiguous duplicate provider records do not choose an arbitrary result", async () => {
+  reply({
+    resultcode: "000",
+    data: [
+      {
+        order_id: body.order_id,
+        payment_status: "COMPLETED",
+        amount: 1000,
+        reference: "one",
+      },
+      {
+        order_id: body.order_id,
+        payment_status: "FAILED",
+        amount: 1000,
+        reference: "two",
+      },
+    ],
+  });
+  await expect(getZenopayStatus(body.order_id)).rejects.toThrow();
+});
+test("blank completed reference is rejected", async () => {
+  reply({
+    resultcode: "000",
+    data: [
+      {
+        order_id: body.order_id,
+        payment_status: "COMPLETED",
+        amount: 1000,
+        reference: "   ",
+      },
+    ],
+  });
+  await expect(getZenopayStatus(body.order_id)).rejects.toThrow();
+});

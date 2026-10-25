@@ -55,3 +55,27 @@ test("deleted product cannot be checked out at a stale price", async () => {
     calcPriceWithTiers([{ productId: "id", qty: 1 }]),
   ).rejects.toThrow();
 });
+
+test.each([
+  [4, "1000"],
+  [5, "800"],
+  [9, "800"],
+  [10, "700"],
+])("quantity %i selects exactly the eligible tier", async (qty, expected) => {
+  prisma.product.findUnique.mockResolvedValue({
+    ...product,
+    pricingTiers: [
+      { minQty: 10, price: "700" },
+      { minQty: 5, price: "800" },
+    ],
+  });
+  const items = [{ productId: "id", qty, price: "1" }];
+  const totals = await calcPriceWithTiers(items);
+  expect(items[0].price).toBe(expected);
+  expect(totals.itemsPrice).toBe((Number(expected) * qty).toFixed(2));
+});
+test("decreasing below a tier resets previously discounted stored price", async () => {
+  const items = [{ productId: "id", qty: 4, price: "800" }];
+  await calcPriceWithTiers(items);
+  expect(items[0].price).toBe("1000");
+});

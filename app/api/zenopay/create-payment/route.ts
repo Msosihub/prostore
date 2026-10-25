@@ -47,13 +47,16 @@ export async function POST(req: Request) {
     const phone = (order.user.paymentPhone || "")
       .trim()
       .replace(/^\+?255/, "0");
+    // Phone-only OTP accounts are valid buyers. Use a non-deliverable,
+    // per-buyer address instead of sending receipts to an unrelated fallback.
+    const buyerEmail = order.user.email || `${order.userId}@payments.invalid`;
     const shipping = z
       .object({ fullName: z.string().trim().min(1) })
       .safeParse(order.shippingAddress);
     if (
       !/^0[67]\d{8}$/.test(phone) ||
       !shipping.success ||
-      !z.string().email().safeParse(order.user.email).success ||
+      !z.string().email().safeParse(buyerEmail).success ||
       Number(order.totalPrice) <= 0
     ) {
       return NextResponse.json(
@@ -87,7 +90,7 @@ export async function POST(req: Request) {
       );
     await zenopayRequest("/api/payments/mobile_money_tanzania", {
       order_id: attempt,
-      buyer_email: order.user.email!,
+      buyer_email: buyerEmail,
       buyer_name: shipping.data.fullName,
       buyer_phone: phone,
       amount: Number(order.totalPrice),

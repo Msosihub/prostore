@@ -21,6 +21,7 @@ export async function zenopayRequest(endpoint: string, body: ZenoBody) {
   const result = z
     .object({
       status: z.literal("success"),
+      resultcode: z.literal("000").optional(),
       order_id: z.string().optional(),
     })
     .parse(await request(endpoint, body));
@@ -43,7 +44,7 @@ export async function getZenopayStatus(orderId: string) {
           amount: z
             .union([z.number(), z.string().min(1)])
             .pipe(z.coerce.number().finite().positive()),
-          reference: z.string().optional(),
+          reference: z.string().trim().min(1).optional(),
         }),
       ),
     })
@@ -52,8 +53,10 @@ export async function getZenopayStatus(orderId: string) {
         `/api/payments/order-status?order_id=${encodeURIComponent(orderId)}`,
       ),
     );
-  const payment = result.data.find((item) => item.order_id === orderId);
-  if (!payment) throw new Error("Payment provider reference mismatch");
+  const matches = result.data.filter((item) => item.order_id === orderId);
+  const payment = matches[0];
+  if (matches.length !== 1)
+    throw new Error("Payment provider reference mismatch");
   if (payment.payment_status === "COMPLETED" && !payment.reference) {
     throw new Error("Missing payment reference");
   }

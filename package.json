@@ -11,7 +11,9 @@
     "seed": "ts-node db/seed.ts",
     "tree": "npx tree-cli -l 2 -i \"node_modules,.next,.git\"",
     "test": "jest --runInBand",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:payments:postgres": "node scripts/test-payments-postgres.cjs",
+    "build:validate:offline": "node scripts/validate-compile-offline.cjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",

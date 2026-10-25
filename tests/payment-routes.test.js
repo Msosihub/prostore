@@ -151,3 +151,12 @@ test("verification failure asks for retry without details", async () => {
   expect(response.status).toBe(503);
   expect(JSON.stringify(await response.json())).not.toContain("secret");
 });
+
+test("phone-only OTP buyers retain checkout without an unrelated email fallback", async () => {
+  order.user.email = null;
+  expect((await POST(request({ orderId: id }))).status).toBe(200);
+  expect(zenopayRequest).toHaveBeenCalledWith(
+    expect.any(String),
+    expect.objectContaining({ buyer_email: "buyer@payments.invalid" }),
+  );
+});

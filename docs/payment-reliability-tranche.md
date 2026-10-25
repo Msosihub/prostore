@@ -1,5 +1,7 @@
 # Payment, authorization and checkout reliability tranche
 
+For subsequent fixes and real PostgreSQL/offline compile evidence, see [the adversarial review](payment-adversarial-review.md). The results below describe the original first commit.
+
 ## Scope and product map
 
 - Target: `/workspace/prostore`, origin `https://github.com/Msosihub/prostore.git`, starting commit `52948fa`, branch `fix/zenopay-payment-reliability`. The initial working tree was clean.

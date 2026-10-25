@@ -16,7 +16,6 @@ import {
   MessageSquare,
   ShieldCheck,
   UserCheck,
-  Users,
   HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,7 +48,6 @@ const supplierNavigationRoutes = [
     href: "/supplier/profile",
     icon: UserCheck,
   },
-  { title: "Wafanyakazi (Users)", href: "/supplier/users", icon: Users },
 ];
 
 export default function SupplierLayout({
@@ -157,13 +155,13 @@ export default function SupplierLayout({
                       "flex items-center gap-3 px-3 h-11 text-xs font-semibold rounded-xl transition-all",
                       isPathActive
                         ? "bg-slate-900 text-white font-bold shadow-sm shadow-slate-900/10"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                     )}
                   >
                     <IconComponent
                       className={cn(
                         "w-4 h-4 shrink-0",
-                        isPathActive ? "text-orange-500" : "text-slate-400"
+                        isPathActive ? "text-orange-500" : "text-slate-400",
                       )}
                     />
                     <span>{route.title}</span>
