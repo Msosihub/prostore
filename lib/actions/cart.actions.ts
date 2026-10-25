@@ -139,22 +139,7 @@ export async function removeItemFromCart(productId: string) {
     } else {
       exist.qty -= 1;
 
-      // Ensure item baseline price drops or raises back to standard tiers on decrement adjustments
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-        include: { pricingTiers: true },
-      });
-      if (product && product.pricingTiers && product.pricingTiers.length > 0) {
-        const sortedTiers = [...product.pricingTiers].sort(
-          (a, b) => b.minQty - a.minQty,
-        );
-        const matchedTier = sortedTiers.find(
-          (tier) => exist.qty >= tier.minQty,
-        );
-        exist.price = matchedTier
-          ? Number(matchedTier.price).toString()
-          : product.price.toString();
-      }
+
     }
 
     // If the cart becomes completely empty after removal, delete the cart row entirely or clear metrics
@@ -170,7 +155,7 @@ export async function removeItemFromCart(productId: string) {
         },
       });
     } else {
-      const priceMetrics = await calcPriceWithTiers(itemsList);
+      const priceMetrics = await calcPriceWithTiers(itemsList, { forRemoval: true });
       await prisma.cart.update({
         where: { id: cart.id },
         data: {

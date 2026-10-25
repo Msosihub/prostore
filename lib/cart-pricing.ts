@@ -4,20 +4,28 @@ import type { CartItem } from "@/types";
 import { round2 } from "@/lib/utils";
 
 // Helper function to calculate prices using your database wholesale tiers
-export const calcPriceWithTiers = async (items: CartItem[]) => {
+export const calcPriceWithTiers = async (
+  items: CartItem[],
+  { forRemoval = false }: { forRemoval?: boolean } = {},
+) => {
   let itemsPrice = 0;
 
-  for (const item of items) {
+  for (const item of [...items]) {
     const product = await prisma.product.findUnique({
       where: { id: item.productId },
       include: { pricingTiers: true },
     });
 
-    if (!product) throw new Error("Product not found");
+    if (!product) {
+      if (!forRemoval) throw new Error("Product not found");
+      // Deleted catalog entries cannot be bought; let cart cleanup remove them.
+      items.splice(items.indexOf(item), 1);
+      continue;
+    }
     if (
       !Number.isSafeInteger(item.qty) ||
       item.qty < 1 ||
-      product.stock < item.qty
+      (!forRemoval && product.stock < item.qty)
     ) {
       throw new Error("Invalid quantity or insufficient stock");
     }
@@ -43,7 +51,7 @@ export const calcPriceWithTiers = async (items: CartItem[]) => {
   }
 
   const roundedItemsPrice = round2(itemsPrice);
-  const shippingPrice = round2(roundedItemsPrice > 150000 ? 0 : 3000);
+  const shippingPrice = round2(!items.length || roundedItemsPrice > 150000 ? 0 : 3000);
   const taxPrice = round2(0.0 * roundedItemsPrice);
   const totalPrice = round2(roundedItemsPrice + taxPrice + shippingPrice);
 
