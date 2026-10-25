@@ -9,7 +9,9 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "seed": "ts-node db/seed.ts",
-    "tree": "npx tree-cli -l 2 -i \"node_modules,.next,.git\""
+    "tree": "npx tree-cli -l 2 -i \"node_modules,.next,.git\"",
+    "test": "jest --runInBand",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",

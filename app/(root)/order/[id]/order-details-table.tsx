@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -195,6 +196,7 @@ function OrderItemTimeline({
 }
 
 export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
+  const router = useRouter();
   const {
     id,
     orderitems,
@@ -233,15 +235,20 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
       if (data.success) {
         setPaymentStage("push_sent");
         await new Promise((resolve) => setTimeout(resolve, 6000));
-        setPaymentStage("completed");
+        if (data.status === "COMPLETED") setPaymentStage("completed");
         await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
-        alert("Imeshindikana kuanzisha malipo ya Zenopay.");
+        alert(
+          data.error ||
+            data.message ||
+            "Imeshindikana kuanzisha malipo ya Zenopay.",
+        );
       }
     } catch (error) {
       console.error(error);
       alert("Tatizo limetokea wakati wa kuwasiliana na mfumo wa malipo.");
     } finally {
+      router.refresh();
       setPaymentStage("idle");
     }
   };

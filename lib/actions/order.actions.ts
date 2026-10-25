@@ -11,9 +11,20 @@ import { revalidatePath } from "next/cache";
 import { PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
 import { PaymentResult } from "@/types";
+import { calcPriceWithTiers } from "@/lib/cart-pricing";
 import { sendSms } from "../africasTalking";
 // import { ShippingAddress } from "@/types";
 //import { sendPurchaseReceipt } from "@/email";
+
+async function requireOrderAdmin() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (user?.role !== "ADMIN") throw new Error("Unauthorized");
+}
 
 // Create order and create the order items
 export async function createOrder() {
@@ -51,15 +62,14 @@ export async function createOrder() {
       };
     }
 
+    // Refresh legacy carts as well: prices and supplier ownership are database facts.
+    const totals = await calcPriceWithTiers(cart.items as CartItem[]);
     // Create order object
     const order = insertOrderSchema.parse({
       userId: user.id,
       shippingAddress: user.address,
       paymentMethod: user.paymentMethod,
-      itemsPrice: cart.itemsPrice,
-      shippingPrice: cart.shippingPrice,
-      taxPrice: cart.taxPrice,
-      totalPrice: cart.totalPrice,
+      ...totals,
     });
 
     // Create a transaction to create order and order items in database
@@ -154,6 +164,8 @@ export async function createBuyNowOrder({
     });
 
     if (!product) return { success: false, message: "Product not found" };
+    if (!Number.isSafeInteger(qty) || qty < 1)
+      return { success: false, message: "Invalid quantity" };
     if (Number(product.stock) < qty)
       return { success: false, message: "Not enough stock" };
 
@@ -227,9 +239,12 @@ export async function createBuyNowOrder({
 //===================================================================
 // Get order by id
 export async function getOrderById(orderId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
   const data = await prisma.order.findFirst({
     where: {
       id: orderId,
+      userId: session.user.id,
     },
     include: {
       orderitems: true,
@@ -248,6 +263,7 @@ export async function updateOrderToPaid({
   orderId: string;
   paymentResult?: PaymentResult;
 }) {
+  await requireOrderAdmin();
   // Get order from database
   const order = await prisma.order.findFirst({
     where: {
@@ -644,6 +660,7 @@ export async function getAllOrders({
   page: number;
   query: string;
 }) {
+  await requireOrderAdmin();
   const queryFilter: Prisma.OrderWhereInput =
     query && query !== "all"
       ? {
@@ -677,6 +694,7 @@ export async function getAllOrders({
 // Delete an order
 export async function deleteOrder(id: string) {
   try {
+    await requireOrderAdmin();
     await prisma.order.delete({ where: { id } });
 
     revalidatePath("/admin/orders");
@@ -693,6 +711,7 @@ export async function deleteOrder(id: string) {
 // Update COD order to paid - CashOnDeliver
 export async function updateOrderToPaidCOD(orderId: string) {
   try {
+    await requireOrderAdmin();
     await updateOrderToPaid({ orderId });
 
     revalidatePath(`/order/${orderId}`);
@@ -706,6 +725,7 @@ export async function updateOrderToPaidCOD(orderId: string) {
 // Update COD order to delivered
 export async function deliverOrder(orderId: string) {
   try {
+    await requireOrderAdmin();
     const order = await prisma.order.findFirst({
       where: {
         id: orderId,
@@ -833,6 +853,13 @@ export async function markOrderItemAsDelivered(
   productId: string,
 ) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
+    const ownedOrder = await prisma.order.findFirst({
+      where: { id: orderId, userId: session.user.id, isPaid: true },
+      select: { id: true },
+    });
+    if (!ownedOrder) throw new Error("Unauthorized");
     const result = await prisma.$transaction(
       async (tx) => {
         const item = await tx.orderItem.findUnique({
@@ -999,6 +1026,7 @@ export async function markOrderItemAsDelivered(
  */
 export async function markOrderAsDelivered(orderId: string) {
   try {
+    await requireOrderAdmin();
     await prisma.$transaction(async (tx) => {
       // 1. Fetch the targeted order items with supplier data before modifying values
       const order = await tx.order.findUnique({

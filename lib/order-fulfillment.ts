@@ -1,10 +1,14 @@
-"use server";
+import "server-only";
 
 import { prisma } from "@/db/prisma";
 import { sendSms } from "./africasTalking";
 // import { CartItem } from "@/types";
 
-export async function fulfillOrder(orderId: string) {
+export async function fulfillOrder(
+  orderId: string,
+  attempt: string,
+  reference: string,
+) {
   // 1. Fetch Order with Items, Customer info, and Suppliers in one clean query pass
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -19,7 +23,28 @@ export async function fulfillOrder(orderId: string) {
   }
 
   // 2. Execute stock reductions AND Escrow Ledger calculations safely inside a single transaction
-  await prisma.$transaction(async (tx) => {
+  const settled = await prisma.$transaction(async (tx) => {
+    // The paid flag, inventory and escrow commit together. Concurrent callbacks
+    // serialize on this row; failures roll back the claim so delivery can retry.
+    const claim = await tx.order.updateMany({
+      where: {
+        id: orderId,
+        isPaid: false,
+        paymentMethod: "ZENOPAY",
+        paymentResult: { path: ["zenopay_order_id"], equals: attempt },
+      },
+      data: {
+        isPaid: true,
+        paidAt: new Date(),
+        paymentStatus: "COMPLETED",
+        paymentResult: {
+          zenopay_order_id: attempt,
+          transactionId: reference,
+          status: "COMPLETED",
+        },
+      },
+    });
+    if (!claim.count) return false;
     for (const item of order.orderitems) {
       // Retrieve the current live database product profile record
       const currentProduct = await tx.product.findUnique({
@@ -33,22 +58,23 @@ export async function fulfillOrder(orderId: string) {
         );
       }
 
-      // Strict race condition stock checker guard
-      if (currentProduct.stock < item.qty) {
-        throw new Error(
-          `Mzigo wa "${currentProduct.name}" hautoshi kukamilisha agizo hili. Unaomba: ${item.qty}, Zilizopo: ${currentProduct.stock}`,
-        );
+      if (!Number.isSafeInteger(item.qty) || item.qty < 1) {
+        throw new Error("Invalid order item quantity");
       }
-
-      // Action A: Deduct inventory levels safely
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          stock: {
-            decrement: item.qty,
-          },
-        },
+      // Legacy partial fulfillment cannot safely be replayed without reviewing
+      // inventory. Roll back rather than decrementing stock a second time.
+      const existingLedger = await tx.supplierLedger.findUnique({
+        where: { reference: `ESCROW_CREDIT_${orderId}_${item.productId}` },
       });
+      if (existingLedger)
+        throw new Error("Existing escrow requires reconciliation");
+
+      // Test and decrement in one SQL statement to prevent overselling.
+      const stock = await tx.product.updateMany({
+        where: { id: item.productId, stock: { gte: item.qty } },
+        data: { stock: { decrement: item.qty } },
+      });
+      if (!stock.count) throw new Error("Insufficient stock for paid order");
 
       // Action B: Initialize the itemized escrow state flag on the order item row
       await tx.orderItem.update({
@@ -67,17 +93,6 @@ export async function fulfillOrder(orderId: string) {
       // Action C: 🟢 ESCROW INJECTION: Move earnings into the target Supplier's pendingBalance wallet account
       if (currentProduct.supplierId) {
         const lineItemWholesaleTotal = Number(item.price) * item.qty;
-
-        //This prevents double credit if webhook retries.
-        const existingLedger = await tx.supplierLedger.findUnique({
-          where: {
-            reference: `ESCROW_CREDIT_${orderId}_${item.productId}`,
-          },
-        });
-
-        if (existingLedger) {
-          continue;
-        }
 
         await tx.supplier.update({
           where: { id: currentProduct.supplierId },
@@ -111,7 +126,9 @@ export async function fulfillOrder(orderId: string) {
         );
       }
     }
+    return true;
   });
+  if (!settled) return false;
 
   // 3. Dispatch Automated Confirmation SMS to the Buyer
   const buyerPhone = order.user.phone || order.user.paymentPhone;
@@ -123,8 +140,8 @@ export async function fulfillOrder(orderId: string) {
 
     try {
       await sendSms(buyerPhone, buyerMsg);
-    } catch (smsErr) {
-      console.error("Failed sending SMS to buyer:", smsErr);
+    } catch {
+      console.error("Failed sending fulfillment SMS to buyer");
     }
   }
 
@@ -174,11 +191,8 @@ export async function fulfillOrder(orderId: string) {
 
       try {
         await sendSms(group.phone, supplierMsg);
-      } catch (smsErr) {
-        console.error(
-          `Failed sending fulfillment alert SMS to supplier ${group.name}:`,
-          smsErr,
-        );
+      } catch {
+        console.error("Failed sending fulfillment SMS to supplier");
       }
     }
   }
