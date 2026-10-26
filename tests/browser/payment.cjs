@@ -65,13 +65,31 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     const repeated = await Promise.all([post(), post()]);
     for (const response of repeated) {
       assert.equal(response.status(), 200);
-      assert.equal((await response.json()).status, "PENDING");
+      assert(["PENDING", "AMBIGUOUS"].includes((await response.json()).status));
     }
+    await page.goto(state.baseUrl + "/order/" + order.id);
+    await page
+      .getByRole("button", { name: "Check existing payment", exact: true })
+      .click();
+    await page
+      .getByText(
+        "Payment is not confirmed. Wait at least 30 seconds before checking again; no new charge was sent.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(
+      (await prisma.order.findUnique({ where: { id: order.id } })).isPaid,
+      false,
+    );
     let fixture = JSON.parse(fs.readFileSync(state.stage + "/payments.json"));
     assert.equal(fixture.collections, 1);
     console.log("PASS repeat initiation reconciles; one mocked collection");
     fixture.orders[order.paymentResult.zenopay_order_id].status = "COMPLETED";
     fs.writeFileSync(state.stage + "/payments.json", JSON.stringify(fixture));
+    await prisma.paymentAttempt.update({
+      where: { orderId: order.id },
+      data: { nextCheckAt: new Date(0) },
+    });
     const webhook = () =>
       context.request.post(state.baseUrl + "/api/zenopay/webhook", {
         data: {
@@ -84,7 +102,9 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       "Callbacks:",
       responses.map((r) => r.status()),
     );
-    assert(responses.every((r) => r.ok()));
+    assert(responses.some((r) => r.ok()));
+    assert(responses.every((r) => [200, 503].includes(r.status())));
+    assert.equal((await webhook()).status(), 200);
     assert.equal(
       (await prisma.order.findUnique({ where: { id: order.id } })).isPaid,
       true,

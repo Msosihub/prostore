@@ -107,6 +107,7 @@ const { prisma } = db;
       status: "COMPLETED",
     };
     fs.writeFileSync(state.stage + "/payments.json", JSON.stringify(fixture));
+    await prisma.paymentAttempt.update({where: {orderId: order.id}, data: {nextCheckAt: new Date(0)}});
     const settled = await buyer.request.post(
       state.baseUrl + "/api/zenopay/webhook",
       { data: { order_id: order.paymentResult.zenopay_order_id } },

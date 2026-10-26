@@ -1,5 +1,6 @@
 "use client";
 
+import PaymentRefresh from "@/components/admin/payment-refresh";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -61,6 +62,7 @@ interface LocalOrder {
   totalPrice: string;
   paymentMethod: string;
   paymentResult?: unknown;
+  paymentStatus?: string;
 
   shippingAddress: ShippingAddress;
   user: {
@@ -233,7 +235,9 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (data.status === "REQUIRES_REVIEW") {
+        alert("Payment requires support review. Do not pay again.");
+      } else if (data.success) {
         setPaymentStage("push_sent");
         await new Promise((resolve) => setTimeout(resolve, 6000));
         if (data.status === "COMPLETED") setPaymentStage("completed");
@@ -284,6 +288,15 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
         hayamaanishi bidhaa zote zimepokelewa.
       </p>
       {paymentStage !== "idle" && <PaymentLoadingScreen stage={paymentStage} />}
+      {!isPaid && order.paymentMethod === "ZENOPAY" && (
+        <div className="rounded-xl border bg-amber-50 p-4">
+          <p>
+            Already approved a phone payment? Check it here before trying again.
+            Pending or review does not mean you should pay again.
+          </p>
+          <PaymentRefresh orderId={id} />
+        </div>
+      )}
 
       <OrderItemDeliveryConfirmDialog
         open={!!deliveryDialogItem}
@@ -357,7 +370,9 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                       variant="destructive"
                       className="text-[11px] font-medium bg-rose-50 text-rose-700 border-rose-200 rounded-full px-2.5 py-0.5"
                     >
-                      Haijalipiwa bado
+                      {order.paymentStatus === "REQUIRES_REVIEW"
+                        ? "Malipo yanahitaji uhakiki — usilipe tena"
+                        : "Malipo hayajathibitishwa"}
                     </Badge>
                   )}
                 </div>

@@ -36,7 +36,7 @@ export default async function AdminOrdersPage({
           >
             <option value="">All orders</option>
             <option value="paid">Paid</option>
-            <option value="unpaid">Unpaid</option>
+            <option value="unpaid">Not settled</option>
             <option value="fulfillment">Paid, items unconfirmed</option>
           </select>
         </label>
@@ -69,7 +69,7 @@ export default async function AdminOrdersPage({
               {String(order.totalPrice)}
             </p>
             <p>
-              Payment: {order.isPaid ? "Paid" : "Unpaid"} ·{" "}
+              Payment: {order.isPaid ? "Recorded paid" : "Not settled — see payment recovery"} ·{" "}
               {order.paymentMethod}
             </p>
             <p>

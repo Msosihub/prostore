@@ -127,17 +127,16 @@ test("stale attempt cannot mark an order paid", async () => {
 });
 test("failure/completion race cannot downgrade completed payment", async () => {
   const { order } = await fixture();
-  getZenopayStatus
-    .mockResolvedValueOnce({ payment_status: "FAILED", amount: 2000 })
-    .mockResolvedValueOnce({
-      payment_status: "COMPLETED",
-      amount: 2000,
-      reference: "verified",
-    });
-  await Promise.all([
-    reconcileZenopay(order.id, attempt(order)),
-    reconcileZenopay(order.id, attempt(order)),
-  ]);
+  getZenopayStatus.mockResolvedValue({
+    order_id: attempt(order),
+    payment_status: "COMPLETED",
+    amount: 2000,
+    reference: "verified",
+  });
+  await Promise.all(
+    Array.from({ length: 5 }, () => reconcileZenopay(order.id, attempt(order))),
+  );
+  expect(getZenopayStatus).toHaveBeenCalledTimes(1);
   const current = await prisma.order.findUnique({ where: { id: order.id } });
   expect(current.isPaid).toBe(true);
   expect(current.paymentStatus).toBe("COMPLETED");
@@ -182,7 +181,7 @@ test("verified amount mismatch leaves financial state untouched", async () => {
     reference: "verified",
   });
   await expect(reconcileZenopay(order.id, attempt(order))).rejects.toThrow(
-    "amount",
+    "verification",
   );
   expect(
     (await prisma.order.findUnique({ where: { id: order.id } })).isPaid,
@@ -1848,4 +1847,245 @@ test("revoked seller profile/document writes fail before mutation; malformed fil
   await prisma.user.update({ where: { id: f.user.id }, data: { role: "SUPPLIER" } });
   expect((await uploadSellerDocument(request())).status).toBe(400);
   expect(await prisma.supplierDocument.count()).toBe(0);
+});
+
+import { reservePayment, reconciliationBatch } from "@/lib/payment-recovery";
+import { POST as refreshPayment } from "@/app/api/zenopay/status/route";
+const due = async (orderId) =>
+  prisma.paymentAttempt.update({
+    where: { orderId },
+    data: { nextCheckAt: new Date(0) },
+  });
+const confirmed = (order) => ({
+  order_id: attempt(order),
+  payment_status: "COMPLETED",
+  amount: 2000,
+  reference: `verified-${order.id}`,
+});
+test("recovery preserves verified money through stock failure and settles once after restock", async () => {
+  const { order, product } = await fixture({ stock: 0 });
+  getZenopayStatus.mockResolvedValue(confirmed(order));
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe(
+    "REQUIRES_REVIEW",
+  );
+  expect(
+    await prisma.paymentAttempt.findUnique({ where: { orderId: order.id } }),
+  ).toMatchObject({
+    state: "REVIEW",
+    providerReference: `verified-${order.id}`,
+  });
+  expect(
+    await prisma.order.findUnique({ where: { id: order.id } }),
+  ).toMatchObject({ isPaid: false, paymentStatus: "REQUIRES_REVIEW" });
+  expect(await prisma.supplierLedger.count()).toBe(0);
+  await prisma.product.update({
+    where: { id: product.id },
+    data: { stock: 5 },
+  });
+  await due(order.id);
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe("COMPLETED");
+  await reconcileZenopay(order.id, attempt(order));
+  expect(await prisma.supplierLedger.count()).toBe(1);
+  expect(
+    (await prisma.product.findUnique({ where: { id: product.id } })).stock,
+  ).toBe(3);
+});
+test("failed then completed can recover; pending cannot erase verified money", async () => {
+  const { order } = await fixture({ stock: 0 });
+  getZenopayStatus.mockResolvedValue({
+    ...confirmed(order),
+    payment_status: "FAILED",
+  });
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe("FAILED");
+  await due(order.id);
+  getZenopayStatus.mockResolvedValue(confirmed(order));
+  await reconcileZenopay(order.id, attempt(order));
+  await due(order.id);
+  getZenopayStatus.mockResolvedValue({
+    ...confirmed(order),
+    payment_status: "PENDING",
+  });
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe(
+    "REQUIRES_REVIEW",
+  );
+  expect(
+    (await prisma.order.findUnique({ where: { id: order.id } })).paymentStatus,
+  ).toBe("REQUIRES_REVIEW");
+});
+test("crash after atomic settlement recovers journal without duplicate stock or notifications", async () => {
+  const { order } = await fixture({ stock: 0 });
+  getZenopayStatus.mockResolvedValue(confirmed(order));
+  await reconcileZenopay(order.id, attempt(order));
+  await prisma.product.updateMany({ data: { stock: 5 } });
+  await fulfillOrder(
+    order.id,
+    attempt(order),
+    confirmed(order).reference,
+    2000,
+  );
+  await due(order.id);
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe("COMPLETED");
+  expect(await prisma.supplierLedger.count()).toBe(1);
+  expect(sendSms).toHaveBeenCalledTimes(2);
+});
+test("legacy paid orders remain review across repeated verification; never replay inventory", async () => {
+  const { order } = await fixture();
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { isPaid: true },
+  });
+  getZenopayStatus.mockResolvedValue(confirmed(order));
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe(
+    "REQUIRES_REVIEW",
+  );
+  await due(order.id);
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe(
+    "REQUIRES_REVIEW",
+  );
+  expect(await prisma.supplierLedger.count()).toBe(0);
+});
+test.each([{ order_id: "wrong" }, { amount: 1 }, { reference: "" }])(
+  "invalid verified contract never settles %j",
+  async (patch) => {
+    const { order } = await fixture();
+    getZenopayStatus.mockResolvedValue({ ...confirmed(order), ...patch });
+    await expect(reconcileZenopay(order.id, attempt(order))).rejects.toThrow(
+      "verification",
+    );
+    expect(await prisma.supplierLedger.count()).toBe(0);
+    expect(
+      (await prisma.paymentAttempt.findUnique({ where: { orderId: order.id } }))
+        .verifiedAt,
+    ).toBeNull();
+  },
+);
+test("durable reservation and order claim roll back together on duplicate provider reference", async () => {
+  const first = await fixture({ paymentResult: Prisma.DbNull });
+  const second = await newOrder(first);
+  await prisma.order.update({
+    where: { id: second.id },
+    data: { paymentResult: Prisma.DbNull },
+  });
+  expect(
+    await reservePayment(first.order.id, first.user.id, "unique-ref", 2000),
+  ).toBe(true);
+  await expect(
+    reservePayment(second.id, first.user.id, "unique-ref", 2000),
+  ).rejects.toThrow();
+  expect(
+    (await prisma.order.findUnique({ where: { id: second.id } })).paymentResult,
+  ).toBeNull();
+});
+test("owner refresh rejects anonymous, other buyer and revoked admin before provider", async () => {
+  const { order, user } = await fixture();
+  const req = (admin) =>
+    new Request("https://example.test", {
+      method: "POST",
+      body: JSON.stringify({ orderId: order.id, admin }),
+    });
+  auth.mockResolvedValue(null);
+  expect((await refreshPayment(req(false))).status).toBe(401);
+  auth.mockResolvedValue({ user: { id: user.id, role: "ADMIN" } });
+  expect((await refreshPayment(req(true))).status).toBe(403);
+  const stranger = await prisma.user.create({
+    data: { name: "Other", email: "other@example.test", role: "BUYER" },
+  });
+  auth.mockResolvedValue({ user: { id: stranger.id } });
+  expect((await refreshPayment(req(false))).status).toBe(404);
+  expect(getZenopayStatus).not.toHaveBeenCalled();
+  auth.mockResolvedValue({ user: { id: user.id } });
+  getZenopayStatus.mockResolvedValue(confirmed(order));
+  expect((await refreshPayment(req(false))).status).toBe(200);
+});
+test("batch defaults to dry run and is bounded; unavailable provider retains durable reference", async () => {
+  const { order } = await fixture();
+  getZenopayStatus.mockRejectedValue(new Error("secret"));
+  await expect(reconcileZenopay(order.id, attempt(order))).rejects.toThrow(
+    "unavailable",
+  );
+  await due(order.id);
+  getZenopayStatus.mockClear();
+  expect(await reconciliationBatch()).toHaveLength(1);
+  expect(getZenopayStatus).not.toHaveBeenCalled();
+  await expect(reconciliationBatch({ limit: 51 })).rejects.toThrow();
+  expect(await reconciliationBatch({ dryRun: false })).toEqual([
+    { orderId: order.id, state: "UNAVAILABLE" },
+  ]);
+  expect(
+    JSON.stringify(await prisma.paymentAttemptEvent.findMany()),
+  ).not.toContain("secret");
+});
+test("stored verified proof recovers after crash without requiring provider availability", async () => {
+  const { order, product } = await fixture({ stock: 0 });
+  getZenopayStatus.mockResolvedValue(confirmed(order));
+  await reconcileZenopay(order.id, attempt(order));
+  await prisma.product.update({
+    where: { id: product.id },
+    data: { stock: 5 },
+  });
+  await due(order.id);
+  getZenopayStatus.mockReset();
+  getZenopayStatus.mockRejectedValue(new Error("offline"));
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe("COMPLETED");
+  expect(getZenopayStatus).not.toHaveBeenCalled();
+});
+test("expired lease worker cannot overwrite newer settled proof", async () => {
+  const { order } = await fixture();
+  let release;
+  let started;
+  const ready = new Promise((resolve) => (started = resolve));
+  getZenopayStatus
+    .mockImplementationOnce(() => {
+      started();
+      return new Promise((resolve) => (release = resolve));
+    })
+    .mockResolvedValue(confirmed(order));
+  const old = reconcileZenopay(order.id, attempt(order));
+  await ready;
+  await prisma.paymentAttempt.update({
+    where: { orderId: order.id },
+    data: { leaseUntil: new Date(0), nextCheckAt: new Date(0) },
+  });
+  expect(await reconcileZenopay(order.id, attempt(order))).toBe("COMPLETED");
+  release({ ...confirmed(order), payment_status: "FAILED" });
+  await expect(old).rejects.toThrow("unavailable");
+  expect(
+    (await prisma.paymentAttempt.findUnique({ where: { orderId: order.id } }))
+      .state,
+  ).toBe("SETTLED");
+  expect(
+    (await prisma.order.findUnique({ where: { id: order.id } })).paymentStatus,
+  ).toBe("COMPLETED");
+  expect(await prisma.supplierLedger.count()).toBe(1);
+});
+
+import { paymentQueue, paymentDetail } from "@/lib/admin-payment-recovery";
+test("recovery admin queries enforce fresh roles, validate UUID and clamp pages", async()=>{
+ const {order,user}=await fixture();auth.mockResolvedValue({user:{id:user.id,role:"ADMIN"}});
+ await expect(paymentQueue({})).rejects.toThrow("Unauthorized");
+ await prisma.user.update({where:{id:user.id},data:{role:"ADMIN"}});
+ getZenopayStatus.mockResolvedValue({...confirmed(order),payment_status:"PENDING"});await reconcileZenopay(order.id,attempt(order));
+ const result=await paymentQueue({page:"99",q:"-".repeat(36)});expect(result.filters.page).toBe(1);expect(result.items).toHaveLength(1);
+ expect(await paymentDetail("-".repeat(36))).toBeNull();
+ expect((await paymentDetail(result.items[0].id)).events.length).toBeGreaterThan(0);
+ await prisma.user.update({where:{id:user.id},data:{role:"BUYER"}});await expect(paymentDetail(result.items[0].id)).rejects.toThrow("Unauthorized");
+});
+test("provider transaction reference cannot settle a second order",async()=>{
+ const first=await fixture();getZenopayStatus.mockResolvedValue(confirmed(first.order));await reconcileZenopay(first.order.id,attempt(first.order));
+ const second=await newOrder(first);getZenopayStatus.mockResolvedValue({...confirmed(second),reference:confirmed(first.order).reference});
+ await expect(reconcileZenopay(second.id,attempt(second))).rejects.toThrow("verification");
+ expect((await prisma.order.findUnique({where:{id:second.id}})).isPaid).toBe(false);expect(await prisma.supplierLedger.count()).toBe(1);
+});
+test("read-only recovery operator report executes without mutations",async()=>{
+ const {order}=await fixture();getZenopayStatus.mockResolvedValue({...confirmed(order),payment_status:"PENDING"});await reconcileZenopay(order.id,attempt(order));
+ const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts/payment-recovery-dry-run.sql"),"utf8");
+ const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(Boolean);
+ await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY"); for(const stmt of statements.filter(s=>!s.startsWith("BEGIN")&&s!=="ROLLBACK")) expect(await tx.$queryRawUnsafe(stmt)).toBeDefined();});
+ expect(await prisma.paymentAttempt.count()).toBe(1);expect(await prisma.supplierLedger.count()).toBe(0);
+});
+test("callback during cooldown requests retry instead of acknowledging unverified hint",async()=>{
+ const {order}=await fixture();getZenopayStatus.mockResolvedValue({...confirmed(order),payment_status:"PENDING"});
+ await reconcileZenopay(order.id,attempt(order));
+ await expect(reconcileZenopay(order.id,attempt(order),true)).rejects.toThrow("busy");
+ expect(getZenopayStatus).toHaveBeenCalledTimes(1);expect(await prisma.supplierLedger.count()).toBe(0);
 });

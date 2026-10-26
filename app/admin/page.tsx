@@ -8,10 +8,10 @@ export default async function AdminDashboardPage() {
   const data = await getAdminOverview();
   const queues = [
     [
-      "Unpaid orders",
+      "Orders not settled",
       data.unpaid,
       "/admin/orders?status=unpaid",
-      "Not confirmed paid; this includes pending and failed attempts.",
+      "Local settlement is incomplete. Includes pending, failed and provider-paid orders requiring review.",
     ],
     [
       "Open disputes",

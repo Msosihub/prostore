@@ -322,7 +322,10 @@ async function until(check) {
           payment_status: "COMPLETED",
         },
       });
-    assert((await Promise.all([callback(), callback()])).every((r) => r.ok()));
+    const callbacks = await Promise.all([callback(), callback()]);
+    assert(callbacks.some(r => r.ok()));
+    assert(callbacks.every(r => [200, 503].includes(r.status())));
+    assert.equal((await callback()).status(), 200);
     assert.equal(
       await prisma.supplierLedger.count({
         where: { orderId, type: "ESCROW_CREDIT" },
