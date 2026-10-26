@@ -11,7 +11,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/db/prisma";
 import { getMyCart } from "@/lib/actions/cart.actions";
 import { getUserById } from "@/lib/actions/user.actions";
-import { createOrder } from "@/lib/actions/order.actions";
+import { createOrder, createBuyNowOrder } from "@/lib/actions/order.actions";
 let tx;
 beforeEach(() => {
   auth.mockResolvedValue({
@@ -44,6 +44,7 @@ beforeEach(() => {
         image: "image",
         price: "0.50",
         supplierId: "forged",
+        supplierName: "Forged seller name",
       },
     ],
   });
@@ -57,6 +58,14 @@ beforeEach(() => {
     pricingTiers: [],
   });
   tx = {
+    supplier: {
+      findUnique: jest
+        .fn()
+        .mockResolvedValue({
+          name: "Canonical Seller",
+          companyName: "Canonical Store",
+        }),
+    },
     order: { create: jest.fn(async () => ({ id: "new-order" })) },
     orderItem: { create: jest.fn() },
     cart: { update: jest.fn() },
@@ -76,6 +85,7 @@ test("checkout reprices old carts and stores canonical supplier/line totals", as
     data: expect.objectContaining({
       price: "1000",
       supplierId: "real",
+      supplierName: "Canonical Store",
       name: "Real",
     }),
   });
@@ -84,4 +94,11 @@ test("unavailable stock does not create order or clear cart", async () => {
   prisma.product.findUnique.mockResolvedValue({ price: "1000", stock: 0 });
   expect((await createOrder()).success).toBe(false);
   expect(prisma.$transaction).not.toHaveBeenCalled();
+});
+
+test("buy now snapshots canonical supplier name with legal-name fallback", async () => {
+  tx.supplier.findUnique.mockResolvedValue({name: "Canonical Seller", companyName: null});
+  const result = await createBuyNowOrder({productId: "real", qty: 1});
+  expect(result.success).toBe(true);
+  expect(tx.orderItem.create).toHaveBeenCalledWith({data: expect.objectContaining({supplierId: "real", supplierName: "Canonical Seller"})});
 });

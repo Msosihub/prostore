@@ -73,6 +73,11 @@ export async function createOrder() {
       const insertedOrder = await tx.order.create({ data: order });
       // Create order items from the cart items
       for (const item of cart.items as CartItem[]) {
+        const seller = await tx.supplier.findUnique({
+          where: { id: item.supplierId },
+          select: { name: true, companyName: true },
+        });
+        if (!seller) throw new Error("Supplier unavailable");
         const orderItemData = { ...item };
 
         // @ts-expect-error dont needed
@@ -84,6 +89,7 @@ export async function createOrder() {
             price: item.price,
             status: "PREPARING",
             supplierId: item?.supplierId,
+            supplierName: seller.companyName || seller.name,
             orderId: insertedOrder.id,
             slug: item.slug || "",
           },
@@ -202,6 +208,11 @@ export async function createBuyNowOrder({
     const insertedOrderId = await prisma.$transaction(async (tx) => {
       const insertedOrder = await tx.order.create({ data: order });
       for (const it of cartLike.items as CartItem[]) {
+        const seller = await tx.supplier.findUnique({
+          where: { id: it.supplierId },
+          select: { name: true, companyName: true },
+        });
+        if (!seller) throw new Error("Supplier unavailable");
         await tx.orderItem.create({
           data: {
             productId: it.productId,
@@ -209,6 +220,7 @@ export async function createBuyNowOrder({
             image: it.image,
             price: it.price,
             supplierId: it.supplierId,
+            supplierName: seller.companyName || seller.name,
             qty: it.qty,
             orderId: insertedOrder.id,
             slug: it.slug || "",

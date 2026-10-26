@@ -1,5 +1,7 @@
 "use server";
 
+import { z } from "zod";
+import { deliveryContact, deliverySmsRecipient } from "@/lib/fulfillment-view";
 import { lockPaidOrder } from "@/lib/order-delivery";
 import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
@@ -12,6 +14,11 @@ async function requireSupplierProfile() {
     throw new Error("Unauthorized");
   }
 
+  const current = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (current?.role !== "SUPPLIER") throw new Error("Unauthorized");
   const supplier = await prisma.supplier.findUnique({
     where: { userId: session.user.id },
   });
@@ -33,91 +40,80 @@ export async function markItemDispatched({
   try {
     const { session, supplier } = await requireSupplierProfile();
 
-    const item = await prisma.orderItem.findFirst({
-      where: {
-        orderId,
-        productId,
-        supplierId: supplier.id,
-        order: { isPaid: true },
-      },
-      include: {
-        order: {
-          include: {
-            user: { select: { name: true, phone: true, paymentPhone: true } },
-          },
-        },
-      },
-    });
-
-    if (!item) throw new Error("Order item not found");
-
-    if (item.isDelivered || item.status === "DELIVERED") {
-      return { success: false, message: "Order hii tayari imepokelewa." };
-    }
-
-    if (["REJECTED", "RETURNED", "CANCELLED"].includes(item.status)) {
-      return {
-        success: false,
-        message: "Order hii haiwezi kuwekwa dispatched kwa sasa.",
-      };
-    }
-
-    await prisma.$transaction(async (tx) => {
-      await lockPaidOrder(tx, orderId);
-      const dispatched = await tx.orderItem.updateMany({
-        where: {
-          orderId,
-          productId,
-          supplierId: supplier.id,
-          isDelivered: false,
-          status: { in: ["PAID", "PREPARING", "DISPATCHED"] },
-        },
+    const input = z
+      .object({
+        orderId: z.string().uuid(),
+        productId: z.string().uuid(),
+        note: z.string().trim().max(180).optional(),
+      })
+      .parse({ orderId, productId, note });
+    const changed = await prisma.$transaction(async (tx) => {
+      const order = await lockPaidOrder(tx, input.orderId);
+      const item = order.orderitems.find(
+        (row) =>
+          row.productId === input.productId && row.supplierId === supplier.id,
+      );
+      if (!item) throw new Error("Order item not found");
+      if (item.status === "DISPATCHED" || item.isDelivered) return null;
+      if (!["PAID", "PREPARING"].includes(item.status))
+        throw new Error("Item cannot dispatch");
+      const dispute = await tx.returnRequest.findUnique({
+        where: { orderId_productId: { orderId, productId } },
+      });
+      if (dispute && dispute.status !== "REJECTED")
+        throw new Error("Dispute blocks dispatch");
+      await tx.orderItem.update({
+        where: { orderId_productId: { orderId, productId } },
         data: {
           status: "DISPATCHED",
           dispatchedAt: new Date(),
-          dispatchNote: note || "",
+          dispatchNote: input.note || "",
         },
       });
-      if (dispatched.count !== 1) throw new Error("Item state changed");
-
       await tx.orderItemEvent.create({
         data: {
           orderId,
           productId,
           actorId: session.user.id,
           type: "DISPATCHED",
-          note: note || "",
-          metadata: {
-            supplierId: supplier.id,
-            itemName: item.name,
-            qty: item.qty,
-          },
+          note: input.note || "",
+          metadata: { supplierId: supplier.id, source: "MANUAL" },
         },
       });
+      return {
+        name: item.name,
+        phone: deliveryContact(order.shippingAddress).phone,
+        note: input.note,
+      };
     });
-
-    const buyerPhone = item.order.user.phone || item.order.user.paymentPhone;
-
-    if (buyerPhone) {
-      await sendSms(
-        buyerPhone,
-        `Nimboya: Mzigo wako "${item.name}" umetumwa.
-
-${note || ""}
-
-Agizo #${orderId.slice(0, 8)}
-
-Ukipokea, tafadhali thibitisha kwenye akaunti yako.`,
-      );
+    const recipient = deliverySmsRecipient(changed?.phone);
+    let notificationFailed = !!changed && !recipient;
+    if (changed && recipient) {
+      try {
+        await sendSms(
+          recipient,
+          `Nimboya: Mzigo wako "${changed.name}" umetumwa.\n${changed.note || ""}\nAgizo #${orderId.slice(0, 8)}. Ukipokea, thibitisha kwenye akaunti yako.`,
+        );
+      } catch {
+        notificationFailed = true;
+        console.error("Dispatch notification failed after committed dispatch");
+      }
     }
 
     revalidatePath("/supplier/orders");
     revalidatePath(`/order/${orderId}`);
     revalidatePath("/supplier/overview");
 
-    return { success: true, message: "Mzigo umewekwa dispatched." };
-  } catch (error) {
-    console.error("Dispatch action failed:", error);
+    return {
+      success: true,
+      message: notificationFailed
+        ? "Mzigo umerekodiwa umetumwa; SMS haikufika. Taarifa ipo kwenye agizo."
+        : changed
+          ? "Mzigo umewekwa dispatched."
+          : "Mzigo huu tayari umerekodiwa umetumwa au kupokelewa.",
+    };
+  } catch {
+    console.error("Dispatch action failed");
     return { success: false, message: "Imeshindikana kuweka dispatched." };
   }
 }
@@ -138,20 +134,17 @@ export async function remindBuyerToConfirmDelivery({
         productId,
         supplierId: supplier.id,
         isDelivered: false,
+        status: "DISPATCHED",
         order: { isPaid: true },
       },
-      include: {
-        order: {
-          include: {
-            user: { select: { name: true, phone: true, paymentPhone: true } },
-          },
-        },
-      },
+      include: { order: { select: { shippingAddress: true } } },
     });
 
     if (!item) throw new Error("Order item not found");
 
-    const buyerPhone = item.order.user.phone || item.order.user.paymentPhone;
+    const buyerPhone = deliverySmsRecipient(
+      deliveryContact(item.order.shippingAddress).phone,
+    );
 
     if (!buyerPhone) {
       return { success: false, message: "Mteja hana namba ya SMS." };
@@ -172,8 +165,8 @@ export async function remindBuyerToConfirmDelivery({
     });
 
     return { success: true, message: "SMS reminder imetumwa kwa buyer." };
-  } catch (error) {
-    console.error("Reminder SMS failed:", error);
+  } catch {
+    console.error("Reminder SMS failed");
     return { success: false, message: "Imeshindikana kutuma reminder." };
   }
 }

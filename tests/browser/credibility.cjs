@@ -37,6 +37,9 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:state.stage+'/catalog-claims-mobile.png'});
   console.log('PASS database-backed empty/real review summaries; deterministic low inventory and no fabricated card reviews/sales across reloads');
+ } catch (error) {
+  for (const c of browser.contexts()) for (const p of c.pages()) await p.screenshot({path:state.stage+"/credibility-failure.png"}).catch(()=>{});
+  throw error;
  } finally {
   await browser.close();
   await prisma.review.deleteMany({where:{id:{in:reviews}}});

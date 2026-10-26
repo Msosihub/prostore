@@ -155,7 +155,7 @@ function OrderItemTimeline({
             {item.dispatchNote && (
               <div className="mt-2 rounded-xl border border-amber-100 bg-white p-2">
                 <p className="text-[10px] font-black uppercase text-amber-600">
-                  Tracking / Dispatch Note
+                  Taarifa za muuzaji (manual — si tracking ya moja kwa moja)
                 </p>
                 <p className="mt-1 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
                   {item.dispatchNote}
@@ -276,6 +276,12 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
 
   return (
     <>
+      <p role="status" className="rounded-xl border bg-white p-3 text-sm">
+        Bidhaa zilizopokelewa:{" "}
+        {orderitems.filter((item) => item.isDelivered).length}/
+        {orderitems.length}. Kila muuzaji hutuma bidhaa zake; malipo
+        hayamaanishi bidhaa zote zimepokelewa.
+      </p>
       {paymentStage !== "idle" && <PaymentLoadingScreen stage={paymentStage} />}
 
       <OrderItemDeliveryConfirmDialog
@@ -482,6 +488,7 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                                 {isPaid ? (
                                   <Button
                                     size="sm"
+                                    aria-label={`Nimepokea Bidhaa Hii: ${item.name}`}
                                     disabled={!!deliveryDialogItem}
                                     onClick={() =>
                                       setDeliveryDialogItem({
