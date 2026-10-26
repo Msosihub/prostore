@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const supplierNavigationRoutes = [
+  { title: "Withdrawals", href: "/supplier/withdrawals", icon: History },
   {
     title: "Overview (Muhtasari)",
     href: "/supplier/overview",

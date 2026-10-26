@@ -47,6 +47,8 @@ model VerificationToken {
 }
 
 model User {
+  moneyCases MoneyReviewCase[] @relation("MoneyCaseActor")
+  moneyEvents MoneyReviewEvent[] @relation("MoneyEventActor")
   orderSmsEnabled Boolean @default(true)
   marketThreads MarketThread[]
   marketMessages MarketMessage[]
@@ -105,6 +107,7 @@ model Cart {
 }
 
 model Order {
+  moneyCases MoneyReviewCase[]
   orderNotifications OrderNotification[]
   paymentAttempts PaymentAttempt[]
   marketProposal MarketProposal?
@@ -361,6 +364,7 @@ model Attachment {
 }
 
 model Supplier {
+  moneyCases MoneyReviewCase[]
   marketThreads MarketThread[]
 
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -1922,4 +1926,40 @@ model OrderNotificationEvent {
  createdAt DateTime @default(now()) @db.Timestamp(6)
  notification OrderNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
  @@index([notificationId, createdAt])
+}
+
+// Review cases never constitute external payment evidence.
+model MoneyReviewCase {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestKey String @db.Uuid
+  actorId String @db.Uuid
+  supplierId String @db.Uuid
+  kind String
+  state String @default("REQUESTED")
+  amount Decimal @db.Decimal(12, 2)
+  orderId String? @db.Uuid
+  productId String? @db.Uuid
+  quantity Int?
+  paymentVerified Boolean @default(false)
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
+  actor User @relation("MoneyCaseActor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  events MoneyReviewEvent[]
+  @@unique([actorId, requestKey])
+  @@index([supplierId, state])
+  @@index([orderId, productId])
+}
+model MoneyReviewEvent {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId String @db.Uuid
+  actorId String @db.Uuid
+  state String
+  reason String
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  actor User @relation("MoneyEventActor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  reviewCase MoneyReviewCase @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  @@index([caseId, createdAt])
 }

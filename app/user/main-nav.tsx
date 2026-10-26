@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import React from "react";
 
 const links = [
+  { title: "Refunds", href: "/user/refunds" },
   {
     title: "Profile",
     href: "/user/profile",
@@ -26,7 +27,7 @@ const MainNav = ({
   const pathname = usePathname();
   return (
     <nav
-      className={cn("flex items-center space-x-4 lg:space-x-6", className)}
+      className={cn("flex flex-wrap items-center gap-4 lg:gap-6", className)}
       {...props}
     >
       {links.map((item) => (
