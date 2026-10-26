@@ -50,6 +50,7 @@ export default function AdminLayout({
 
             <nav className="space-y-4 flex flex-col">
               <Link href="/admin">Dashboard</Link>
+              <Link href="/admin/orders">Orders / Fulfillment</Link>
               <Link href="/admin/suppliers">Suppliers</Link>
               <Link href="/admin/documents">Documents</Link>
               <Link href="/admin/categories">Categories</Link>

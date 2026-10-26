@@ -18,6 +18,7 @@ import { PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
 import { PaymentResult } from "@/types";
 import { calcPriceWithTiers } from "@/lib/cart-pricing";
+import { getBuyNowQuote } from "@/lib/buy-now-pricing";
 // import { ShippingAddress } from "@/types";
 //import { sendPurchaseReceipt } from "@/email";
 
@@ -73,6 +74,11 @@ export async function createOrder() {
       const insertedOrder = await tx.order.create({ data: order });
       // Create order items from the cart items
       for (const item of cart.items as CartItem[]) {
+        const seller = await tx.supplier.findUnique({
+          where: { id: item.supplierId },
+          select: { name: true, companyName: true },
+        });
+        if (!seller) throw new Error("Supplier unavailable");
         const orderItemData = { ...item };
 
         // @ts-expect-error dont needed
@@ -84,6 +90,7 @@ export async function createOrder() {
             price: item.price,
             status: "PREPARING",
             supplierId: item?.supplierId,
+            supplierName: seller.companyName || seller.name,
             orderId: insertedOrder.id,
             slug: item.slug || "",
           },
@@ -143,51 +150,7 @@ export async function createBuyNowOrder({
         redirectTo: "/shipping-address",
       };
     }
-    // if (!user.paymentMethod) {
-    //   return {
-    //     success: false,
-    //     message: "No payment method",
-    //     redirectTo: "/payment-method",
-    //   };
-    // }
-
-    const product = await prisma.product.findUnique({
-      where: { slug: productId },
-      include: {
-        pricingTiers: true,
-      },
-    });
-
-    if (!product) return { success: false, message: "Product not found" };
-    if (!Number.isSafeInteger(qty) || qty < 1)
-      return { success: false, message: "Invalid quantity" };
-    if (Number(product.stock) < qty)
-      return { success: false, message: "Not enough stock" };
-
-    const item: CartItem & { qty: number } = {
-      productId: product.id,
-      supplierId: product.supplierId,
-      name: product.name,
-      image: product.images?.[0] ?? "",
-      price: product.price.toString(),
-      qty,
-      slug: product.slug ?? "",
-      priceTiers: product.pricingTiers
-        ? product.pricingTiers.map((t) => ({
-            minQty: t.minQty,
-            price: Number(t.price),
-          }))
-        : [],
-    };
-
-    console.log("CREATED BUY ITEAM: ", item);
-    const cartLike = {
-      items: [item],
-      itemsPrice: (Number(product.price) * qty).toString(),
-      shippingPrice: "0",
-      taxPrice: "0",
-      totalPrice: (Number(product.price) * qty).toString(),
-    };
+    const cartLike = await getBuyNowQuote(productId, qty);
 
     const order = insertOrderSchema.parse({
       userId,
@@ -202,6 +165,11 @@ export async function createBuyNowOrder({
     const insertedOrderId = await prisma.$transaction(async (tx) => {
       const insertedOrder = await tx.order.create({ data: order });
       for (const it of cartLike.items as CartItem[]) {
+        const seller = await tx.supplier.findUnique({
+          where: { id: it.supplierId },
+          select: { name: true, companyName: true },
+        });
+        if (!seller) throw new Error("Supplier unavailable");
         await tx.orderItem.create({
           data: {
             productId: it.productId,
@@ -209,7 +177,9 @@ export async function createBuyNowOrder({
             image: it.image,
             price: it.price,
             supplierId: it.supplierId,
+            supplierName: seller.companyName || seller.name,
             qty: it.qty,
+            status: "PREPARING",
             orderId: insertedOrder.id,
             slug: it.slug || "",
           },
@@ -298,6 +268,8 @@ export async function getMyOrders({
       createdAt: true,
       totalPrice: true,
       paymentStatus: true,
+      isPaid: true,
+      orderitems: { select: { isDelivered: true } },
       isDelivered: true,
     },
     orderBy: { createdAt: "desc" },
@@ -402,7 +374,7 @@ export async function getMyOrders({
 //       salesData,
 //     };
 //   } catch (error) {
-//     console.error("Failed to compile order analytics summary:", error);
+//     console.error("Failed to compile order analytics summary");
 //     return {
 //       ordersCount: 0,
 //       productsCount: 0,
@@ -482,9 +454,13 @@ export async function getOrderSummary(supplierId: string) {
         (salesByMonth[month] || 0) + Number(item.price) * item.qty;
     }
 
-    const salesData = Object.entries(salesByMonth).map(
-      ([month, totalSales]) => ({ month, totalSales }),
-    );
+    const salesData = Object.entries(salesByMonth)
+      .map(([month, totalSales]) => ({ month, totalSales }))
+      .sort((a, b) => {
+        const [am, ay] = a.month.split("/").map(Number);
+        const [bm, by] = b.month.split("/").map(Number);
+        return ay - by || am - bm;
+      });
 
     const latestSalesMap = new Map();
 
@@ -553,7 +529,7 @@ export async function getOrderSummary(supplierId: string) {
     const awaitingDispatchCount = await prisma.orderItem.count({
       where: {
         supplierId: supplierIdid,
-        status: "PREPARING",
+        status: { in: ["PAID", "PREPARING"] },
         isDelivered: false,
         order: { isPaid: true },
       },
@@ -571,6 +547,7 @@ export async function getOrderSummary(supplierId: string) {
     const latestSales = Array.from(latestSalesMap.values()).slice(0, 6);
 
     return {
+      available: true,
       ordersCount: uniqueOrderIds.size,
       productsCount,
       rejectedOrdersCount,
@@ -587,9 +564,10 @@ export async function getOrderSummary(supplierId: string) {
       pendingEscrow: Number(supplierWallet?.pendingBalance || 0),
       walletBalance: Number(supplierWallet?.walletBalance || 0),
     };
-  } catch (error) {
-    console.error("Failed to compile order analytics summary:", error);
+  } catch {
+    console.error("Failed to compile order analytics summary");
     return {
+      available: false,
       ordersCount: 0,
       productsCount: 0,
       rejectedOrdersCount: 0,

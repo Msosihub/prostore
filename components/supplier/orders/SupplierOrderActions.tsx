@@ -38,9 +38,7 @@ export default function SupplierOrderActions({
       status || "",
     );
 
-  const canRemind =
-    !isDelivered &&
-    ["DISPATCHED", "PREPARING", "PAID"].includes(status || "PAID");
+  const canRemind = !isDelivered && status === "DISPATCHED";
 
   return (
     <>
@@ -88,23 +86,23 @@ export default function SupplierOrderActions({
               Mark as Dispatched
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              Buyer atapokea SMS kuwa mzigo umetumwa. Usibonyeze hii kabla mzigo
-              haujakabidhiwa kwa usafirishaji.
+              Taarifa itaonekana kwenye agizo; SMS itajaribiwa. Usibonyeze hii
+              kabla mzigo haujakabidhiwa kwa usafirishaji.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700">
-              Dispatch note / tracking info
+            <label
+              htmlFor={`dispatch-note-${productId}`}
+              className="text-xs font-bold text-slate-700"
+            >
+              Taarifa za usafirishaji (manual)
             </label>
             <Textarea
+              id={`dispatch-note-${productId}`}
               value={note}
               onChange={(e) => setNote(e.target.value.slice(0, 180))}
-              placeholder={`Courier: Kilimanjaro Express
-Tracking No: KX-88271
-Driver: Juma
-Phone: 0712345678
-Expected Arrival: Kesho`}
+              placeholder="Andika kampuni/mtoa huduma na namba halisi ya kifurushi ikiwa ipo. Hii si tracking ya moja kwa moja."
               className="min-h-[120px] text-xs rounded-xl resize-none" // 💡 Note: Increased min-h slightly to make sure all lines are fully visible without scrolling
             />
 

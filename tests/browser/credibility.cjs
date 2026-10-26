@@ -12,7 +12,7 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   await context.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
   const page=await context.newPage();
   await page.goto(state.baseUrl+'/product/test-item');
-  await page.getByText('Bado hakuna maoni',{exact:true}).waitFor();
+  await page.getByRole('main').getByText('Bado hakuna maoni',{exact:true}).waitFor();
   await page.screenshot({path:state.stage+'/reviews-empty-mobile.png'});
   // Synthetic review rows, then the same avg/count projection used by review writes.
   for(const rating of [3,4]) {
@@ -23,7 +23,7 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   const count=await prisma.review.count({where:{productId:original.id}});
   await prisma.product.update({where:{id:original.id},data:{rating:average._avg.rating,numReviews:count,stock:3}});
   await page.reload();
-  await page.getByRole('img',{name:'Maoni 2: 3.5 kati ya 5',exact:true}).waitFor();
+  await page.getByRole('main').getByRole('img',{name:'Maoni 2: 3.5 kati ya 5',exact:true}).waitFor();
   await page.screenshot({path:state.stage+'/reviews-real-mobile.png'});
   await page.goto(state.baseUrl+'/search?q=Test');
   for(let i=0;i<3;i++) {
@@ -37,6 +37,9 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
   await page.screenshot({path:state.stage+'/catalog-claims-mobile.png'});
   console.log('PASS database-backed empty/real review summaries; deterministic low inventory and no fabricated card reviews/sales across reloads');
+ } catch (error) {
+  for (const c of browser.contexts()) for (const p of c.pages()) await p.screenshot({path:state.stage+"/credibility-failure.png"}).catch(()=>{});
+  throw error;
  } finally {
   await browser.close();
   await prisma.review.deleteMany({where:{id:{in:reviews}}});

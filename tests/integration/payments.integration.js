@@ -16,6 +16,9 @@ import {
   markOrderAsDelivered,
   markOrderItemAsDelivered,
   updateOrderToPaidCOD,
+  getOrderSummary,
+  getMyOrders,
+  createBuyNowOrder,
 } from "@/lib/actions/order.actions";
 import { confirmDelivery, openOrderDispute } from "@/lib/order-delivery";
 import { fulfillOrder, settleOrder } from "@/lib/order-fulfillment";
@@ -851,4 +854,329 @@ test("inquiry decimals cannot round a positive quantity to zero or overflow stor
   });
   expect(row.quantity.toString()).toBe("0.01");
   expect(row.targetPrice.toString()).toBe("9999999999.99");
+});
+
+import { markItemDispatched } from "@/lib/actions/supplier-order.actions";
+import { getFulfillmentOrder } from "@/lib/fulfillment-view";
+async function multiSellerFixture() {
+  const f = await fixture({ stock: 10 });
+  const a = await prisma.user.create({
+    data: { name: "Seller A", role: "SUPPLIER" },
+  });
+  const b = await prisma.user.create({
+    data: { name: "Seller B", role: "SUPPLIER" },
+  });
+  await prisma.supplier.update({
+    where: { id: f.supplier.id },
+    data: { userId: a.id },
+  });
+  const sellerB = await prisma.supplier.create({
+    data: {
+      userId: b.id,
+      name: "Seller B",
+      email: "b@example.test",
+      phone: "+255700000008",
+    },
+  });
+  const { id, createdAt, ...data } = f.product;
+  const second = await prisma.product.create({
+    data: {
+      ...data,
+      name: "Other seller private item",
+      slug: "other-item",
+      supplierId: sellerB.id,
+    },
+  });
+  await prisma.orderItem.create({
+    data: {
+      orderId: f.order.id,
+      productId: second.id,
+      supplierId: sellerB.id,
+      name: second.name,
+      slug: second.slug,
+      image: "test",
+      qty: 1,
+      price: 1000,
+    },
+  });
+  await prisma.order.update({
+    where: { id: f.order.id },
+    data: {
+      itemsPrice: 3000,
+      totalPrice: 3000,
+      shippingAddress: {
+        fullName: "Snapshot Recipient",
+        phone: "+255700000009",
+        paymentPhone: "private-payment-marker",
+      },
+    },
+  });
+  await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  sendSms.mockClear();
+  auth.mockResolvedValue({ user: { id: a.id, role: "SUPPLIER" } });
+  return { ...f, a, b, sellerB, second };
+}
+test("concurrent seller dispatch retries preserve one event/time and one notification", async () => {
+  const f = await multiSellerFixture();
+  const args = {
+    orderId: f.order.id,
+    productId: f.product.id,
+    note: "Manual reference A",
+  };
+  const results = await Promise.all(
+    Array.from({ length: 6 }, () => markItemDispatched(args)),
+  );
+  expect(results.every((r) => r.success)).toBe(true);
+  expect(
+    await prisma.orderItemEvent.count({
+      where: { orderId: f.order.id, type: "DISPATCHED" },
+    }),
+  ).toBe(1);
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  const first = await prisma.orderItem.findUnique({
+    where: {
+      orderId_productId: { orderId: f.order.id, productId: f.product.id },
+    },
+  });
+  await markItemDispatched({ ...args, note: "Overwrite attempt" });
+  const retry = await prisma.orderItem.findUnique({
+    where: {
+      orderId_productId: { orderId: f.order.id, productId: f.product.id },
+    },
+  });
+  expect(retry.dispatchedAt).toEqual(first.dispatchedAt);
+  expect(retry.dispatchNote).toBe("Manual reference A");
+  expect(
+    (await markItemDispatched({ ...args, productId: f.second.id })).success,
+  ).toBe(false);
+});
+test("scoped fulfillment snapshot and partial seller release remain isolated", async () => {
+  const f = await multiSellerFixture();
+  let view = await getFulfillmentOrder(f.order.id);
+  expect(view.orderitems.map((i) => i.productId)).toEqual([f.product.id]);
+  expect(JSON.stringify(view)).not.toContain("private-payment-marker");
+  expect(JSON.stringify(view)).not.toContain("Other seller private item");
+  expect(view.shippingAddress.fullName).toBe("Snapshot Recipient");
+  auth.mockResolvedValue({ user: { id: f.user.id } });
+  expect((await getFulfillmentOrder(f.order.id)).orderitems).toHaveLength(2);
+  await confirmDelivery(f.order.id, f.product.id, {
+    kind: "buyer",
+    userId: f.user.id,
+  });
+  expect(
+    (await prisma.order.findUnique({ where: { id: f.order.id } })).isDelivered,
+  ).toBe(false);
+  expect(
+    Number(
+      (await prisma.supplier.findUnique({ where: { id: f.sellerB.id } }))
+        .pendingBalance,
+    ),
+  ).toBe(1000);
+  await openOrderDispute(
+    f.order.id,
+    f.second.id,
+    f.user.id,
+    "Synthetic second-seller dispute",
+  );
+  auth.mockResolvedValue({ user: { id: f.b.id, role: "SUPPLIER" } });
+  expect(
+    (await markItemDispatched({ orderId: f.order.id, productId: f.second.id }))
+      .success,
+  ).toBe(false);
+  view = await getFulfillmentOrder(f.order.id);
+  expect(view.orderitems[0].disputeStatus).toBe("REQUESTED");
+  const admin = await prisma.user.create({ data: { role: "ADMIN" } });
+  auth.mockResolvedValue({ user: { id: admin.id } });
+  expect((await getFulfillmentOrder(f.order.id)).orderitems).toHaveLength(2);
+  const stranger = await prisma.user.create({ data: { role: "BUYER" } });
+  auth.mockResolvedValue({ user: { id: stranger.id } });
+  expect(await getFulfillmentOrder(f.order.id)).toBeNull();
+});
+test("dispatch vs dispute uses shared parent lock and never releases escrow", async () => {
+  const f = await multiSellerFixture();
+  await Promise.allSettled([
+    markItemDispatched({
+      orderId: f.order.id,
+      productId: f.product.id,
+      note: "Actual manual reference",
+    }),
+    openOrderDispute(f.order.id, f.product.id, f.user.id, "Synthetic dispute"),
+  ]);
+  const item = await prisma.orderItem.findUnique({
+    where: {
+      orderId_productId: { orderId: f.order.id, productId: f.product.id },
+    },
+  });
+  expect(item.isDelivered).toBe(false);
+  expect(item.payoutStatus).toBe("ESCROW");
+  expect(
+    await prisma.supplierLedger.count({
+      where: { orderId: f.order.id, type: "ESCROW_RELEASE" },
+    }),
+  ).toBe(0);
+  expect(
+    (
+      await prisma.returnRequest.findUnique({
+        where: {
+          orderId_productId: { orderId: f.order.id, productId: f.product.id },
+        },
+      })
+    ).status,
+  ).toBe("REQUESTED");
+});
+test("final items from different sellers release once under concurrent confirmations", async () => {
+  const f = await multiSellerFixture();
+  await Promise.all(
+    [f.product.id, f.second.id].map((productId) =>
+      confirmDelivery(f.order.id, productId, {
+        kind: "buyer",
+        userId: f.user.id,
+      }),
+    ),
+  );
+  expect(
+    (await prisma.order.findUnique({ where: { id: f.order.id } })).isDelivered,
+  ).toBe(true);
+  expect(
+    await prisma.supplierLedger.count({
+      where: { orderId: f.order.id, type: "ESCROW_RELEASE" },
+    }),
+  ).toBe(2);
+  expect(
+    Number(
+      (await prisma.supplier.findUnique({ where: { id: f.supplier.id } }))
+        .walletBalance,
+    ),
+  ).toBe(2000);
+  expect(
+    Number(
+      (await prisma.supplier.findUnique({ where: { id: f.sellerB.id } }))
+        .walletBalance,
+    ),
+  ).toBe(1000);
+});
+test("dispatch racing receipt cannot regress delivered item or double release", async () => {
+  const f = await multiSellerFixture();
+  await Promise.all([
+    markItemDispatched({ orderId: f.order.id, productId: f.product.id }),
+    confirmDelivery(f.order.id, f.product.id, {
+      kind: "buyer",
+      userId: f.user.id,
+    }),
+  ]);
+  const item = await prisma.orderItem.findUnique({
+    where: {
+      orderId_productId: { orderId: f.order.id, productId: f.product.id },
+    },
+  });
+  expect(item.status).toBe("DELIVERED");
+  expect(item.isDelivered).toBe(true);
+  expect(
+    await prisma.supplierLedger.count({
+      where: { orderId: f.order.id, type: "ESCROW_RELEASE" },
+    }),
+  ).toBe(1);
+  expect(
+    (await prisma.order.findUnique({ where: { id: f.order.id } })).isDelivered,
+  ).toBe(false);
+});
+
+test("workspace summaries match each seller ledger and buyer partial receipt", async () => {
+  const f = await multiSellerFixture();
+  await confirmDelivery(f.order.id, f.product.id, {
+    kind: "buyer",
+    userId: f.user.id,
+  });
+  const a = await getOrderSummary(f.a.id);
+  expect(a.totalSales).toBe(2000);
+  expect(a.walletBalance).toBe(2000);
+  expect(a.pendingEscrow).toBe(0);
+  expect(a.usersCount).toBe(1);
+  expect(a.latestSales[0].totalPrice).toBe(2000);
+  auth.mockResolvedValue({ user: { id: f.b.id, role: "SUPPLIER" } });
+  const b = await getOrderSummary(f.b.id);
+  expect(b.totalSales).toBe(1000);
+  expect(b.walletBalance).toBe(0);
+  expect(b.pendingEscrow).toBe(1000);
+  expect(b.latestSales[0].totalPrice).toBe(1000);
+  expect(b.salesData.reduce((sum, p) => sum + p.totalSales, 0)).toBe(1000);
+  const denied = await getOrderSummary(f.a.id);
+  expect(denied.totalSales).toBe(0);
+  expect(denied.latestSales).toEqual([]);
+  auth.mockResolvedValue({ user: { id: f.user.id, role: "BUYER" } });
+  const mine = await getMyOrders({ page: 1 });
+  expect(mine.data).toHaveLength(1);
+  expect(mine.data[0].isPaid).toBe(true);
+  expect(mine.data[0].orderitems.filter((i) => i.isDelivered)).toHaveLength(1);
+});
+
+test("Buy Now tier totals settle into the same seller item-value report, excluding shipping", async () => {
+  const f = await fixture({ stock: 20 });
+  await prisma.productPricing.create({
+    data: { productId: f.product.id, minQty: 5, price: 800 },
+  });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: {
+      role: "SUPPLIER",
+      paymentMethod: "Mobile",
+      address: {
+        fullName: "Test Buyer",
+        streetAddress: "Test street",
+        city: "Dar",
+        postalCode: "12345",
+        country: "Tanzania",
+        phone: "+255700000000",
+        paymentPhone: "+255700000000",
+      },
+    },
+  });
+  auth.mockResolvedValue({ user: { id: f.user.id, role: "SUPPLIER" } });
+  const created = await createBuyNowOrder({
+    productId: f.product.slug,
+    qty: 5,
+  });
+  expect(created.success).toBe(true);
+  const order = await prisma.order.findUnique({
+    where: { id: created.orderData.id },
+    include: { orderitems: true },
+  });
+  expect(Number(order.totalPrice)).toBe(7000);
+  expect(Number(order.itemsPrice)).toBe(4000);
+  expect(Number(order.shippingPrice)).toBe(3000);
+  expect(Number(order.taxPrice)).toBe(0);
+  expect(order.orderitems[0]).toMatchObject({
+    qty: 5,
+    supplierId: f.supplier.id,
+    status: "PREPARING",
+  });
+  expect(Number(order.orderitems[0].price)).toBe(800);
+  expect(
+    (await prisma.product.findUnique({ where: { id: f.product.id } })).stock,
+  ).toBe(20);
+  // Bind a synthetic verified attempt; browser coverage exercises actual initiation.
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      paymentMethod: "ZENOPAY",
+      paymentResult: { zenopay_order_id: attempt(order) },
+    },
+  });
+  await Promise.all([
+    fulfillOrder(order.id, attempt(order), "verified"),
+    fulfillOrder(order.id, attempt(order), "verified"),
+  ]);
+  expect(
+    (await prisma.product.findUnique({ where: { id: f.product.id } })).stock,
+  ).toBe(15);
+  const summary = await getOrderSummary(f.user.id);
+  expect(summary.available).toBe(true);
+  expect(summary.totalSales).toBe(4000);
+  expect(summary.pendingEscrow).toBe(4000);
+  expect(summary.walletBalance).toBe(0);
+  const credits = await prisma.supplierLedger.findMany({
+    where: { orderId: order.id, type: "ESCROW_CREDIT" },
+  });
+  expect(credits).toHaveLength(1);
+  expect(Number(credits[0].amount)).toBe(4000);
 });

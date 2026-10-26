@@ -75,7 +75,7 @@ const OrdersPage = async (props: OrdersPageProps) => {
               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                 <div className="flex gap-1.5 items-center">
                   {/* Payment Badge status mapping */}
-                  {order.paymentStatus === "COMPLETED" ? (
+                  {order.isPaid ? (
                     <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-medium px-1.5 py-0">
                       Umelipa
                     </Badge>
@@ -89,16 +89,11 @@ const OrdersPage = async (props: OrdersPageProps) => {
                     </Badge>
                   )}
 
-                  {/* Delivery Status Mapping */}
-                  {order.isDelivered ? (
-                    <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-medium px-1.5 py-0">
-                      Imefika
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] font-medium px-1.5 py-0">
-                      Njia kuu
-                    </Badge>
-                  )}
+                  <Badge className="bg-slate-50 text-slate-600 border-slate-200 text-[10px] font-medium px-1.5 py-0">
+                    Zilizopokelewa:{" "}
+                    {order.orderitems.filter((item) => item.isDelivered).length}
+                    /{order.orderitems.length}
+                  </Badge>
                 </div>
 
                 <div className="flex items-center text-[11px] font-medium text-blue-600 gap-0.5">
@@ -162,7 +157,7 @@ const OrdersPage = async (props: OrdersPageProps) => {
                     {formatCurrency(order.totalPrice)}
                   </TableCell>
                   <TableCell className="py-3.5">
-                    {order.paymentStatus === "COMPLETED" ? (
+                    {order.isPaid ? (
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Umelipa
@@ -180,15 +175,14 @@ const OrdersPage = async (props: OrdersPageProps) => {
                     )}
                   </TableCell>
                   <TableCell className="py-3.5">
-                    {order.isDelivered ? (
-                      <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                        Imewasilishwa
-                      </span>
-                    ) : (
-                      <span className="text-xs font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full">
-                        Inasafirishwa
-                      </span>
-                    )}
+                    <span className="text-xs font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded-full">
+                      Zilizopokelewa:{" "}
+                      {
+                        order.orderitems.filter((item) => item.isDelivered)
+                          .length
+                      }
+                      /{order.orderitems.length}
+                    </span>
                   </TableCell>
                   <TableCell className="text-right py-3.5">
                     <Link
