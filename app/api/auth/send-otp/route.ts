@@ -3,6 +3,7 @@
 import { prisma } from "@/db/prisma";
 import { sendSms } from "@/lib/africasTalking";
 import { normalizeIdentifier } from "@/lib/utils";
+import { z } from "zod";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -17,6 +18,17 @@ export async function POST(req: Request) {
     }
 
     identifier = normalizeIdentifier(identifier);
+
+    // A public OTP request may target one phone/email, never a provider recipient list.
+    const validIdentifier = identifier.includes("@")
+      ? z.string().email().max(254).safeParse(identifier).success
+      : /^\+[1-9]\d{7,14}$/.test(identifier);
+    if (!validIdentifier) {
+      return NextResponse.json(
+        { success: false, message: "Invalid identifier" },
+        { status: 400 },
+      );
+    }
 
     const token = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins

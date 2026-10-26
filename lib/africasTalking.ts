@@ -1,3 +1,5 @@
+import "server-only";
+
 // lib/africasTalking.ts
 export async function sendSms(to: string, message: string) {
   const username = "BmContractors"; // Put in .env if you prefer
@@ -14,26 +16,20 @@ export async function sendSms(to: string, message: string) {
     from: senderId,
   });
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      apiKey,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Africa's Talking SMS failed: ${res.statusText}`);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        apiKey,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+    });
+    if (!res.ok) throw new Error("SMS delivery failed");
+    return res;
+  } catch {
+    // Provider/network errors may contain request credentials, recipients or text.
+    // Do not propagate their message, response body or cause to callers/loggers.
+    throw new Error("SMS delivery failed");
   }
-
-  //Return the full response for logging if needed
-  const resData = await res;
-
-  //log the response data
-
-  return resData;
-  // return res.json();
 }
-
-// sendSms("+255760111880", "Hello BM");

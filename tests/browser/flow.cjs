@@ -17,6 +17,14 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
         ? route.continue()
         : route.abort(),
     );
+    const retired = await context.request.post(state.baseUrl + "/api/auth/send-sms", {
+      data: { to: "+255700000000", message: "must not send" },
+    });
+    assert.equal(retired.status(), 410);
+    const invalidOtp = await context.request.post(state.baseUrl + "/api/auth/send-otp", {
+      data: { identifier: "+255700000000,+255700000001" },
+    });
+    assert.equal(invalidOtp.status(), 400);
     const page = await context.newPage();
     page.setDefaultTimeout(60000);
     await page.goto(state.baseUrl + "/sign-in?callbackUrl=/product/test-item");

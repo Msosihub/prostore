@@ -106,6 +106,10 @@ test.each(["database", "sms"])(
       }),
     );
     expect(result.status).toBe(500);
+    const body = JSON.stringify(await result.json());
+    expect(body).not.toContain(identifier);
+    expect(body).not.toContain(token);
+    expect(body).not.toContain("verificationToken");
     expectNoSensitiveLogs();
   },
 );
