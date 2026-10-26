@@ -16,13 +16,10 @@ export async function POST(req: Request) {
     const cleanIdentifier = normalizeIdentifier(identifier.trim());
     const cleanToken = token.trim();
 
-    console.log("Verifying OTP for:", cleanIdentifier, cleanToken);
     // 1. Fetch token record
     const record = await prisma.verificationToken.findFirst({
       where: { identifier: cleanIdentifier, token: cleanToken },
     });
-
-    console.log("OTP Record Found:", record);
 
     if (!record) {
       return NextResponse.json(
@@ -87,8 +84,8 @@ export async function POST(req: Request) {
       message: "Uthibitisho umekamilika.",
       user: { id: user.id, email: user.email, phone: user.phone },
     });
-  } catch (error) {
-    console.error("CRITICAL_VERIFY_OTP_ERROR:", error);
+  } catch {
+    console.error("OTP verification failed");
     return NextResponse.json(
       { success: false, message: "Hitilafu imetokea kwenye seva." },
       { status: 500 },

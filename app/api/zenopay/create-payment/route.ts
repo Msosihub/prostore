@@ -1,92 +1,123 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import { COD_METHODS, PESAPAL_METHODS } from "@/lib/payment-methods";
+import { auth } from "@/auth";
 import { zenopayRequest } from "@/lib/zenopay";
+import { paymentAttempt, reconcileZenopay } from "@/lib/zenopay-reconciliation";
 import { prisma } from "@/db/prisma";
-import { formatTanzaniaPhonetToStarZero } from "@/lib/utils";
 
 export async function POST(req: Request) {
-  const { orderId } = await req.json();
+  const session = await auth();
+  if (!session?.user?.id)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const input = z
+    .object({ orderId: z.string().uuid() })
+    .safeParse(await req.json().catch(() => null));
+  if (!input.success)
+    return NextResponse.json({ error: "Invalid order" }, { status: 400 });
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: input.data.orderId },
+      include: { user: true },
+    });
+    if (!order || order.userId !== session.user.id)
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    if (order.isPaid)
+      return NextResponse.json({ success: true, status: "COMPLETED" });
 
-  console.log("ORDER ID SUBMITTED FOR PAYMENT: ", orderId);
-  console.time("Prisma Fetch Order");
+    if ([...COD_METHODS, ...PESAPAL_METHODS].includes(order.paymentMethod)) {
+      return NextResponse.json(
+        { error: "Use the selected payment method" },
+        { status: 409 },
+      );
+    }
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    select: {
-      id: true,
-      totalPrice: true,
-      shippingAddress: true,
-      user: {
-        select: {
-          email: true,
-          paymentPhone: true,
-        },
+    const existingAttempt = paymentAttempt(order.paymentResult);
+    if (existingAttempt) {
+      const status = await reconcileZenopay(order.id, existingAttempt);
+      return NextResponse.json({
+        success: status !== "FAILED",
+        status,
+        message:
+          status === "FAILED"
+            ? "Payment failed. Contact support before starting another payment."
+            : "Payment status checked. No additional payment request sent.",
+      });
+    }
+    // Legacy/other-provider results need reconciliation, not an automatic new charge.
+    if (order.paymentResult !== null)
+      return NextResponse.json(
+        { error: "Existing payment requires review" },
+        { status: 409 },
+      );
+    const phone = (order.user.paymentPhone || "")
+      .trim()
+      .replace(/^\+?255/, "0");
+    // Phone-only OTP accounts are valid buyers. Use a non-deliverable,
+    // per-buyer address instead of sending receipts to an unrelated fallback.
+    const buyerEmail = order.user.email || `${order.userId}@payments.invalid`;
+    const shipping = z
+      .object({ fullName: z.string().trim().min(1) })
+      .safeParse(order.shippingAddress);
+    if (
+      !/^0[67]\d{8}$/.test(phone) ||
+      !shipping.success ||
+      !z.string().email().safeParse(buyerEmail).success ||
+      Number(order.totalPrice) <= 0
+    ) {
+      return NextResponse.json(
+        { error: "Check your payment phone, email and shipping name" },
+        { status: 400 },
+      );
+    }
+    const baseUrl = z.string().url().parse(process.env.NEXT_PUBLIC_SERVER_URL);
+    if (!process.env.ZENOPAY_API_KEY)
+      throw new Error("Missing payment configuration");
+    const attempt = `${order.id}=${randomUUID()}`;
+    // Persist before the network call; concurrent clicks can only claim once.
+    // A timeout is ambiguous and must retain the attempt for reconciliation.
+    const claim = await prisma.order.updateMany({
+      where: {
+        id: order.id,
+        userId: session.user.id,
+        isPaid: false,
+        paymentResult: { equals: Prisma.AnyNull },
       },
-    },
-  });
-
-  console.timeEnd("Prisma Fetch Order");
-
-  if (!order) {
-    return NextResponse.json({ error: "Order not found" }, { status: 404 });
-  }
-
-  const shipping = order.shippingAddress as {
-    city: string;
-    phone: string;
-    fullName: string;
-  };
-
-  const paymentPhone = formatTanzaniaPhonetToStarZero(
-    order.user.paymentPhone || "",
-  );
-
-  console.log("payment number: ", paymentPhone);
-  console.log("Webhook url: ", process.env.NEXT_PUBLIC_SERVER_URL);
-
-  // 🟢 SOLUTION: Append a dynamic timestamp suffix to bypass Selcom unique constraint blocks
-  const uniqueZenopayOrderId = `${order.id}=${Date.now()}`;
-
-  const payload = {
-    order_id: uniqueZenopayOrderId, // Sent dynamically to Zenopay
-    buyer_email: order.user.email || "bmproductstz@gmail.com",
-    buyer_name: shipping?.fullName,
-    buyer_phone: paymentPhone || "",
-    amount: Number(order.totalPrice),
-    webhook_url: `${process.env.NEXT_PUBLIC_SERVER_URL}/api/zenopay/webhook`,
-  };
-
-  console.log("Zenopay Payload:", payload);
-
-  console.time("Zenopay API Call");
-  const response = await zenopayRequest(
-    "/api/payments/mobile_money_tanzania",
-    payload,
-  );
-
-  console.timeEnd("Zenopay API Call");
-  if (response.status !== "success") {
-    console.error("Zenopay error response:", response);
-    return NextResponse.json({ error: response.message }, { status: 400 });
-  }
-
-  // Save pending state under the core clean order ID
-  console.time("Prisma Update Order");
-  await prisma.order.update({
-    where: { id: order.id },
-    data: {
-      paymentMethod: "ZENOPAY",
-      paymentStatus: "PENDING",
-      paymentResult: {
-        zenopay_order_id: uniqueZenopayOrderId, // Track the exact suffix reference used for safety
-        reference: response.reference,
-        raw: response,
+      data: {
+        paymentMethod: "ZENOPAY",
+        paymentStatus: "PENDING",
+        paymentResult: { zenopay_order_id: attempt },
       },
-    },
-  });
-  console.timeEnd("Prisma Update Order");
-
-  return NextResponse.json({
-    success: true,
-    message: "Payment request sent. Please approve on your phone.",
-  });
+    });
+    if (!claim.count)
+      return NextResponse.json(
+        { error: "Payment already in progress. Check the order status." },
+        { status: 409 },
+      );
+    await zenopayRequest("/api/payments/mobile_money_tanzania", {
+      order_id: attempt,
+      buyer_email: buyerEmail,
+      buyer_name: shipping.data.fullName,
+      buyer_phone: phone,
+      amount: Number(order.totalPrice),
+      webhook_url: new URL("/api/zenopay/webhook", baseUrl).toString(),
+    });
+    return NextResponse.json({
+      success: true,
+      status: "PENDING",
+      message:
+        "Please approve the request on your phone. Payment is not yet confirmed.",
+    });
+  } catch {
+    // Do not leak provider responses, payer details, credentials or database errors.
+    return NextResponse.json(
+      {
+        error:
+          "Unable to confirm payment. Check your order before trying again.",
+      },
+      { status: 502 },
+    );
+  }
 }

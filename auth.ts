@@ -101,7 +101,7 @@ export const config = {
   callbacks: {
     ...authConfig.callbacks,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async session({ session, user, trigger, token }: any) {
+    async session({ session, token }: any) {
       // Set the user ID from the token
       session.user.id = token.sub;
       session.user.role = token.role;
@@ -109,15 +109,10 @@ export const config = {
       session.user.phone = token?.phone;
       session.user.onboarded = token.onboarded;
 
-      // If there is an update, set the user name
-      if (trigger === "update") {
-        session.user.name = user.name;
-      }
-      //console.log("Session user:", session.user);
       return session;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async jwt({ token, user, trigger, session }: any) {
+    async jwt({ token, user, trigger }: any) {
       // Assign user fields to token
       if (user) {
         token.id = user.id;
@@ -173,15 +168,15 @@ export const config = {
         }
       }
 
-      // Handle session updates
-      // When session.update() is called
-      if (trigger === "update" && session) {
-        if (session.name !== undefined) {
-          token.name = session.name;
-        }
-        if (session.role !== undefined) {
-          token.role = session.role;
-        }
+      // Session update payloads are client controlled. Refresh claims from the
+      // database using the existing signed identity, never client role/name/id.
+      if (trigger === "update" && token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { name: true, role: true, phone: true, onboarded: true },
+        });
+        if (!dbUser) throw new Error("User no longer exists");
+        Object.assign(token, dbUser);
       }
 
       // console.log("JWT token:", token);

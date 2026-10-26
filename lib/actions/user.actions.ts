@@ -8,6 +8,7 @@ import {
   updateUserSchema,
 } from "../validators";
 import { auth, signIn, signOut } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 import { prisma } from "@/db/prisma";
@@ -23,7 +24,7 @@ import { getMyCart } from "./cart.actions";
 // Sign in the user with credentials
 export async function signInWithCredentials(
   prevState: unknown,
-  formData: FormData
+  formData: FormData,
 ) {
   try {
     const user = signInFormSchema.parse({
@@ -213,8 +214,12 @@ export async function signOutUser() {
 
 // Get user by the ID
 export async function getUserById(userId: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  if (session.user.id !== userId) await requireAdmin();
   const user = await prisma.user.findFirst({
     where: { id: userId },
+    omit: { password: true },
   });
   if (!user) throw new Error("User not found");
   return user;
@@ -224,6 +229,7 @@ export async function getUserById(userId: string) {
 export async function updateUserAddress(data: ShippingAddress) {
   try {
     const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
 
     const currentUser = await prisma.user.findFirst({
       where: { id: session?.user?.id },
@@ -252,10 +258,11 @@ export async function updateUserAddress(data: ShippingAddress) {
 
 // Update user's payment method
 export async function updateUserPaymentMethod(
-  data: z.infer<typeof paymentMethodSchema>
+  data: z.infer<typeof paymentMethodSchema>,
 ) {
   try {
     const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
     const currentUser = await prisma.user.findFirst({
       where: { id: session?.user?.id },
     });
@@ -286,6 +293,7 @@ export async function updateProfile(user: {
 }) {
   try {
     const session = await auth();
+    if (!session?.user?.id) throw new Error("Unauthorized");
 
     const currentUser = await prisma.user.findFirst({
       where: {
@@ -323,6 +331,7 @@ export async function getAllUsers({
   page: number;
   query: string;
 }) {
+  await requireAdmin();
   const queryFilter: Prisma.UserWhereInput =
     query && query !== "all"
       ? {
@@ -334,6 +343,7 @@ export async function getAllUsers({
       : {};
 
   const data = await prisma.user.findMany({
+    omit: { password: true },
     where: {
       ...queryFilter,
     },
@@ -353,6 +363,7 @@ export async function getAllUsers({
 // Delete a user
 export async function deleteUser(id: string) {
   try {
+    await requireAdmin();
     await prisma.user.delete({ where: { id } });
 
     revalidatePath("/admin/users");
@@ -378,6 +389,8 @@ export async function deleteUser(id: string) {
 // Update a user
 export async function updateUser(user: z.infer<typeof updateUserSchema>) {
   try {
+    await requireAdmin();
+    user = updateUserSchema.parse(user);
     await prisma.user.update({
       where: { id: user.id },
       data: {

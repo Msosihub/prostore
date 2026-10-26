@@ -1,8 +1,8 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getUserById } from "@/lib/actions/user.actions";
 import UpdateUserForm from "./update-user-form";
-import { requireSupplier } from "@/lib/auth-guard";
+import { requireAdmin } from "@/lib/auth-guard";
 import { UserRole } from "@/lib/validators";
 
 export const metadata: Metadata = {
@@ -14,7 +14,11 @@ const SupplierUserUpdatePage = async (props: {
     id: string;
   }>;
 }) => {
-  await requireSupplier();
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/unauthorized");
+  }
 
   const { id } = await props.params;
 

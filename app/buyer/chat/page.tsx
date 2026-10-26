@@ -1,62 +1,21 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/db/prisma";
+import { conversationSelect } from "@/lib/chat-access";
 import ChatWindow from "@/components/chatwoot/ChatWindow";
 
 export default async function BuyerChatPage() {
   const session = await auth();
 
-  if (!session?.user) {
-    redirect("/login");
+  if (!session?.user?.id) {
+    redirect("/sign-in?callbackUrl=/buyer/chat");
   }
 
   const conversations = await prisma.conversation.findMany({
     where: {
       buyerId: session.user.id,
     },
-    include: {
-      supplier: {
-        select: {
-          id: true,
-          name: true,
-          image: true,
-        },
-      },
-
-      Product: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          price: true,
-          images: true,
-        },
-      },
-
-      messages: {
-        orderBy: {
-          createdAt: "asc",
-        },
-      },
-
-      Inquiry: {
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              price: true,
-              images: true,
-              stock: true,
-            },
-          },
-        },
-      },
-    },
+    select: conversationSelect,
 
     orderBy: {
       updatedAt: "desc",

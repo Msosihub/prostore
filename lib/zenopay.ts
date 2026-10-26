@@ -1,58 +1,64 @@
-import { ZenoBody } from "@/types";
+import type { ZenoBody } from "@/types";
+import { z } from "zod";
 
-const ZENOPAY_BASE_URL = "https://zenoapi.com";
+const BASE_URL = "https://zenoapi.com";
 
-export async function zenopayRequest(
-  endpoint: string,
-  body: ZenoBody,
-  uniqueZenopayOrderId?: string,
-) {
-  if (!process.env.ZENOPAY_API_KEY) {
-    throw new Error("Missing ZENOPAY_API_KEY environment variable");
-  }
-  //console.log("ZENO API KEY: ", process.env.ZENOPAY_API_KEY);
-
-  const response = await fetch(`${ZENOPAY_BASE_URL}${endpoint}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": process.env.ZENOPAY_API_KEY || "API Not Found",
-    },
-    body: JSON.stringify(body),
+async function request(endpoint: string, body?: ZenoBody): Promise<unknown> {
+  const key = process.env.ZENOPAY_API_KEY;
+  if (!key) throw new Error("Payment provider is not configured");
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    method: body ? "POST" : "GET",
+    headers: { "Content-Type": "application/json", "x-api-key": key },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+    cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
-
-  const data = ""; //(await response.json()) || "";
-
-  if (!response.ok) {
-    console.error("Zenopay error:", data);
-    // throw new Error(data.message || "Zenopay request failed");
-  }
-
-  const datax = {
-    status: "success",
-    resultcode: "000",
-    message: "Request in progress. You will receive a callback shortly",
-    order_id: uniqueZenopayOrderId,
-    reference: uniqueZenopayOrderId,
-  };
-
-  console.log("ZENOPAY RESPONSE DAYA: ", datax);
-
-  return datax;
+  if (!response.ok) throw new Error("Payment provider request failed");
+  return response.json();
 }
 
-// Webhook url:  https://nimboya.com
-// Zenopay Payload: {
-//   order_id: '2c88856d-b0b2-4006-982a-cf6ab582f552=1780513168735',
-//   buyer_email: 'bmproductstz@gmail.com',
-//   buyer_name: 'Regan Mrema',
-//   buyer_phone: '0760111880',
-//   amount: 250,
-//   webhook_url: 'https://nimboya.com/api/zenopay/webhook'
-// }
-// ZENOPAY RESPONSE DAYA:  {
-//   status: 'success',
-//   resultcode: '000',
-//   message: 'Request in progress. You will receive a callback shortly',
-//   order_id: '2c88856d-b0b2-4006-982a-cf6ab582f552=1780513168735'
-// }
+export async function zenopayRequest(endpoint: string, body: ZenoBody) {
+  const result = z
+    .object({
+      status: z.literal("success"),
+      resultcode: z.literal("000").optional(),
+      order_id: z.string().optional(),
+    })
+    .parse(await request(endpoint, body));
+  if (result.order_id && result.order_id !== body.order_id) {
+    throw new Error("Payment provider reference mismatch");
+  }
+  return result;
+}
+
+// A webhook is a hint, never proof of payment. Only this authenticated lookup
+// may supply the status/amount used for settlement.
+export async function getZenopayStatus(orderId: string) {
+  const result = z
+    .object({
+      resultcode: z.literal("000"),
+      data: z.array(
+        z.object({
+          order_id: z.string(),
+          payment_status: z.enum(["PENDING", "COMPLETED", "FAILED"]),
+          amount: z
+            .union([z.number(), z.string().min(1)])
+            .pipe(z.coerce.number().finite().positive()),
+          reference: z.string().trim().min(1).optional(),
+        }),
+      ),
+    })
+    .parse(
+      await request(
+        `/api/payments/order-status?order_id=${encodeURIComponent(orderId)}`,
+      ),
+    );
+  const matches = result.data.filter((item) => item.order_id === orderId);
+  const payment = matches[0];
+  if (matches.length !== 1)
+    throw new Error("Payment provider reference mismatch");
+  if (payment.payment_status === "COMPLETED" && !payment.reference) {
+    throw new Error("Missing payment reference");
+  }
+  return payment;
+}

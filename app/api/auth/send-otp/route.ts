@@ -3,69 +3,88 @@
 import { prisma } from "@/db/prisma";
 import { sendSms } from "@/lib/africasTalking";
 import { normalizeIdentifier } from "@/lib/utils";
+import { z } from "zod";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  let { identifier } = await req.json();
+  try {
+    let { identifier } = await req.json();
 
-  if (!identifier || typeof identifier !== "string") {
-    return NextResponse.json(
-      { success: false, message: "Identifier required" },
-      { status: 400 },
-    );
-  }
-
-  identifier = normalizeIdentifier(identifier);
-
-  const token = Math.floor(100000 + Math.random() * 900000).toString();
-  const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
-
-  const existing = await prisma.verificationToken.findFirst({
-    where: { identifier },
-  });
-
-  if (existing) {
-    // 3 attempts max
-    if (existing.attempts >= 3) {
-      const cooldownEnd = new Date(
-        existing.createdAt.getTime() + 15 * 60 * 1000,
+    if (!identifier || typeof identifier !== "string") {
+      return NextResponse.json(
+        { success: false, message: "Identifier required" },
+        { status: 400 },
       );
-
-      if (cooldownEnd > new Date()) {
-        return NextResponse.json(
-          {
-            success: false,
-            message: "Umezidisha maombi. Jaribu tena baada ya dakika 15.",
-          },
-          { status: 429 },
-        );
-      }
     }
 
-    // remove old token
-    await prisma.verificationToken.deleteMany({
+    identifier = normalizeIdentifier(identifier);
+
+    // A public OTP request may target one phone/email, never a provider recipient list.
+    const validIdentifier = identifier.includes("@")
+      ? z.string().email().max(254).safeParse(identifier).success
+      : /^\+[1-9]\d{7,14}$/.test(identifier);
+    if (!validIdentifier) {
+      return NextResponse.json(
+        { success: false, message: "Invalid identifier" },
+        { status: 400 },
+      );
+    }
+
+    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+
+    const existing = await prisma.verificationToken.findFirst({
       where: { identifier },
     });
+
+    if (existing) {
+      // 3 attempts max
+      if (existing.attempts >= 3) {
+        const cooldownEnd = new Date(
+          existing.createdAt.getTime() + 15 * 60 * 1000,
+        );
+
+        if (cooldownEnd > new Date()) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "Umezidisha maombi. Jaribu tena baada ya dakika 15.",
+            },
+            { status: 429 },
+          );
+        }
+      }
+
+      // remove old token
+      await prisma.verificationToken.deleteMany({
+        where: { identifier },
+      });
+    }
+
+    await prisma.verificationToken.create({
+      data: {
+        identifier,
+        token,
+        expires,
+        attempts: existing ? existing.attempts + 1 : 1,
+      },
+    });
+
+    // Send OTP
+    if (identifier.includes("@")) {
+      // TODO: sendEmail
+    } else {
+      await sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch {
+    console.error("OTP delivery failed");
+    return NextResponse.json(
+      { success: false, message: "Hitilafu imetokea kwenye seva." },
+      { status: 500 },
+    );
   }
-
-  const ddd = await prisma.verificationToken.create({
-    data: {
-      identifier,
-      token,
-      expires,
-      attempts: existing ? existing.attempts + 1 : 1,
-    },
-  });
-
-  console.log("Created OTP record:", ddd);
-  // Send OTP
-  if (identifier.includes("@")) {
-    // TODO: sendEmail
-  } else {
-    await sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
-  }
-
-  return NextResponse.json({ success: true });
 }
 
 // async function sendSms(phone: string, message: string) {

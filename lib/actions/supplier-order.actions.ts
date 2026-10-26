@@ -1,5 +1,6 @@
 "use server";
 
+import { lockPaidOrder } from "@/lib/order-delivery";
 import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
@@ -62,9 +63,14 @@ export async function markItemDispatched({
     }
 
     await prisma.$transaction(async (tx) => {
-      await tx.orderItem.update({
+      await lockPaidOrder(tx, orderId);
+      const dispatched = await tx.orderItem.updateMany({
         where: {
-          orderId_productId: { orderId, productId },
+          orderId,
+          productId,
+          supplierId: supplier.id,
+          isDelivered: false,
+          status: { in: ["PAID", "PREPARING", "DISPATCHED"] },
         },
         data: {
           status: "DISPATCHED",
@@ -72,6 +78,7 @@ export async function markItemDispatched({
           dispatchNote: note || "",
         },
       });
+      if (dispatched.count !== 1) throw new Error("Item state changed");
 
       await tx.orderItemEvent.create({
         data: {

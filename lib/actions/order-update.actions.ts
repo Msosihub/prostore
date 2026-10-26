@@ -9,27 +9,32 @@ import { ShippingAddress } from "@/types";
 
 export async function updateOrderShippingAddress(
   orderId: string,
-  rawAddressData: unknown
+  rawAddressData: unknown,
 ) {
   try {
     const session = await auth();
-    if (!session) throw new Error("Mtumiaji hajaingia kwenye mfumo.");
+    if (!session?.user?.id) throw new Error("Mtumiaji hajaingia kwenye mfumo.");
 
     // Validate incoming parameters using your existing address Zod validation criteria
     const validatedAddress = shippingAddressSchema.parse(rawAddressData);
 
     // Update the JSON column properties specifically on this single target order record row
-    await prisma.order.update({
-      where: { id: orderId },
+    const updated = await prisma.order.updateMany({
+      where: {
+        id: orderId,
+        userId: session.user.id,
+        isPaid: false,
+        isDelivered: false,
+      },
       data: {
         shippingAddress: validatedAddress as ShippingAddress,
       },
     });
 
+    if (!updated.count) throw new Error("Order cannot be updated");
     revalidatePath(`/order/${orderId}`);
     return { success: true, message: "Taarifa za agizo zimesasishwa vyema!" };
-  } catch (error: unknown) {
-    console.error("Order adjustment crash encountered:", error);
+  } catch {
     return {
       success: false,
       message: "Imeshindikana kusasisha taarifa za agizo.",

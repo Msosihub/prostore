@@ -3,6 +3,7 @@
 import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -10,21 +11,25 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json(
       { success: false, message: "Unauthorized" },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
-  const body = await req.json();
-  const { name, role, country, location } = body;
-
-  if (!name || !role) {
+  const input = z
+    .object({
+      name: z.string().trim().min(1).max(200),
+      role: z.enum(["BUYER", "SUPPLIER"]),
+      country: z.string().max(100).optional(),
+      location: z.string().max(200).optional(),
+    })
+    .safeParse(await req.json().catch(() => null));
+  if (!input.success) {
     return NextResponse.json(
-      { success: false, message: "Missing fields" },
-      { status: 400 }
+      { success: false, message: "Invalid onboarding fields" },
+      { status: 400 },
     );
   }
-
-  console.log("THE BODY", body);
+  const { name, role, country, location } = input.data;
 
   await prisma.$transaction(async (tx) => {
     // Update user

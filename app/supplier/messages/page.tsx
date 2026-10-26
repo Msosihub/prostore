@@ -1,65 +1,21 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/db/prisma";
+import { conversationSelect } from "@/lib/chat-access";
 import SupplierChatWindow from "@/components/chatwoot/SupplierChatWindow";
 
 export default async function SupplierMessagesPage() {
   const session = await auth();
 
   // Verify user authentication state and restrict access if they aren't a Supplier
-  if (!session?.user || session.user.role !== "SUPPLIER") {
+  if (!session?.user?.id || session.user.role !== "SUPPLIER") {
     redirect("/sign-in?callbackUrl=/supplier/messages");
   }
 
   // Fetch all recent conversations where this specific user is the assigned supplier
   const conversations = await prisma.conversation.findMany({
     where: { supplierId: session.user.id },
-    include: {
-      buyer: {
-        select: { id: true, name: true, email: true, image: true },
-      },
-      Product: {
-        select: {
-          id: true,
-          name: true,
-          price: true,
-          images: true,
-          slug: true,
-          stock: true,
-        },
-      },
-      messages: {
-        orderBy: { createdAt: "asc" },
-      },
-      Inquiry: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-              images: true,
-              slug: true,
-              stock: true,
-            },
-          },
-        },
-      },
-      _count: {
-        select: {
-          messages: {
-            where: {
-              seen: false,
-              senderId: {
-                not: session.user.id,
-              },
-            },
-          },
-        },
-      },
-    },
+    select: conversationSelect,
     orderBy: { updatedAt: "desc" },
   });
 
@@ -68,9 +24,11 @@ export default async function SupplierMessagesPage() {
     JSON.stringify(
       conversations.map((conv) => ({
         ...conv,
-        unreadCount: conv._count.messages,
-      }))
-    )
+        unreadCount: conv.messages.filter(
+          (message) => !message.seen && message.senderId !== session.user.id,
+        ).length,
+      })),
+    ),
   );
 
   return (

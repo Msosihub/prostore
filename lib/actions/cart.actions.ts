@@ -6,47 +6,10 @@ import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
 import { CartItem } from "@/types";
 import { Prisma } from "@prisma/client";
-import { round2, convertToPlainObject } from "@/lib/utils";
+import { convertToPlainObject } from "@/lib/utils";
 import { cartItemSchema, insertCartSchema } from "../validators";
 
-// Helper function to calculate prices using your database wholesale tiers
-const calcPriceWithTiers = async (items: CartItem[]) => {
-  let itemsPrice = 0;
-
-  for (const item of items) {
-    const product = await prisma.product.findUnique({
-      where: { id: item.productId },
-      include: { pricingTiers: true },
-    });
-
-    let currentUnitPrice = Number(item.price);
-
-    if (product && product.pricingTiers && product.pricingTiers.length > 0) {
-      const sortedTiers = [...product.pricingTiers].sort(
-        (a, b) => b.minQty - a.minQty,
-      );
-      const matchedTier = sortedTiers.find((tier) => item.qty >= tier.minQty);
-
-      if (matchedTier) {
-        currentUnitPrice = Number(matchedTier.price);
-      }
-    }
-
-    itemsPrice += currentUnitPrice * item.qty;
-  }
-
-  const roundedItemsPrice = round2(itemsPrice);
-  const shippingPrice = round2(roundedItemsPrice > 150000 ? 0 : 3000);
-  const taxPrice = round2(0.0 * roundedItemsPrice);
-  const totalPrice = round2(roundedItemsPrice + taxPrice + shippingPrice);
-
-  return {
-    itemsPrice: roundedItemsPrice.toFixed(2),
-    shippingPrice: shippingPrice.toFixed(2),
-    taxPrice: taxPrice.toFixed(2),
-    totalPrice: totalPrice.toFixed(2),
-  };
-};
+import { calcPriceWithTiers } from "@/lib/cart-pricing";
 
 export async function addItemToCart(data: CartItem) {
   try {
@@ -176,22 +139,7 @@ export async function removeItemFromCart(productId: string) {
     } else {
       exist.qty -= 1;
 
-      // Ensure item baseline price drops or raises back to standard tiers on decrement adjustments
-      const product = await prisma.product.findUnique({
-        where: { id: productId },
-        include: { pricingTiers: true },
-      });
-      if (product && product.pricingTiers && product.pricingTiers.length > 0) {
-        const sortedTiers = [...product.pricingTiers].sort(
-          (a, b) => b.minQty - a.minQty,
-        );
-        const matchedTier = sortedTiers.find(
-          (tier) => exist.qty >= tier.minQty,
-        );
-        exist.price = matchedTier
-          ? Number(matchedTier.price).toString()
-          : product.price.toString();
-      }
+
     }
 
     // If the cart becomes completely empty after removal, delete the cart row entirely or clear metrics
@@ -207,7 +155,7 @@ export async function removeItemFromCart(productId: string) {
         },
       });
     } else {
-      const priceMetrics = await calcPriceWithTiers(itemsList);
+      const priceMetrics = await calcPriceWithTiers(itemsList, { forRemoval: true });
       await prisma.cart.update({
         where: { id: cart.id },
         data: {
