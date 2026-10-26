@@ -13,7 +13,8 @@
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit",
     "test:payments:postgres": "node scripts/test-payments-postgres.cjs",
-    "build:validate:offline": "node scripts/validate-compile-offline.cjs"
+    "build:validate:offline": "node scripts/validate-compile-offline.cjs",
+    "test:workflows:browser": "node scripts/test-workflows-browser.cjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",
