@@ -1,8 +1,7 @@
 import { auth } from "@/auth";
-import { getMyCart } from "@/lib/actions/cart.actions";
 import { getUserById } from "@/lib/actions/user.actions";
-import { getProductById } from "@/lib/actions/product.actions";
-import { CartItem, ShippingAddress } from "@/types";
+import { getBuyNowQuote } from "@/lib/buy-now-pricing";
+import { ShippingAddress } from "@/types";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +18,6 @@ import {
 import Image from "next/image";
 import { formatCurrency, isShippingAddress } from "@/lib/utils";
 import PlaceOrderForm from "./place-order-form";
-import { use } from "react";
 import ShippingAddressDrawer from "@/components/shared/forms/ShippingAddressDrawer";
 
 export const dynamic = "force-dynamic";
@@ -46,69 +44,49 @@ type params = {
   qty?: string;
 };
 
-const PlaceOrderPage = ({
+const PlaceOrderPage = async ({
   searchParams,
 }: {
-  searchParams: Promise<URLSearchParams>;
+  searchParams: Promise<params>;
 }) => {
-  const session = use(auth());
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("User not found");
-
-  const user = use(getUserById(userId));
-  const params = use(searchParams) as unknown as params;
-
+  const params = await searchParams;
   const isBuyNow = params.buyNow === "1";
-  const productId = params.productId;
-  const qty = parseInt(params.qty ?? "1", 10);
-  const shouldOpenDrawer = !user.address && !isBuyNow;
-
-  let cart: {
-    items: (CartItem & { qty: number })[];
-    itemsPrice: string;
-    shippingPrice: string;
-    taxPrice: string;
-    totalPrice: string;
-  };
-
-  if (isBuyNow) {
-    if (!productId) redirect("/");
-    const product = use(getProductById(productId));
-    if (!product) redirect("/not-found");
-
-    const cartItem: CartItem & { qty: number } = {
-      productId: product.id,
-      name: product.name,
-      qty,
-      image: product.images?.[0] ?? "",
-      status: "PREPARING",
-      price: product.price.toString(),
-      supplierId: product.supplierId,
-      slug: product.slug ?? "",
-      priceTiers: product.pricingTiers as unknown as {
-        id: string;
-        minQty: number;
-        price: number;
-      }[],
-    };
-
-    cart = {
-      items: [cartItem],
-      itemsPrice: (Number(product.price) * qty).toString(),
-      shippingPrice: "0",
-      taxPrice: "0",
-      totalPrice: (Number(product.price) * qty).toString(),
-    };
-  } else {
-    const cartData = use(getMyCart());
-    if (!cartData || cartData.items.length === 0) redirect("/cart");
-    cart = {
-      ...cartData,
-      itemsPrice: cartData.itemsPrice.toString(),
-      totalPrice: cartData.totalPrice.toString(),
-      shippingPrice: cartData.shippingPrice.toString(),
-      taxPrice: "0",
-    };
+  if (!isBuyNow) redirect("/place-order");
+  const productId =
+    typeof params.productId === "string" ? params.productId : "";
+  const qty =
+    typeof params.qty === "string"
+      ? Number(params.qty)
+      : params.qty === undefined
+        ? 1
+        : NaN;
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    const callback =
+      "/place-order2?" +
+      new URLSearchParams({ buyNow: "1", productId, qty: String(qty) });
+    redirect("/sign-in?callbackUrl=" + encodeURIComponent(callback));
+  }
+  const user = await getUserById(userId);
+  let cart: Awaited<ReturnType<typeof getBuyNowQuote>>;
+  try {
+    cart = await getBuyNowQuote(productId, qty);
+  } catch {
+    return (
+      <section role="alert" className="p-6 space-y-3">
+        <h1 className="font-semibold">Agizo halipatikani kwa sasa</h1>
+        <p>Hakiki bidhaa, idadi na upatikanaji kabla ya kuendelea.</p>
+        <Link
+          className="underline"
+          href={
+            productId ? `/product/${encodeURIComponent(productId)}` : "/search"
+          }
+        >
+          Rudi kuchagua bidhaa
+        </Link>
+      </section>
+    );
   }
 
   const userAddress = user.address as ShippingAddress | undefined;
@@ -119,17 +97,6 @@ const PlaceOrderPage = ({
       <h1 className="text-base font-bold md:text-xl text-slate-900 pt-4">
         Agiza Mzigo
       </h1>
-
-      {shouldOpenDrawer && (
-        <ShippingAddressDrawer
-          openByDefault
-          address={
-            isShippingAddress(user.address)
-              ? user.address
-              : shippingAddressDefaultValues
-          }
-        />
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Main Columns Container Area */}

@@ -18,6 +18,7 @@ import {
   updateOrderToPaidCOD,
   getOrderSummary,
   getMyOrders,
+  createBuyNowOrder,
 } from "@/lib/actions/order.actions";
 import { confirmDelivery, openOrderDispute } from "@/lib/order-delivery";
 import { fulfillOrder, settleOrder } from "@/lib/order-fulfillment";
@@ -1107,4 +1108,75 @@ test("workspace summaries match each seller ledger and buyer partial receipt", a
   expect(mine.data).toHaveLength(1);
   expect(mine.data[0].isPaid).toBe(true);
   expect(mine.data[0].orderitems.filter((i) => i.isDelivered)).toHaveLength(1);
+});
+
+test("Buy Now tier totals settle into the same seller item-value report, excluding shipping", async () => {
+  const f = await fixture({ stock: 20 });
+  await prisma.productPricing.create({
+    data: { productId: f.product.id, minQty: 5, price: 800 },
+  });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: {
+      role: "SUPPLIER",
+      paymentMethod: "Mobile",
+      address: {
+        fullName: "Test Buyer",
+        streetAddress: "Test street",
+        city: "Dar",
+        postalCode: "12345",
+        country: "Tanzania",
+        phone: "+255700000000",
+        paymentPhone: "+255700000000",
+      },
+    },
+  });
+  auth.mockResolvedValue({ user: { id: f.user.id, role: "SUPPLIER" } });
+  const created = await createBuyNowOrder({
+    productId: f.product.slug,
+    qty: 5,
+  });
+  expect(created.success).toBe(true);
+  const order = await prisma.order.findUnique({
+    where: { id: created.orderData.id },
+    include: { orderitems: true },
+  });
+  expect(Number(order.totalPrice)).toBe(7000);
+  expect(Number(order.itemsPrice)).toBe(4000);
+  expect(Number(order.shippingPrice)).toBe(3000);
+  expect(Number(order.taxPrice)).toBe(0);
+  expect(order.orderitems[0]).toMatchObject({
+    qty: 5,
+    supplierId: f.supplier.id,
+    status: "PREPARING",
+  });
+  expect(Number(order.orderitems[0].price)).toBe(800);
+  expect(
+    (await prisma.product.findUnique({ where: { id: f.product.id } })).stock,
+  ).toBe(20);
+  // Bind a synthetic verified attempt; browser coverage exercises actual initiation.
+  await prisma.order.update({
+    where: { id: order.id },
+    data: {
+      paymentMethod: "ZENOPAY",
+      paymentResult: { zenopay_order_id: attempt(order) },
+    },
+  });
+  await Promise.all([
+    fulfillOrder(order.id, attempt(order), "verified"),
+    fulfillOrder(order.id, attempt(order), "verified"),
+  ]);
+  expect(
+    (await prisma.product.findUnique({ where: { id: f.product.id } })).stock,
+  ).toBe(15);
+  const summary = await getOrderSummary(f.user.id);
+  expect(summary.available).toBe(true);
+  expect(summary.totalSales).toBe(4000);
+  expect(summary.pendingEscrow).toBe(4000);
+  expect(summary.walletBalance).toBe(0);
+  const credits = await prisma.supplierLedger.findMany({
+    where: { orderId: order.id, type: "ESCROW_CREDIT" },
+  });
+  expect(credits).toHaveLength(1);
+  expect(Number(credits[0].amount)).toBe(4000);
 });

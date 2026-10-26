@@ -18,6 +18,7 @@ import { PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
 import { PaymentResult } from "@/types";
 import { calcPriceWithTiers } from "@/lib/cart-pricing";
+import { getBuyNowQuote } from "@/lib/buy-now-pricing";
 // import { ShippingAddress } from "@/types";
 //import { sendPurchaseReceipt } from "@/email";
 
@@ -149,51 +150,7 @@ export async function createBuyNowOrder({
         redirectTo: "/shipping-address",
       };
     }
-    // if (!user.paymentMethod) {
-    //   return {
-    //     success: false,
-    //     message: "No payment method",
-    //     redirectTo: "/payment-method",
-    //   };
-    // }
-
-    const product = await prisma.product.findUnique({
-      where: { slug: productId },
-      include: {
-        pricingTiers: true,
-      },
-    });
-
-    if (!product) return { success: false, message: "Product not found" };
-    if (!Number.isSafeInteger(qty) || qty < 1)
-      return { success: false, message: "Invalid quantity" };
-    if (Number(product.stock) < qty)
-      return { success: false, message: "Not enough stock" };
-
-    const item: CartItem & { qty: number } = {
-      productId: product.id,
-      supplierId: product.supplierId,
-      name: product.name,
-      image: product.images?.[0] ?? "",
-      price: product.price.toString(),
-      qty,
-      slug: product.slug ?? "",
-      priceTiers: product.pricingTiers
-        ? product.pricingTiers.map((t) => ({
-            minQty: t.minQty,
-            price: Number(t.price),
-          }))
-        : [],
-    };
-
-    console.log("CREATED BUY ITEAM: ", item);
-    const cartLike = {
-      items: [item],
-      itemsPrice: (Number(product.price) * qty).toString(),
-      shippingPrice: "0",
-      taxPrice: "0",
-      totalPrice: (Number(product.price) * qty).toString(),
-    };
+    const cartLike = await getBuyNowQuote(productId, qty);
 
     const order = insertOrderSchema.parse({
       userId,
@@ -222,6 +179,7 @@ export async function createBuyNowOrder({
             supplierId: it.supplierId,
             supplierName: seller.companyName || seller.name,
             qty: it.qty,
+            status: "PREPARING",
             orderId: insertedOrder.id,
             slug: it.slug || "",
           },

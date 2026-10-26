@@ -22,7 +22,7 @@ All database tests use disposable synthetic PostgreSQL and a test-only Prisma JS
 - Native deployment Prisma runtime remains unvalidated because the earlier official engine download was denied; no bypass/retry was performed. An authorized CI/staging runner with the official dependencies is needed.
 - Provider sandbox acceptance (including phone-only fallback email behavior) requires an approved sandbox integration; mocks are not acceptance evidence. Preview Branch Tracking stays off because prior configuration exposed a shared database URL to previews.
 - Manual dispatch is not carrier tracking. Delivery remains buyer/admin confirmation; no shipping bookings or fabricated carrier events were added. SMS dispatch notifications are best-effort, without a durable outbox.
-- Existing buy-now path `createBuyNowOrder` / `place-order2` still prices from product base price rather than applying quantity tiers, unlike canonical cart checkout. This discovered parity issue was not expanded into the current reporting tranche.
+- Buy-now pricing parity was subsequently implemented in the local follow-up documented in `buy-now-pricing-parity.md`; it now uses the same canonical calculator as cart checkout.
 - Refund/dispute resolution and broader reporting scalability remain separate work; current charts read the seller's paid item history and are not refund-adjusted cash accounting.
 - User-deferred unsigned WhatsApp bot integration remains unchanged. Separate NestJS repository remains unchanged.
 
