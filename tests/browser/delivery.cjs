@@ -49,6 +49,10 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     assert.equal(item.status, "DISPATCHED");
     console.log("PASS supplier OTP login → scoped orders UI → dispatch action");
     await vendor.storageState({ path: state.stage + "/vendor-session.json" });
+    await p.screenshot({ path: state.stage + "/supplier-orders-desktop.png" });
+    await p.goto(state.baseUrl + "/supplier/products");
+    await p.getByText("Test Item", { exact: true }).first().waitFor();
+    await p.screenshot({ path: state.stage + "/supplier-products-desktop.png" });
     const buyer = await browser.newContext({
       storageState: state.stage + "/buyer-session.json",
     });

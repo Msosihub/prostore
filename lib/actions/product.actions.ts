@@ -1,4 +1,6 @@
 "use server";
+
+import { catalogPage, catalogPriceRange, catalogRating } from "@/lib/catalog-search";
 import { prisma } from "@/db/prisma";
 import { convertToPlainObject, formatError } from "../utils";
 import { LATEST_PRODUCTS_LIMIT, PAGE_SIZE } from "../constants";
@@ -264,6 +266,9 @@ export async function getAllProducts({
   sort?: string;
   supplierId?: string;
 }) {
+  const priceRange = catalogPriceRange(price);
+  const minimumRating = catalogRating(rating);
+  const safeLimit = Number.isSafeInteger(limit) && limit > 0 && limit <= 100 ? limit : PAGE_SIZE;
   // Build unified filter
   const where: Prisma.ProductWhereInput = {
     ...(query && query !== "all"
@@ -281,21 +286,8 @@ export async function getAllProducts({
           },
         }
       : {}),
-    ...(price && price !== "all"
-      ? {
-          price: {
-            gte: Number(price.split("-")[0]),
-            lte: Number(price.split("-")[1]),
-          },
-        }
-      : {}),
-    ...(rating && rating !== "all"
-      ? {
-          rating: {
-            gte: Number(rating),
-          },
-        }
-      : {}),
+    ...(priceRange ? { price: priceRange } : {}),
+    ...(minimumRating !== undefined ? { rating: { gte: minimumRating } } : {}),
     ...(supplierId && supplierId !== "all"
       ? {
           supplierId,
@@ -314,8 +306,8 @@ export async function getAllProducts({
           : sort === "rating"
             ? { rating: "desc" }
             : { createdAt: "desc" },
-    skip: (page - 1) * limit,
-    take: limit,
+    skip: (catalogPage(page) - 1) * safeLimit,
+    take: safeLimit,
     include: {
       brand: { select: { name: true } },
       category: { select: { name_en: true, name_sw: true } },
@@ -331,7 +323,7 @@ export async function getAllProducts({
   const dataCount = await prisma.product.count({ where });
   return {
     data,
-    totalPages: Math.ceil(dataCount / limit),
+    totalPages: Math.ceil(dataCount / safeLimit),
   };
 }
 

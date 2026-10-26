@@ -235,6 +235,7 @@ const freePort = () =>
       await new Promise((r) => setTimeout(r, 500));
     }
     for (const test of [
+      "discovery",
       "flow",
       "cart",
       "payment",
