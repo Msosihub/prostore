@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import ProductPrice from "./product-price";
 import StockBadge from "./stock-badge";
-import Rating from "./rating";
 import { Decimal } from "@prisma/client/runtime/library";
 // import { Product } from "@/types";
 
@@ -80,13 +79,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </div>
 
         <div className="flex flex-col gap-1 sm:gap-2 mt-1">
-          <div className="flex items-center space-x-2 text-[11px] sm:text-xs md:text-sm">
-            <div className="scale-90 sm:scale-100">
-              <Rating value={4.5} />
-              {/** Replace with actual rating */}
-            </div>
-          </div>
-
           <div className="text-sm sm:text-base md:text-lg font-semibold">
             {stock > 0 ? (
               <ProductPrice

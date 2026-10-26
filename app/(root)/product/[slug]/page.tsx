@@ -5,7 +5,7 @@ import ProductImages from "@/components/shared/product/product-images";
 import { getMyCart } from "@/lib/actions/cart.actions";
 import ReviewList from "./review-list";
 import { auth } from "@/auth";
-import Rating from "@/components/shared/product/rating";
+import ReviewSummary from "@/components/shared/product/review-summary";
 import RelatedProducts from "@/components/shared/product/related-products";
 import ProductDescription from "@/components/shared/product/product-description";
 import SupplierProfileCard from "@/components/shared/supplier/supplier-profile-card";
@@ -134,16 +134,7 @@ const ProductDetailsPagez = async (props: {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Rating value={Number(product.rating)} />
-                <p className="text-xs font-semibold text-slate-700 pt-0.5">
-                  {Number(product?.rating).toFixed(1)}/5
-                </p>
-                <span className="text-slate-300 text-xs">|</span>
-                <p className="text-xs text-slate-500 pt-0.5">
-                  (Maoni {product?.numReviews})
-                </p>
-              </div>
+              <ReviewSummary rating={Number(product.rating)} numReviews={product.numReviews} />
             </div>
 
             {/* 🟢 UNIFIED PRICE RE-CALCULATION STEPPER LAYER CONTAINER */}
