@@ -1,5 +1,7 @@
 # Storefront and catalog SEO
 
+Update: the forward repair and new isolated-chain evidence are documented in [runtime-schema-reconciliation.md](runtime-schema-reconciliation.md). Earlier gap counts below describe the pre-repair baseline; populated environment adoption and native/provider/hosting gates remain unresolved.
+
 The home page now renders real catalog data on the server: a featured/latest product hero, category navigation, editorial featured products (existing `isFeatured`), recent products and seller discovery. Prices use the quantity-one tier where configured; bulk prices are explicitly quantity-qualified. Empty catalogs receive neutral states. This replaces banner/infinite-feed emphasis, not seller, buyer or admin capabilities.
 
 Category pages render 24 products with ordinary previous/next links, stable ordering and separate page canonicals. Product URLs, sharing links and sitemap entries agree on `/product/[slug]`. Seller aliases point canonically to `/company/[id]/home`. Search filters are noindex/follow; unfiltered pagination has its own canonical. Private workspace/auth/checkout responses receive noindex headers while retaining Auth.js authorization. Local/explicit preview origins are excluded. Verify the real deployment origin and indexing headers before release.

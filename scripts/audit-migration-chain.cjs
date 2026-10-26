@@ -47,10 +47,10 @@ function sql(db, input) {
     { input, encoding: "utf8", maxBuffer: 8 * 1024 * 1024 },
   );
 }
-function replay(db, continueAfterFailure) {
+function replay(db, continueAfterFailure, selected = migrations) {
   docker(["exec", name, "createdb", "-U", "postgres", db]);
   const results = [];
-  for (const migration of migrations) {
+  for (const migration of selected) {
     const r = sql(db, `BEGIN;\n${migration.sql}\nCOMMIT;`);
     const error = (r.stderr || "").match(/ERROR:\s+([A-Z0-9]{5}):\s+([^\n]+)/);
     results.push({
@@ -105,7 +105,7 @@ try {
     : strict;
   const catalog = sql(
     "chain_strict",
-    "SELECT json_agg(row_to_json(c)) FROM (SELECT table_name, column_name, is_nullable, data_type FROM information_schema.columns WHERE table_schema = 'public') c;",
+    "SELECT json_agg(row_to_json(c)) FROM (SELECT table_name, column_name, is_nullable, data_type, udt_name, numeric_precision, numeric_scale, datetime_precision, character_maximum_length FROM information_schema.columns WHERE table_schema = 'public') c;",
   );
   if (catalog.status !== 0) throw Error("Schema inventory failed");
   const match = catalog.stdout.match(/\[\{[\s\S]*\}\]/);
@@ -135,29 +135,10 @@ try {
       "Fixture client schema is stale: run the isolated PostgreSQL harness first",
     );
   const models = require(generatedPath).Prisma.dmmf.datamodel.models;
-  const critical = new Set([
-    "User",
-    "Product",
-    "ProductPricing",
-    "Cart",
-    "Order",
-    "OrderItem",
-    "Supplier",
-    "SupplierLedger",
-    "ReturnRequest",
-    "OrderItemEvent",
-    "OrderDeliveryFeedback",
-    "PaymentAttempt",
-    "PaymentAttemptEvent",
-    "OrderNotification",
-    "OrderNotificationEvent",
-    "MarketThread",
-    "MarketMessage",
-    "MarketProposal",
-    "OtpThrottle",
-    "MoneyReviewCase",
-    "MoneyReviewEvent",
-  ]);
+  // Uppercase models are Prostore-owned; lowercase imported models remain explicit external drift.
+  const critical = new Set(
+    models.filter((m) => /^[A-Z]/.test(m.name)).map((m) => m.name),
+  );
   const drift = models.flatMap((model) => {
     const table = model.dbName || model.name;
     const actual = columns.filter((c) => c.table_name === table);
@@ -185,7 +166,23 @@ try {
               issue: "missing_column",
             },
           ];
-        if (!field.isList && field.isRequired && column.is_nullable === "YES")
+        const sourceBody =
+          sourceSchema.match(
+            new RegExp(String.raw`model ${model.name} \{([\s\S]*?)\n\}`),
+          )?.[1] || "";
+        const declaration = sourceBody
+          .split("\n")
+          .find((l) => new RegExp(String.raw`^\s*${field.name}\s`).test(l));
+        if (!declaration)
+          throw Error(
+            "Cannot parse nullability " + model.name + "." + field.name,
+          );
+        const scalarType = declaration.trim().split(/\s+/)[1];
+        if (
+          !scalarType.endsWith("[]") &&
+          !scalarType.endsWith("?") &&
+          column.is_nullable === "YES"
+        )
           return [
             {
               model: model.name,
@@ -197,6 +194,75 @@ try {
         return [];
       });
   });
+  const runtimeTypeDrift = [];
+  for (const model of models.filter((m) => critical.has(m.name))) {
+    const body =
+      sourceSchema.match(
+        new RegExp(String.raw`model ${model.name} \{([\s\S]*?)\n\}`),
+      )?.[1] || "";
+    if (!body) throw Error("Cannot parse runtime model " + model.name);
+    for (const f of model.fields.filter((f) => f.kind !== "object")) {
+      const c = columns.find(
+        (c) =>
+          c.table_name === (model.dbName || model.name) &&
+          c.column_name === (f.dbName || f.name),
+      );
+      if (!c) continue;
+      const line =
+        body
+          .split("\n")
+          .find((l) => new RegExp(String.raw`^\s*${f.name}\s`).test(l)) || "";
+      if (!line)
+        throw Error("Cannot parse runtime field " + model.name + "." + f.name);
+      const native = line.match(/@db\.(\w+)(?:\(([^)]*)\))?/);
+      let expected =
+        f.kind === "enum"
+          ? f.type
+          : {
+              String: "text",
+              Int: "int4",
+              BigInt: "int8",
+              Boolean: "bool",
+              DateTime: "timestamp",
+              Decimal: "numeric",
+              Float: "float8",
+              Json: "jsonb",
+              Bytes: "bytea",
+            }[f.type];
+      if (native)
+        expected =
+          {
+            Uuid: "uuid",
+            Json: "json",
+            Timestamp: "timestamp",
+            Decimal: "numeric",
+            VarChar: "varchar",
+          }[native[1]] || expected;
+      const isList = line.trim().split(/\s+/)[1].endsWith("[]");
+      if (isList) expected = "_" + expected;
+      const problems = [];
+      if (c.udt_name !== expected) problems.push("type");
+      if (
+        !isList &&
+        expected === "timestamp" &&
+        c.datetime_precision !== Number(native?.[2] ?? 3)
+      )
+        problems.push("timestamp_precision");
+      if (!isList && expected === "numeric") {
+        const nums = (native?.[2] || "65,30").split(",").map(Number);
+        if (c.numeric_precision !== nums[0] || c.numeric_scale !== nums[1])
+          problems.push("decimal_precision");
+      }
+      if (problems.length)
+        runtimeTypeDrift.push({
+          model: model.name,
+          column: f.name,
+          issues: problems,
+          actual: c.udt_name,
+          expected,
+        });
+    }
+  }
   // The JS-engine runtime DMMF omits enum definitions; read names from the matched schema.
   const enumDefinitions = [
     ...sourceSchema.matchAll(/enum\s+(\w+)\s*\{([\s\S]*?)\}/g),
@@ -208,14 +274,25 @@ try {
       critical: ["OrderItemStatus", "ReturnRequestStatus"].includes(e.name),
       issue: "missing_enum",
     }));
+  const reconciliation = strict.every((r) => r.passed)
+    ? require("./test-runtime-reconciliation.cjs")({
+        sql,
+        docker,
+        name,
+        migrations,
+        replay,
+      })
+    : null;
   console.log(
     JSON.stringify(
       {
         scope: "empty_disposable_postgresql16_sql_replay_not_prisma_deploy",
         migrationCount: migrations.length,
+        reconciliation,
         strict,
         diagnostic,
         runtimeShapeDrift: drift,
+        runtimeTypeDrift,
         enumDrift,
         diagnosticWarning:
           "Failed files roll back; subsequent results are conditional diagnostics, not a deployable baseline.",
@@ -226,6 +303,7 @@ try {
   );
   if (
     strict.some((r) => !r.passed) ||
+    runtimeTypeDrift.length > 0 ||
     drift.some((r) => r.critical) ||
     enumDrift.some((r) => r.critical)
   )

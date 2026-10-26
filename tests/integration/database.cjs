@@ -62,6 +62,19 @@ async function prepare() {
       await new Promise((r) => setTimeout(r, 250));
     }
   }
+  if (process.env.PROSTORE_TEST_HISTORICAL_CHAIN === "1") {
+    // Still accepts only this harness's synthetic loopback database URL above.
+    const client = new (require("pg").Client)({ connectionString: url });
+    await client.connect();
+    try {
+      const dir=path.join(__dirname,"../../prisma/migrations");
+      for(const name of fs.readdirSync(dir).sort()) {
+        const file=path.join(dir,name,"migration.sql");
+        if(fs.existsSync(file)) await client.query(fs.readFileSync(file,"utf8"));
+      }
+    } finally { await client.end(); }
+    return;
+  }
   for (const match of schema.matchAll(/enum (\w+) \{([\s\S]*?)\n\}/g)) {
     const values = match[2]
       .split("\n")

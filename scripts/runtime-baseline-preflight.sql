@@ -23,3 +23,28 @@ ROLLBACK;
 -- SELECT migration_name, checksum, finished_at, rolled_back_at, applied_steps_count
 -- FROM "_prisma_migrations" ORDER BY started_at;
 -- Never include migration logs or application rows in a shared readiness report.
+-- Forward repair is deliberately not rerunnable over undeclared objects. If already
+-- present, compare migration history/checksums and the contract audit before adoption.
+-- These are exact uniqueness gates used by idempotent settlement/review workflows:
+BEGIN TRANSACTION READ ONLY;
+SELECT required.name, EXISTS(
+ SELECT 1 FROM pg_index i JOIN pg_class ix ON ix.oid=i.indexrelid JOIN pg_namespace n ON n.oid=ix.relnamespace
+ WHERE n.nspname='public' AND ix.relname=required.name
+ AND i.indrelid=to_regclass('public.' || quote_ident(required.table_name))
+ AND i.indisunique AND i.indisvalid AND i.indisready AND i.indpred IS NULL AND i.indexprs IS NULL
+ AND i.indnkeyatts=cardinality(required.columns)
+ AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey) WITH ORDINALITY key(attnum,position)
+           JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=key.attnum
+           WHERE key.position<=i.indnkeyatts ORDER BY key.position)=required.columns
+) AS unique_index_present
+FROM (VALUES
+ ('SupplierLedger_reference_key','SupplierLedger',ARRAY['reference']),
+ ('ReturnRequest_orderId_productId_key','ReturnRequest',ARRAY['orderId','productId']),
+ ('OrderDeliveryFeedback_orderId_productId_key','OrderDeliveryFeedback',ARRAY['orderId','productId']),
+ ('Message_chatwootId_key','Message',ARRAY['chatwootId']),
+ ('Conversation_chatwootConversationId_key','Conversation',ARRAY['chatwootConversationId'])
+) required(name,table_name,columns);
+SELECT t.typname::text AS enum_name, string_agg(e.enumlabel,',' ORDER BY e.enumsortorder) AS ordered_labels
+FROM pg_type t JOIN pg_enum e ON e.enumtypid=t.oid JOIN pg_namespace n ON n.oid=t.typnamespace
+WHERE n.nspname='public' AND t.typname IN ('OrderItemStatus','ReturnRequestStatus') GROUP BY t.typname;
+ROLLBACK;

@@ -1737,6 +1737,23 @@ test("referenced product delete rolls back tier deletion", async () => {
   expect((await deleteProduct(f.product.id)).success).toBe(false);
   expect(await prisma.productPricing.count({ where: { productId: f.product.id } })).toBe(1);
 });
+test("unreferenced product can be deleted without removing order history", async () => {
+  const f=await catalogFixture();await prisma.orderItem.deleteMany({where:{orderId:f.order.id}});
+  expect((await deleteProduct(f.product.id)).success).toBe(true);
+  expect(await prisma.order.count({where:{id:f.order.id}})).toBe(1);
+});
+test("product deletion racing a new order cannot erase committed purchase items", async () => {
+  const f=await catalogFixture();await prisma.orderItem.deleteMany({where:{orderId:f.order.id}});
+  const [deletion,creation]=await Promise.allSettled([deleteProduct(f.product.id),newOrder({user:f.user,product:f.product,qty:1})]);
+  if(creation.status==='fulfilled') {
+    expect(await prisma.orderItem.count({where:{orderId:creation.value.id}})).toBe(1);
+    expect(await prisma.product.count({where:{id:f.product.id}})).toBe(1);
+    expect(deletion.status==='rejected'||!deletion.value.success).toBe(true);
+  } else {
+    expect(deletion.status==='fulfilled'&&deletion.value.success).toBe(true);
+    expect(await prisma.orderItem.count({where:{productId:f.product.id}})).toBe(0);
+  }
+});
 test("OTP parallel send is bounded and token is cryptographic six-digit server content", async () => {
   const phone = "+255700000011";
   const result = await Promise.allSettled(Array.from({ length: 6 }, () => requestOtp(phone)));
@@ -2182,7 +2199,7 @@ test("provider optout persists account preference for later order notifications"
  const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:406}]}}));await notificationBatch({dryRun:false});expect((await prisma.user.findUnique({where:{id:data.user.id}})).orderSmsEnabled).toBe(false);
 });
 test("release preflight and notification report execute read-only",async()=>{
- for(const name of ["release-preflight.sql","notification-outbox-dry-run.sql","runtime-baseline-preflight.sql"]){const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts",name),"utf8");const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(s=>s&&!s.startsWith("BEGIN")&&s!=="ROLLBACK");await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");for(const statement of statements){const rows=await tx.$queryRawUnsafe(statement);if(name==="release-preflight.sql")for(const row of rows)expect(Object.values(row).includes(false)).toBe(false);}});}
+ for(const name of ["release-preflight.sql","notification-outbox-dry-run.sql","runtime-baseline-preflight.sql","worker-health-preflight.sql"]){const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts",name),"utf8");const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(s=>s&&!s.startsWith("BEGIN")&&s!=="ROLLBACK");await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");for(const statement of statements){const rows=await tx.$queryRawUnsafe(statement);if(name==="release-preflight.sql")for(const row of rows)expect(Object.values(row).includes(false)).toBe(false);}});}
 });
 
 test("SMS preference migration preserves existing accounts with transactional default",async()=>{
