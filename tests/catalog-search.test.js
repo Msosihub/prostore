@@ -1,3 +1,4 @@
+jest.mock("@/auth", () => ({ auth: jest.fn() }));
 jest.mock("query-string", () => ({ __esModule: true, default: {} }));
 jest.mock("@/db/prisma", () => ({ prisma: { product: { findMany: jest.fn(), count: jest.fn() } } }));
 import { prisma } from "@/db/prisma";

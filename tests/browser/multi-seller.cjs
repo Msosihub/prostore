@@ -323,9 +323,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       data: { role: "BUYER" },
     });
     await vb.p.reload();
-    await vb.p
-      .getByText("Muhtasari haupatikani kwa sasa", { exact: true })
-      .waitFor();
+    await vb.p.waitForURL(url => url.pathname === "/unauthorized");
     assert.equal(
       await vb.p.getByText("Escrow Pending", { exact: true }).count(),
       0,

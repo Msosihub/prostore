@@ -1,12 +1,23 @@
 "use server";
 
-import { catalogPage, catalogPriceRange, catalogRating } from "@/lib/catalog-search";
+import {
+  catalogPage,
+  catalogPriceRange,
+  catalogRating,
+} from "@/lib/catalog-search";
 import { prisma } from "@/db/prisma";
-import { convertToPlainObject, formatError } from "../utils";
+import { convertToPlainObject } from "../utils";
 import { LATEST_PRODUCTS_LIMIT, PAGE_SIZE } from "../constants";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/auth-guard";
+import {
+  CatalogError,
+  writeCatalogProduct,
+  removeCatalogProduct,
+  readCatalogEditor,
+} from "@/lib/catalog-write";
 import { insertProductSchema, updateProductSchema } from "../validators";
 // import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
@@ -19,7 +30,7 @@ import { NextResponse } from "next/server";
 export async function getProductsByCategoryID(
   categoryId: string,
   page = 1,
-  limit = 20
+  limit = 20,
 ) {
   try {
     const products = await prisma.product.findMany({
@@ -55,7 +66,7 @@ export async function getProductsByCategoryID(
 //get product by Category ID
 export const getProductsByCategory = async (
   categoryId: string,
-  excludeSlug?: string
+  excludeSlug?: string,
 ) => {
   try {
     const products = await prisma.product.findMany({
@@ -165,39 +176,27 @@ export async function getProductBySlug(slug: string) {
 
 // Get single product by it's ID
 export async function getProductById(productId: string) {
-  const data = await prisma.product.findFirst({
-    where: { slug: productId },
-    include: {
-      pricingTiers: true,
-    },
-  });
-
-  return convertToPlainObject(data);
+  return convertToPlainObject(await readCatalogEditor(productId));
 }
 
 // Delete a product
 export async function deleteProduct(id: string) {
   try {
-    const productExists = await prisma.product.findFirst({
-      where: { id },
-    });
-
-    if (!productExists) throw new Error("Product not found");
-
-    await prisma.product.delete({ where: { id } });
-
-    revalidatePath("/admin/products");
-
-    return {
-      success: true,
-      message: "Product deleted successfully",
-    };
+    await removeCatalogProduct(id);
+    revalidatePath("/supplier/products");
+    revalidatePath("/search");
+    return { success: true, message: "Product deleted successfully" };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return {
+      success: false,
+      message:
+        error instanceof CatalogError
+          ? error.message
+          : "Unable to delete product. Referenced products must be retained",
+    };
   }
 }
 
-// Get all categories
 export async function getAllCategories() {
   try {
     const data = await prisma.category.findMany({
@@ -268,7 +267,10 @@ export async function getAllProducts({
 }) {
   const priceRange = catalogPriceRange(price);
   const minimumRating = catalogRating(rating);
-  const safeLimit = Number.isSafeInteger(limit) && limit > 0 && limit <= 100 ? limit : PAGE_SIZE;
+  const safeLimit =
+    Number.isSafeInteger(limit) && limit > 0 && limit <= 100
+      ? limit
+      : PAGE_SIZE;
   // Build unified filter
   const where: Prisma.ProductWhereInput = {
     ...(query && query !== "all"
@@ -330,119 +332,38 @@ export async function getAllProducts({
 // Create a product
 export async function createProduct(data: z.infer<typeof insertProductSchema>) {
   try {
-    const parsed = insertProductSchema.parse(data);
-
-    const {
-      name,
-      slug,
-      description,
-      images,
-      price,
-      stock,
-
-      brandId,
-      categoryId,
-      subcategoryId,
-      supplierId,
-      pricingTiers,
-    } = parsed;
-
-    const product = await prisma.product.create({
-      data: {
-        name,
-        slug,
-        description,
-        images,
-        price,
-        color: "",
-        size: "",
-        stock,
-        brandId,
-        categoryId,
-        subcategoryId,
-        supplierId,
-        pricingTiers: {
-          create: pricingTiers.map((tier) => ({
-            minQty: tier.minQty,
-            price: tier.price,
-          })),
-        },
-      },
-    });
-
-    revalidatePath("/admin/products");
-
+    const product = await writeCatalogProduct(data, false);
+    revalidatePath("/supplier/products");
+    revalidatePath("/search");
     return {
       success: true,
       message: "Product created successfully",
       product: convertToPlainObject(product),
     };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return {
+      success: false,
+      message:
+        error instanceof CatalogError
+          ? error.message
+          : "Unable to save product. Check the fields and try again",
+    };
   }
 }
-
-// Update a product
 export async function updateProduct(data: z.infer<typeof updateProductSchema>) {
   try {
-    const parsed = updateProductSchema.parse(data);
-
-    const {
-      id,
-      name,
-      slug,
-      description,
-      images,
-
-      price,
-      stock,
-
-      brandId,
-      categoryId,
-      subcategoryId,
-      supplierId,
-      pricingTiers,
-    } = parsed;
-
-    const productExists = await prisma.product.findUnique({ where: { id } });
-    if (!productExists) throw new Error("Product not found");
-
-    await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        slug,
-        description,
-        images,
-        price,
-        color: "",
-        size: "",
-        stock,
-        brandId,
-        categoryId,
-        subcategoryId,
-        supplierId,
-      },
-    });
-
-    // Optional: Replace pricing tiers
-    await prisma.productPricing.deleteMany({ where: { productId: id } });
-    await prisma.productPricing.createMany({
-      data: pricingTiers.map((tier) => ({
-        productId: id,
-        minQty: tier.minQty,
-        price: tier.price,
-      })),
-    });
-
-    revalidatePath("/admin/products");
-
-    return {
-      success: true,
-      message: "Product updated successfully",
-    };
+    await writeCatalogProduct(data, true);
+    revalidatePath("/supplier/products");
+    revalidatePath("/search");
+    return { success: true, message: "Product updated successfully" };
   } catch (error) {
-    return { success: false, message: formatError(error) };
+    return {
+      success: false,
+      message:
+        error instanceof CatalogError
+          ? error.message
+          : "Unable to save product. Check the fields and try again",
+    };
   }
 }
 
@@ -468,13 +389,15 @@ export async function suppliersCount() {
 //brand create
 export async function createBrandAction(name: string) {
   try {
+    await requireAdmin();
+    name = z.string().trim().min(1).max(100).parse(name);
     const brand = await prisma.brand.create({
       data: { name },
       select: { id: true, name: true },
     });
     return { success: true, data: brand, message: "Brand created" };
-  } catch (e) {
-    return { success: false, message: e ?? "Failed to create brand" };
+  } catch {
+    return { success: false, message: "Failed to create brand" };
   }
 }
 export async function companyLatestProducts(supplierId: string) {
@@ -489,15 +412,17 @@ export async function companyLatestProducts(supplierId: string) {
 export async function createCategoryAction(name_en: string) {
   const name_sw = name_en;
   try {
+    await requireAdmin();
+    name_en = z.string().trim().min(1).max(100).parse(name_en);
     const category = await prisma.category.create({
       data: { name_en, name_sw },
       select: { id: true, name_en: true },
     });
     return { success: true, data: category, message: "Category created" };
-  } catch (e) {
+  } catch {
     return {
       success: false,
-      message: e ?? "Failed to create category",
+      message: "Failed to create category",
     };
   }
 }

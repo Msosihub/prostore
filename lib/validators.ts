@@ -253,7 +253,8 @@ export const paymentResultSchema = z.object({
 
 // Schema for updating products
 export const updateProductSchema = insertProductSchema.extend({
-  id: z.string().min(1, "Id inahitajika"),
+  id: z.string().uuid("Id inahitajika"),
+  expectedStock: z.number().int().min(0).max(2147483647),
 });
 
 ///supplier profile validation schema

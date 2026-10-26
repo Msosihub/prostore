@@ -9,7 +9,7 @@ import type { NextAuthConfig } from "next-auth";
 import { authConfig } from "./auth.config";
 import { cookies } from "next/headers";
 import GoogleProvider from "next-auth/providers/google";
-import { normalizeIdentifier } from "./lib/utils";
+import { consumeOtp } from "./lib/otp";
 
 export const config = {
   pages: {
@@ -31,56 +31,11 @@ export const config = {
         token: { label: "OTP", type: "text" },
       },
       async authorize(credentials) {
-        let identifier = credentials?.identifier as string | undefined;
-        const token = credentials?.token as string | undefined;
-
-        if (!identifier || !token) return null;
-
-        identifier = normalizeIdentifier(identifier);
-
-        // 1️⃣ Find OTP
-        const record = await prisma.verificationToken.findFirst({
-          where: {
-            identifier,
-            token,
-            expires: { gt: new Date() },
-          },
-        });
-
-        if (!record) return null;
-
-        // 2️⃣ Delete OTP (one-time use)
-        await prisma.verificationToken.delete({
-          where: {
-            identifier_token: {
-              identifier,
-              token,
-            },
-          },
-        });
-
-        // 3️⃣ Find user
-        let user = await prisma.user.findFirst({
-          where: {
-            OR: [{ phone: identifier }, { email: identifier }],
-          },
-        });
-
-        // 4️⃣ Auto create if not exists
-        if (!user) {
-          const isEmail = identifier.includes("@");
-
-          user = await prisma.user.create({
-            data: {
-              phone: isEmail ? null : identifier,
-              email: isEmail ? identifier : null,
-              phoneVerified: isEmail ? null : new Date(),
-              emailVerified: isEmail ? new Date() : null,
-              role: "BUYER",
-              onboarded: false,
-            },
-          });
-        }
+        const user = await consumeOtp(
+          credentials?.identifier,
+          credentials?.token,
+        );
+        if (!user) return null;
 
         return {
           id: user.id,

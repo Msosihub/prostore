@@ -1,0 +1,51 @@
+const fs = require('fs'), assert = require('assert/strict');
+const { chromium } = require('playwright');
+const state = JSON.parse(fs.readFileSync(process.env.PROSTORE_BROWSER_STATE));
+Object.assign(process.env, state.env);
+const { prisma } = require(state.stage + '/tests/integration/database.cjs');
+(async () => {
+ const browser = await chromium.launch({ executablePath: process.env.PROSTORE_CHROMIUM || '/usr/bin/chromium', headless: true, args: ['--no-sandbox'] });
+ const contexts=[];
+ async function context(storageState) { const c = await browser.newContext({ storageState, viewport:{width:375,height:812} }); contexts.push(c); await c.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort()); return c; }
+ try {
+  await prisma.user.update({where:{id:state.fixture.vendor},data:{role:'SUPPLIER'}});
+  const original = await prisma.product.findUnique({where:{id:state.fixture.product}});
+  const { id, createdAt, ...template } = original;
+  const product = await prisma.product.create({data:{...template,slug:'catalog-boundary-demo',name:'Catalog boundary demo',images:['https://example.test/demo.png'],stock:10}});
+  const seller = await context(state.stage+'/vendor-session.json');
+  const p = await seller.newPage(); p.setDefaultTimeout(60000);
+  await p.goto(state.baseUrl+'/supplier/products/'+product.id);
+  await p.getByLabel('Jina la Bidhaa *',{exact:true}).fill('Catalog updated demo');
+  await p.getByRole('button',{name:'Sasisha Bidhaa Hii',exact:true}).click();
+  await p.waitForURL(url=>url.pathname==='/supplier/products');
+  assert.equal((await prisma.product.findUnique({where:{id:product.id}})).name,'Catalog updated demo');
+  await p.goto(state.baseUrl+'/supplier/products/'+product.slug);
+  await p.getByLabel('Jina la Bidhaa *',{exact:true}).waitFor();
+  await prisma.product.update({where:{id:product.id},data:{stock:9}});
+  await p.getByLabel('Idadi ya Mzigo Uliopo Ghalani (Total Stock) *',{exact:true}).fill('12');
+  await p.getByRole('button',{name:'Sasisha Bidhaa Hii',exact:true}).click();
+  await p.getByText('Stock changed. Reload the product before saving',{exact:true}).waitFor();
+  assert.equal((await prisma.product.findUnique({where:{id:product.id}})).stock,9);
+  await p.screenshot({path:state.stage+'/catalog-stale-stock-mobile.png'});
+  const foreign = await prisma.product.findFirst({where:{supplierId:{not:product.supplierId}}});
+  assert(foreign);
+  await p.goto(state.baseUrl+'/supplier/products/'+foreign.id);
+  assert.equal(await p.getByLabel('Jina la Bidhaa *',{exact:true}).count(),0);
+  const anonymous = await context(); const a = await anonymous.newPage(); a.setDefaultTimeout(60000);
+  assert.equal((await anonymous.request.post(state.baseUrl+'/api/auth/send-otp',{data:{identifier:'test@example.test'}})).status(),400);
+  const phone='+255700000019';
+  await a.goto(state.baseUrl+'/sign-in'); await a.locator('#identifier').fill(phone);
+  await a.getByRole('button',{name:'Tuma Msimbo wa OTP'}).click(); await a.locator('#otp').waitFor();
+  const record=await prisma.verificationToken.findFirst({where:{identifier:phone}}); assert(record);
+  const retry=await anonymous.request.post(state.baseUrl+'/api/auth/send-otp',{data:{identifier:phone}});
+  assert.equal(retry.status(),429); assert(Number(retry.headers()['retry-after'])>0);
+  const wrong=record.token==='111111'?'222222':'111111';
+  for(let i=0;i<5;i++) assert.equal((await anonymous.request.post(state.baseUrl+'/api/auth/verify-otp',{data:{identifier:phone,token:wrong}})).status(),400);
+  await a.locator('#otp').fill(record.token);
+  await a.getByRole('button',{name:'Thibitisha na Uingie Sokoni'}).click();
+  await a.getByText('Msimbo si sahihi, umeisha muda au majaribio yamezidi. Subiri kabla ya kuomba mwingine.',{exact:true}).waitFor();
+  const session=await (await anonymous.request.get(state.baseUrl+'/api/auth/session')).json(); assert(!session?.user);
+  assert.equal(await prisma.user.count({where:{phone}}),0);
+  console.log('PASS supplier editor ID/slug save, stale-stock recovery, foreign product isolation; email disabled, resend limit and shared API/Auth.js failed-attempt lockout');
+ } finally { for(const c of contexts) await c.close(); await browser.close(); await prisma.$disconnect(); }
+})().catch(e=>{console.error(e);process.exitCode=1;});

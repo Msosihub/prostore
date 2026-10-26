@@ -1,84 +1,21 @@
-// /api/auth/send-otp/route.ts
-
-import { prisma } from "@/db/prisma";
-import { sendSms } from "@/lib/africasTalking";
-import { normalizeIdentifier } from "@/lib/utils";
-import { z } from "zod";
 import { NextResponse } from "next/server";
-
+import { requestOtp, OtpError } from "@/lib/otp";
 export async function POST(req: Request) {
   try {
-    let { identifier } = await req.json();
-
-    if (!identifier || typeof identifier !== "string") {
-      return NextResponse.json(
-        { success: false, message: "Identifier required" },
-        { status: 400 },
-      );
-    }
-
-    identifier = normalizeIdentifier(identifier);
-
-    // A public OTP request may target one phone/email, never a provider recipient list.
-    const validIdentifier = identifier.includes("@")
-      ? z.string().email().max(254).safeParse(identifier).success
-      : /^\+[1-9]\d{7,14}$/.test(identifier);
-    if (!validIdentifier) {
-      return NextResponse.json(
-        { success: false, message: "Invalid identifier" },
-        { status: 400 },
-      );
-    }
-
-    const token = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
-
-    const existing = await prisma.verificationToken.findFirst({
-      where: { identifier },
-    });
-
-    if (existing) {
-      // 3 attempts max
-      if (existing.attempts >= 3) {
-        const cooldownEnd = new Date(
-          existing.createdAt.getTime() + 15 * 60 * 1000,
-        );
-
-        if (cooldownEnd > new Date()) {
-          return NextResponse.json(
-            {
-              success: false,
-              message: "Umezidisha maombi. Jaribu tena baada ya dakika 15.",
-            },
-            { status: 429 },
-          );
-        }
-      }
-
-      // remove old token
-      await prisma.verificationToken.deleteMany({
-        where: { identifier },
-      });
-    }
-
-    await prisma.verificationToken.create({
-      data: {
-        identifier,
-        token,
-        expires,
-        attempts: existing ? existing.attempts + 1 : 1,
-      },
-    });
-
-    // Send OTP
-    if (identifier.includes("@")) {
-      // TODO: sendEmail
-    } else {
-      await sendSms(identifier, `Namba yako ya kuhakiki ni ${token}`);
-    }
-
+    const body = await req.json().catch(() => null);
+    await requestOtp(body?.identifier);
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    if (error instanceof OtpError)
+      return NextResponse.json(
+        { success: false, message: error.message },
+        {
+          status: error.status,
+          headers: error.retryAfter
+            ? { "Retry-After": String(error.retryAfter) }
+            : undefined,
+        },
+      );
     console.error("OTP delivery failed");
     return NextResponse.json(
       { success: false, message: "Hitilafu imetokea kwenye seva." },
@@ -86,16 +23,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-// async function sendSms(phone: string, message: string) {
-//   console.log(`${phone} => ${message}`);
-//   // integrate real SMS provider here
-//   // const res = await sendSms(phone, message + " - karibu ProStore 🚀");
-//   // console.log("SMS provider response:", res);
-// }
-
-// async function sendEmail() {
-// // email: string, message: string
-//   // console.log(`${email} => ${message}`);
-//   // integrate real email provider here
-// }
