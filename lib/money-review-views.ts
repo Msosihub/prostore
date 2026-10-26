@@ -115,6 +115,7 @@ export async function moneyReviewView(
             })
           : null;
       return {
+        actorId: actor.id,
         cases: cases.map(({ supplierId, actorId, ...c }) => ({
           ...c,
           amount: c.amount.toFixed(2),

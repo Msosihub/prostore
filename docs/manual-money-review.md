@@ -23,8 +23,10 @@ Fresh database roles and ownership guard all reads/writes. Admin seller-director
 - A matching non-legacy `SETTLED` PaymentAttempt marks the snapshot as provider-verified. Older paid orders can submit a **review case**, explicitly marked verification required. Their requested item value is not represented as an approved/refundable entitlement.
 - **All refund financial approvals are unavailable**, also enforced by a database CHECK constraint. Shipping/tax/commission allocation, previous external refunds, released funds and execution verification are not guessed. No partial or full refund is executed.
 - Refund cases serialize on the same parent Order lock as delivery. Active cases block affected-item/whole-order escrow release. A delivery that wins the race may complete before the case is submitted; the resulting delivered-item case is review-only and never reverses money. Closing a case does not close a separate ReturnRequest dispute or undo its delivery restrictions.
-- Actor/request UUID uniqueness gives replay-safe submission; changed details with the same key are rejected. The browser retains the key across same-page interrupted retries. After a reload, inspect existing cases before submitting again; no cross-session draft persistence is claimed.
+- Actor/request UUID uniqueness gives replay-safe submission; changed details with the same key are rejected. The readiness follow-up persists the per-user/kind key and payload fingerprint across same-tab reloads, without raw request fields. Where session storage is unavailable, same-page memory is the fallback; check existing cases before resubmitting after storage loss. Cross-tab/device draft recovery is not claimed.
 - No “mark transferred/refunded” action, free-form payment evidence, bank-account collection, payout/refund provider request, scheduler or automatic external execution exists. `APPROVED` means withdrawal review approved with reservation retained, **not money sent**.
+
+See [release baseline readiness](release-baseline-readiness.md) for the later retry/NULL-guard fixes and the verified historical migration/runtime-schema gap.
 
 ## Schema and rollout
 

@@ -203,6 +203,8 @@ async function prepare() {
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const moneyMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261027000000_manual_money_review/migration.sql"), "utf8");
   for (const statement of moneyMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const quantityMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261027010000_refund_quantity_guard/migration.sql"), "utf8");
+  for (const statement of quantityMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const otpMigration = fs.readFileSync(
     path.join(
       __dirname,

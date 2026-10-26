@@ -2182,7 +2182,7 @@ test("provider optout persists account preference for later order notifications"
  const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:406}]}}));await notificationBatch({dryRun:false});expect((await prisma.user.findUnique({where:{id:data.user.id}})).orderSmsEnabled).toBe(false);
 });
 test("release preflight and notification report execute read-only",async()=>{
- for(const name of ["release-preflight.sql","notification-outbox-dry-run.sql"]){const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts",name),"utf8");const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(s=>s&&!s.startsWith("BEGIN")&&s!=="ROLLBACK");await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");for(const statement of statements){const rows=await tx.$queryRawUnsafe(statement);if(name==="release-preflight.sql")for(const row of rows)expect(Object.values(row).includes(false)).toBe(false);}});}
+ for(const name of ["release-preflight.sql","notification-outbox-dry-run.sql","runtime-baseline-preflight.sql"]){const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts",name),"utf8");const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(s=>s&&!s.startsWith("BEGIN")&&s!=="ROLLBACK");await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");for(const statement of statements){const rows=await tx.$queryRawUnsafe(statement);if(name==="release-preflight.sql")for(const row of rows)expect(Object.values(row).includes(false)).toBe(false);}});}
 });
 
 test("SMS preference migration preserves existing accounts with transactional default",async()=>{
@@ -2337,6 +2337,25 @@ test("admin-only seller identity and owner role views minimize disclosure", asyn
  expect(own.cases[0].adminContext).toBeNull(); expect(own.cases[0].supplierId).toBeUndefined();
  auth.mockResolvedValue({user:{id:f.user.id}}); await expect(moneyReviewView("admin")).rejects.toThrow("Unauthorized");
  expect((await moneyReviewView("buyer",{id})).cases).toHaveLength(0);
+});
+test("forward refund quantity guard rejects NULL independently of action validation", async () => {
+ const f = await moneyFixture();
+ await expect(prisma.moneyReviewCase.create({data:{actorId:f.user.id,supplierId:f.supplier.id,kind:"REFUND",requestKey:moneyKey(),amount:1,reason:"Synthetic constraint check",orderId:f.order.id,productId:f.product.id,quantity:null}})).rejects.toThrow();
+ expect(await prisma.moneyReviewCase.count()).toBe(0);
+});
+test("forward quantity guard refuses invalid existing cases without repairing or deleting them", async () => {
+ const f = await moneyFixture();
+ const guard = `ALTER TABLE "MoneyReviewCase" ADD CONSTRAINT "MoneyReviewCase_refund_quantity_required" CHECK ("kind" <> 'REFUND' OR "quantity" IS NOT NULL)`;
+ await prisma.$executeRawUnsafe('ALTER TABLE "MoneyReviewCase" DROP CONSTRAINT "MoneyReviewCase_refund_quantity_required"');
+ let bad;
+ try {
+   bad = await prisma.moneyReviewCase.create({data:{actorId:f.user.id,supplierId:f.supplier.id,kind:"REFUND",requestKey:moneyKey(),amount:1,reason:"Synthetic pre-guard row",orderId:f.order.id,productId:f.product.id,quantity:null}});
+   await expect(prisma.$executeRawUnsafe(guard)).rejects.toThrow();
+   expect((await prisma.moneyReviewCase.findUnique({where:{id:bad.id}})).quantity).toBeNull();
+ } finally {
+   if(bad) await prisma.moneyReviewCase.delete({where:{id:bad.id}});
+   await prisma.$executeRawUnsafe(guard);
+ }
 });
 if(process.env.PROSTORE_BACKUP_FIXTURE==="1") test("prepare synthetic recovery fixture for independent pg_dump/restore",async()=>{
  const data=await fixture();getZenopayStatus.mockResolvedValue(confirmed(data.order));await reconcileZenopay(data.order.id,attempt(data.order));await confirmDelivery(data.order.id,data.product.id,buyer(data),{rating:5,comment:"Synthetic restore check"});
