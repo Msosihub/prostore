@@ -9,7 +9,10 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "seed": "ts-node db/seed.ts",
-    "tree": "npx tree-cli -l 2 -i \"node_modules,.next,.git\""
+    "tree": "npx tree-cli -l 2 -i \"node_modules,.next,.git\"",
+    "test:storefront:isolated": "node scripts/test-storefront-only.cjs",
+    "test:storefront:contracts": "node tests/storefront-contracts.cjs",
+    "test:storefront:scope": "node scripts/check-storefront-scope.cjs"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.8.0",

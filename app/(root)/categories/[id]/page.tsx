@@ -1,118 +1,156 @@
-"use client";
-
-import useSWRInfinite from "swr/infinite";
-import { useEffect, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import React from "react";
-import ProductCard from "@/components/shared/product/product-card";
-import { Product } from "@/types";
-
-// export const revalidate = 600;
-
-interface ProductsResponse {
-  products: Product[];
-  hasMore: boolean;
-  totalCount: number;
-}
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-export default function CategoryProductsPage({
-  params,
-}: {
+import { cache } from "react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { prisma } from "@/db/prisma";
+import { publicProductWhere, storefrontProductSelect } from "@/lib/storefront";
+import { catalogPage, catalogParam } from "@/lib/catalog-search";
+import { publicUrl, plainDescription, jsonLd } from "@/lib/storefront-seo";
+import ProductGrid from "@/components/storefront/product-grid";
+const readCategory = cache(async (id: string) =>
+  /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(id)
+    ? prisma.category.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name_en: true,
+          name_sw: true,
+          description: true,
+          _count: { select: { products: { where: publicProductWhere } } },
+        },
+      })
+    : null,
+);
+type Props = {
   params: Promise<{ id: string }>;
-}) {
-  const PAGE_SIZE = 12;
-  const paramsx = React.use(params);
-  const id = paramsx.id;
-
-  const getKey = (pageIndex: number, previousPageData: ProductsResponse) => {
-    if (previousPageData && !previousPageData.hasMore) return null; // ✅ stop if no more
-    return `/api/shared/categories/${id}/products?page=${pageIndex + 1}&limit=${PAGE_SIZE}`;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+export async function generateMetadata({ params, searchParams }: Props) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const c = await readCategory(id);
+  if (!c)
+    return {
+      title: "Kundi halijapatikana",
+      robots: { index: false, follow: true },
+    };
+  const page = catalogPage(catalogParam(query.page, "1"));
+  return {
+    title: `${c.name_sw || c.name_en}${page > 1 ? ` — Ukurasa ${page}` : ""}`,
+    description: plainDescription(
+      c.description ||
+        `Linganisha bidhaa za ${c.name_sw || c.name_en} kutoka maduka kwenye Nimboya.`,
+    ),
+    alternates: {
+      canonical: publicUrl(
+        `/categories/${id}${page > 1 ? `?page=${page}` : ""}`,
+      ),
+    },
+    robots: { index: c._count.products > 0, follow: true },
   };
-
-  const { data, error, size, setSize, isValidating } = useSWRInfinite(
-    getKey,
-    fetcher
-  );
-
-  const products = data ? data.flatMap((page) => page.products) : [];
-
-  const isLoadingInitial = !data && !error;
-  const isLoadingMore =
-    isLoadingInitial ||
-    (size > 0 && data && typeof data[size - 1] === "undefined");
-
-  const loaderRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!loaderRef.current) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          // Only fetch if there are more pages
-          const lastPage = data?.[data.length - 1];
-          if (lastPage?.hasMore) {
-            setSize(size + 1);
-          }
-        }
-      },
-      { threshold: 1.0 }
-    );
-
-    observer.observe(loaderRef.current);
-    return () => observer.disconnect();
-  }, [size, setSize, data]);
-
-  if (error) return <div className="p-4">Failed to load products.</div>;
-
+}
+export default async function CategoryPage({ params, searchParams }: Props) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const c = await readCategory(id);
+  if (!c) notFound();
+  const page = catalogPage(catalogParam(query.page, "1"));
+  const pages = Math.max(1, Math.ceil(c._count.products / 24));
+  if (page > pages) notFound();
+  const products = await prisma.product.findMany({
+    where: { ...publicProductWhere, categoryId: id },
+    select: storefrontProductSelect,
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+    take: 24,
+    skip: (page - 1) * 24,
+  });
   return (
-    <div className="mx-auto max-w-5xl p-4">
-      <h1 className="text-xl font-semibold mb-4">Products</h1>
-
-      {isLoadingInitial ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Card key={i} className="rounded-xl shadow-sm">
-              <Skeleton className="h-32 w-full rounded-t-xl" />
-              <CardContent className="p-2">
-                <Skeleton className="h-4 w-3/4 mb-1" />
-                <Skeleton className="h-3 w-1/2" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+    <section className="space-y-6 py-6">
+      <nav
+        aria-label="Uko hapa"
+        className="flex flex-wrap gap-2 text-sm text-slate-500"
+      >
+        <Link href="/">Mwanzo</Link>
+        <span>/</span>
+        <Link href="/categories">Makundi</Link>
+        <span>/</span>
+        <span>{c.name_sw || c.name_en}</span>
+      </nav>
+      <header>
+        <h1 className="text-3xl font-bold">{c.name_sw || c.name_en}</h1>
+        {c.description && (
+          <p className="mt-3 max-w-2xl text-slate-600">
+            {plainDescription(c.description, 400)}
+          </p>
+        )}
+        <p className="mt-3 text-sm text-slate-500">
+          {c._count.products} bidhaa · Ukurasa {page} wa {pages}
+        </p>
+      </header>
+      {products.length ? (
+        <ProductGrid products={products} />
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {products.map((product) => (
-            <ProductCard
-              key={product.slug}
-              id={product.id}
-              slug={product.slug}
-              name={product.name}
-              brand={product?.brand?.name || ""}
-              category={product.category?.name_en ?? ""}
-              subcategory={product?.subcategory?.name_en || ""}
-              supplier={product?.supplier?.companyName ?? "<no supplier>"}
-              images={product.images}
-              price={Number(product.price)}
-              stock={product.stock}
-              pricingTiers={product.pricingTiers}
-            />
-          ))}
+        <div className="rounded-xl border bg-white p-8">
+          <p role="status">Hakuna bidhaa kwenye kundi hili kwa sasa.</p>
+          <Link className="mt-4 inline-block underline" href="/categories">
+            Gundua makundi mengine
+          </Link>
         </div>
       )}
-
-      {(isLoadingMore || isValidating) && (
-        <div className="flex justify-center p-4">
-          <Skeleton className="h-6 w-6 rounded-full" />
-        </div>
-      )}
-
-      {/* loader sentinel */}
-      <div ref={loaderRef} className="h-8" />
-    </div>
+      <nav
+        aria-label="Kurasa za kundi"
+        className="flex items-center justify-between gap-4"
+      >
+        {page > 1 ? (
+          <Link
+            className="rounded-lg border bg-white px-4 py-3"
+            href={`/categories/${id}${page > 2 ? `?page=${page - 1}` : ""}`}
+          >
+            Nyuma
+          </Link>
+        ) : (
+          <span />
+        )}
+        <span className="text-sm">
+          {page} / {pages}
+        </span>
+        {page < pages ? (
+          <Link
+            className="rounded-lg bg-emerald-900 px-4 py-3 text-white"
+            href={`/categories/${id}?page=${page + 1}`}
+          >
+            Mbele
+          </Link>
+        ) : (
+          <span />
+        )}
+      </nav>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLd({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Mwanzo",
+                item: publicUrl("/"),
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Makundi",
+                item: publicUrl("/categories"),
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: c.name_sw || c.name_en,
+                item: publicUrl(`/categories/${id}`),
+              },
+            ],
+          }),
+        }}
+      />
+    </section>
   );
 }

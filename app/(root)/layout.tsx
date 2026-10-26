@@ -43,7 +43,7 @@ export default async function RootLayout({
       <Header cartItemsCount={cartItemsCount} />
 
       {/* 🟢 UNIFIED BOUNDARY CONTROLLER: Cleans up duplicate wrapper padding loops */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+      <main id="storefront-content" className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
         {children}
       </main>
 
