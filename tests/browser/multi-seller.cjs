@@ -330,6 +330,42 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       await vb.p.getByText("Escrow Pending", { exact: true }).count(),
       0,
     );
+    await admin.p.goto(state.baseUrl + "/admin");
+    await admin.p.getByRole("heading", { name: "Operations overview" }).waitFor();
+    assert.equal(await admin.p.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-operations-mobile.png" });
+    await admin.p.setViewportSize({ width: 1280, height: 900 });
+    await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-operations-desktop.png" });
+    await admin.p.getByRole("link", { name: "Orders", exact: true }).click();
+    await admin.p.getByLabel("Product name or full order ID").fill(order.id);
+    await admin.p.getByLabel("Payment / fulfillment").selectOption("paid");
+    await admin.p.getByRole("button", { name: "Apply filters" }).click();
+    await admin.p.getByRole("link", { name: "Order #" + order.id.slice(0, 8), exact: true }).waitFor();
+    await admin.p.getByLabel("Product name or full order ID").fill("missing-admin-synthetic");
+    await admin.p.getByRole("button", { name: "Apply filters" }).click();
+    await admin.p.getByRole("status").getByText("No orders match these filters.").waitFor();
+    await admin.p.getByRole("link", { name: "Disputes", exact: true }).click();
+    await admin.p.getByRole("heading", { name: "Disputes and returns" }).waitFor();
+    await admin.p.getByRole("link", { name: "Review order #" + order.id.slice(0, 8) }).waitFor();
+    await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-disputes-desktop.png" });
+    assert.equal((await buyer.request.post(state.baseUrl + "/api/admin/brands", { data: { name: "blocked" } })).status(), 403);
+    console.log("PASS admin overview/mobile layout, canonical order filtering/empty recovery, dispute queue and buyer mutation denial");
+    const documentProduct = await prisma.product.findUnique({ where: { id: state.fixture.product } });
+    const document = await prisma.supplierDocument.create({ data: { supplierId: documentProduct.supplierId, label: "Synthetic review package", name: "Demo", type: "License", description: "Review both demo pages", fileUrl: "https://example.test/one", files: ["https://example.test/one", "https://example.test/two"] } });
+    await prisma.supplierDocument.create({ data: { supplierId: documentProduct.supplierId, label: "Rejected demo package", name: "Demo", fileUrl: "", rejectionReason: "Synthetic rejection" } });
+    await admin.p.getByRole("link", { name: "Documents", exact: true }).click();
+    await admin.p.getByText("Synthetic review package", { exact: false }).waitFor();
+    assert.equal(await admin.p.getByText("Rejected demo package", { exact: false }).count(), 0);
+    assert.equal(await admin.p.getByRole("link", { name: /Open attachment/ }).count(), 2);
+    await admin.p.getByText("Review both demo pages", { exact: true }).waitFor();
+    await admin.p.getByRole("button", { name: "Approve document", exact: true }).click();
+    await admin.p.getByRole("status").getByText("No documents match these filters.").waitFor();
+    assert.equal((await prisma.supplierDocument.findUnique({ where: { id: document.id } })).verified, true);
+    assert.equal(await prisma.auditLog.count({ where: { entityId: document.id, action: "DOCUMENT_APPROVED" } }), 1);
+    await admin.p.getByLabel("Document status").selectOption("rejected");
+    await admin.p.getByRole("button", { name: "Apply filters" }).click();
+    await admin.p.getByText("Rejected demo package", { exact: false }).waitFor();
+    console.log("PASS admin document pending/rejected filters, multiple attachments and confirmed decision with persisted audit");
     const adminUser = await prisma.user.findFirst({
       where: { phone: "+255700000004" },
     });
@@ -343,6 +379,9 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       ).status(),
       403,
     );
+    for (const endpoint of ["brands", "banners", "banner-items"]) {
+      assert.equal((await admin.c.request.post(state.baseUrl + "/api/admin/" + endpoint, { data: {} })).status(), 403);
+    }
     await admin.p.goto(state.baseUrl + "/admin/orders");
     await admin.p.waitForURL((url) => url.pathname === "/unauthorized");
     await page.goto(state.baseUrl + "/admin/orders");

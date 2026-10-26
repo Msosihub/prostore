@@ -1,5 +1,5 @@
 // /app/api/admin/supplier-docs/route.ts
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/db/prisma";
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -10,8 +10,8 @@ import { Prisma } from "@prisma/client";
  * - Query: verified = true|false|all (default: false => list pending)
  */
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

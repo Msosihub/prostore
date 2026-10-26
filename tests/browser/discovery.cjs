@@ -20,9 +20,9 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   assert.equal(await input.inputValue(),'missing-synthetic');
   await page.getByRole('link',{name:'Onyesha Zote'}).click();
   await page.waitForURL(url => url.pathname === '/search' && !url.searchParams.has('q'), {waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>document.querySelector('input[name=q]').value==='');
+  await page.waitForFunction(()=>document.querySelector('input[name=q]')?.value==='');
   await page.goBack();
-  await page.waitForFunction(()=>document.querySelector('input[name=q]').value==='missing-synthetic');
+  await page.waitForFunction(()=>document.querySelector('input[name=q]')?.value==='missing-synthetic');
   for(let i=0;i<85;i++) {
    const p=await prisma.product.create({data:{...template,name:`Browse fixture ${i}`,slug:`browse-fixture-${i}`}});
    ids.push(p.id);
