@@ -15,43 +15,18 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-description";
 import SkeletonProduct from "@/components/shared/product/skeleton-product";
-import { Metadata, ResolvingMetadata } from "next";
-import { APP_NAME } from "@/lib/constants";
+import { Metadata } from "next";
+import { publicUrl, productPath, plainDescription, productStructuredData, jsonLd, isPublicProduct } from "@/lib/storefront-seo";
 import ShareButton from "@/components/ShareButton";
 import NimboyaTrustBlock from "@/components/shared/nimboya-trust-block";
 
 export const revalidate = 60;
 
-export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> },
-  parent: ResolvingMetadata,
-): Promise<Metadata> {
-  const { slug } = await params;
-  const product = await getProductBySlug(slug);
-  console.log("abc: ", parent);
-
-  const title = product?.name || "Bidhaa";
-  const description =
-    product?.description.slice(0, 100) ||
-    `Angalia hii bidhaa kutoka ${APP_NAME}.`;
-  const imageUrl = product?.images[0] || `https://ufs.sh`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
-      type: "profile",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [imageUrl],
-    },
-  };
+export async function generateMetadata({params}: {params:Promise<{slug:string}>}):Promise<Metadata> {
+ const {slug}=await params;const product=await getProductBySlug(slug);
+ if(!product)return {title:"Bidhaa haijapatikana",robots:{index:false,follow:true}};
+ const title=product.name;const description=plainDescription(product.description);
+ return {title,description,alternates:{canonical:publicUrl(productPath(product.slug))},robots:{index:isPublicProduct(product),follow:true},openGraph:{title,description,url:publicUrl(productPath(product.slug)),type:"website",images:product.images.slice(0,1)}};
 }
 
 const ProductDetailsPagez = async (props: {
@@ -107,7 +82,7 @@ const ProductDetailsPagez = async (props: {
                 </p>
                 <ShareButton
                   title={product.name}
-                  url={`https://nimboya.com/${product.slug}`}
+                  url={publicUrl(productPath(product.slug))}
                 />
               </div>
 
@@ -241,27 +216,7 @@ const ProductDetailsPagez = async (props: {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Product",
-            name: product.name,
-            image: product.images,
-            description: product.description,
-            sku: product.slug,
-            brand: {
-              "@type": "Brand",
-              name: product.brand?.name || "Nimboya",
-            },
-            offers: {
-              "@type": "Offer",
-              priceCurrency: "TZS",
-              price: Number(product.price),
-              availability:
-                product.stock > 0
-                  ? "https://schema.orgInStock"
-                  : "https://schema.orgOutOfStock",
-            },
-          }),
+          __html: jsonLd(productStructuredData(product)),
         }}
       />
     </div>

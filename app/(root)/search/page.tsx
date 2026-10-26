@@ -1,71 +1,43 @@
+import { publicUrl } from "@/lib/storefront-seo";
+/* Native GET navigation keeps search recovery independent of the client router. */
+/* eslint-disable @next/next/no-html-link-for-pages */
 import Pagination from "@/components/shared/pagination4";
 import ProductCard from "@/components/shared/product/product-card";
-import SkeletonProduct from "@/components/shared/product/skeleton-product";
+import { catalogPage, catalogParam, catalogPriceRange, catalogRating } from "@/lib/catalog-search";
 import { Button } from "@/components/ui/button";
 import { getAllProducts } from "@/lib/actions/product.actions";
-import Link from "next/link";
 import { X, RefreshCw, SlidersHorizontal } from "lucide-react";
 
 // Localized dynamic Swahili translation sorting dictionary tags
 const sortOrdersMap = [
-  { key: "newest", label: "Zilizomupya" },
+  { key: "newest", label: "Mpya zaidi" },
   { key: "lowest", label: "Bei ya Chini" },
   { key: "highest", label: "Bei ya Juu" },
   { key: "rating", label: "Nyota Bora" },
 ];
 
-export async function generateMetadata(props: {
-  searchParams: Promise<{
-    q: string;
-    category: string;
-    price: string;
-    rating: string;
-  }>;
-}) {
-  const {
-    q = "all",
-    category = "all",
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    price = "all",
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    rating = "all",
-  } = await props.searchParams;
+type SearchParams = Record<string, string | string[] | undefined>;
 
-  const isQuerySet = q && q !== "all" && q.trim() !== "";
-  const isCategorySet =
-    category && category !== "all" && category.trim() !== "";
-
-  // 🟢 ALIBABA/AMAZON GRADE RICH SEO INDEX METADATA HEADERS
-  if (isQuerySet || isCategorySet) {
-    return {
-      title: `Tafuta ${isQuerySet ? `"${q}"` : ""} ${isCategorySet ? `katika ${category}` : ""} | Nimboya Soko la Jumla`,
-      description: `Gundua bei bora za jumla kwa ${q || category} kutoka kwa wasambazaji waliothibitishwa kote Tanzania kwenye Nimboya Marketplace.`,
-    };
-  }
-  return { title: "Tafuta Bidhaa za Jumla | Nimboya" };
+export async function generateMetadata(props: {searchParams:Promise<SearchParams>}) {
+ const params=await props.searchParams;const q=catalogParam(params.q,"all").trim();const page=catalogPage(catalogParam(params.page,"1"));
+ const filtered=["q","category","price","rating"].some(k=>{const v=catalogParam(params[k],"all");return v!=="all"&&v.trim()!=="";}) || !["newest","all", ""].includes(catalogParam(params.sort,"newest"));
+ return {title:q&&q!=="all"?`Matokeo ya ${q}`:`Bidhaa zote${page>1?` — Ukurasa ${page}`:""}`,description:"Linganisha bidhaa na bei kutoka maduka kwenye Nimboya.",robots:{index:!filtered,follow:true},...(!filtered?{alternates:{canonical:publicUrl(`/search${page>1?`?page=${page}`:""}`)}}:{})};
 }
 
 export default async function SearchPage(props: {
-  searchParams: Promise<{
-    q?: string;
-    category?: string;
-    price?: string;
-    rating?: string;
-    sort?: string;
-    page?: string;
-  }>;
+  searchParams: Promise<SearchParams>;
 }) {
-  const {
-    q = "all",
-    category = "all",
-    price = "all",
-    rating = "all",
-    sort = "newest",
-    page = "1",
-  } = await props.searchParams;
+  const params = await props.searchParams;
+  const q = catalogParam(params.q, "all").trim();
+  const category = catalogParam(params.category, "all");
+  const rawPrice = catalogParam(params.price, "all");
+  const price = catalogPriceRange(rawPrice) ? rawPrice : "all";
+  const rawRating = catalogParam(params.rating, "all");
+  const rating = catalogRating(rawRating) !== undefined ? rawRating : "all";
+  const sort = catalogParam(params.sort, "newest");
+  const page = catalogParam(params.page, "1");
 
-  const currentPage =
-    isNaN(Number(page)) || Number(page) < 1 ? 1 : Number(page);
+  const currentPage = catalogPage(page);
 
   const getFilterUrl = ({
     c,
@@ -151,23 +123,24 @@ export default async function SearchPage(props: {
               asChild
               className="h-6 text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-full px-2.5 flex items-center gap-0.5 ml-1"
             >
-              <Link href="/search">
+              <a href="/search">
                 <X className="w-3 h-3" /> Safisha Zote
-              </Link>
+              </a>
             </Button>
           )}
         </div>
 
         {/* 🟢 SWAHILI SORTING CONTROLLER PANEL */}
-        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 shrink-0">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 min-w-0 max-w-full">
           <span className="text-xs font-semibold text-slate-400 shrink-0 mr-1">
             Panga kwa:
           </span>
           {sortOrdersMap.map((s) => {
             const isActive = sort === s.key;
             return (
-              <Link
+              <a
                 key={s.key}
+                aria-current={isActive ? "true" : undefined}
                 href={getFilterUrl({ s: s.key })}
                 className={`text-xs font-medium px-2.5 py-1 rounded-lg transition-colors whitespace-nowrap ${
                   isActive
@@ -176,7 +149,7 @@ export default async function SearchPage(props: {
                 }`}
               >
                 {s.label}
-              </Link>
+              </a>
             );
           })}
         </div>
@@ -184,9 +157,8 @@ export default async function SearchPage(props: {
 
       {/* 🟢 PRODUCT CARDS GRID DISPLAY BLOCK */}
       {products.data.length === 0 ? (
-        // Render beautiful responsive empty layout or skeletons context parameters
-        q !== "all" && q !== "" ? (
-          <div className="text-center py-16 border border-dashed rounded-2xl bg-white shadow-sm space-y-2">
+
+          <div role="status" className="text-center py-16 border border-dashed rounded-2xl bg-white shadow-sm space-y-2">
             <p className="text-xs sm:text-sm text-slate-500 font-medium">
               Hatukupata bidhaa zinazolingana na utafutaji wako.
             </p>
@@ -196,18 +168,11 @@ export default async function SearchPage(props: {
               size="sm"
               className="h-8 text-xs rounded-xl border-slate-200"
             >
-              <Link href="/search" className="flex items-center gap-1">
+              <a href="/search" className="flex items-center gap-1">
                 <RefreshCw className="w-3 h-3" /> Onyesha Zote
-              </Link>
+              </a>
             </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 w-full">
-            {[...Array(8)].map((_, i) => (
-              <SkeletonProduct key={i} />
-            ))}
-          </div>
-        )
       ) : (
         // 🔲 RESPONSIVE FLEX GRID: Renders flawless 2 columns on phones scaling cleanly to 4 on widescreen layouts
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 w-full">

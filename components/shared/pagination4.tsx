@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 type PaginationProps = {
@@ -9,13 +9,12 @@ type PaginationProps = {
 };
 
 const Pagination = ({ currentPage, totalPages }: PaginationProps) => {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
-  const updatePage = (page: number) => {
+  const pageUrl = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", page.toString());
-    router.push(`/search?${params.toString()}`);
+    return `/search?${params.toString()}`;
   };
 
   if (totalPages <= 1) return null;
@@ -49,27 +48,29 @@ const Pagination = ({ currentPage, totalPages }: PaginationProps) => {
   const visiblePages = getVisiblePages();
 
   return (
-    <div className="flex justify-center items-center gap-2 mt-6">
+    <nav aria-label="Kurasa za bidhaa" className="flex flex-wrap justify-center items-center gap-2 mt-6">
       <Button
         variant="outline"
         disabled={currentPage <= 1}
-        onClick={() => updatePage(currentPage - 1)}
+        asChild={currentPage > 1}
       >
-        Previous
+        {currentPage > 1 ? <a href={pageUrl(currentPage - 1)}>Nyuma</a> : "Nyuma"}
       </Button>
 
       {visiblePages.map((page, idx) =>
         page === "..." ? (
-          <span key={`ellipsis-${idx}`} className="px-2 text-muted text-sm">
+          <span key={`ellipsis-${idx}`} className="px-2 text-slate-500 text-sm">
             ...
           </span>
         ) : (
           <Button
             key={`page-${page}`}
+            aria-label={`Ukurasa ${page}`}
+            aria-current={page === currentPage ? "page" : undefined}
             variant={page === currentPage ? "default" : "outline"}
-            onClick={() => updatePage(page)}
+            asChild
           >
-            {page}
+            <a href={pageUrl(page)}>{page}</a>
           </Button>
         )
       )}
@@ -77,11 +78,11 @@ const Pagination = ({ currentPage, totalPages }: PaginationProps) => {
       <Button
         variant="outline"
         disabled={currentPage >= totalPages}
-        onClick={() => updatePage(currentPage + 1)}
+        asChild={currentPage < totalPages}
       >
-        Next
+        {currentPage < totalPages ? <a href={pageUrl(currentPage + 1)}>Mbele</a> : "Mbele"}
       </Button>
-    </div>
+    </nav>
   );
 };
 
