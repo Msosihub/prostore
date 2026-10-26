@@ -575,3 +575,118 @@ test("admin COD action cannot mark a digital order paid", async () => {
     (await prisma.order.findUnique({ where: { id: data.order.id } })).isPaid,
   ).toBe(false);
 });
+
+const reconciliationSql = require("node:fs").readFileSync(
+  require("node:path").join(
+    __dirname,
+    "../../scripts/reconciliation-report.sql",
+  ),
+  "utf8",
+);
+async function readOnlyReport() {
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
+      await tx.$executeRawUnsafe("SET LOCAL statement_timeout = '5s'");
+      return tx.$queryRawUnsafe(reconciliationSql);
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+}
+test("read-only reconciliation accepts canonical settlement and release without changing data", async () => {
+  const { order, user, supplier } = await fixture();
+  await fulfillOrder(order.id, attempt(order), "verified");
+  expect(await readOnlyReport()).toEqual([]);
+  await confirmDelivery(order.id, undefined, {
+    kind: "admin",
+    userId: user.id,
+  });
+  const before = await prisma.supplier.findUnique({
+    where: { id: supplier.id },
+  });
+  expect(await readOnlyReport()).toEqual([]);
+  expect(
+    await prisma.supplier.findUnique({ where: { id: supplier.id } }),
+  ).toEqual(before);
+  expect(await prisma.supplierLedger.count()).toBe(2);
+});
+test("read-only reconciliation flags legacy paid-without-credit and delivered-without-release", async () => {
+  const { order, product } = await fixture();
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { isPaid: true, paymentStatus: "COMPLETED" },
+  });
+  await prisma.orderItem.update({
+    where: { orderId_productId: { orderId: order.id, productId: product.id } },
+    data: { isDelivered: true },
+  });
+  const rows = await readOnlyReport();
+  expect(rows.map((row) => row.code)).toEqual(
+    expect.arrayContaining([
+      "PAID_CREDIT_MISSING_OR_INCONSISTENT",
+      "DELIVERED_RELEASE_MISSING_OR_INCONSISTENT",
+      "PARENT_DELIVERY_MISMATCH",
+    ]),
+  );
+  expect(
+    rows.every(
+      (row) => Object.keys(row).sort().join() === "code,record_id,scope",
+    ),
+  ).toBe(true);
+  expect(await prisma.supplierLedger.count()).toBe(0);
+});
+test("reconciliation distinguishes unsupported balance history instead of prescribing a repair", async () => {
+  const { order, supplier } = await fixture();
+  await fulfillOrder(order.id, attempt(order), "verified");
+  await prisma.supplierLedger.create({
+    data: {
+      supplierId: supplier.id,
+      orderId: order.id,
+      type: "ADJUSTMENT",
+      amount: 1,
+      status: "COMPLETED",
+    },
+  });
+  expect(await readOnlyReport()).toContainEqual({
+    code: "SUPPLIER_BALANCE_REQUIRES_HISTORY",
+    scope: "supplier",
+    record_id: supplier.id,
+  });
+});
+test("diagnostic transaction enforces database read-only mode", async () => {
+  await fixture();
+  await expect(
+    prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
+      await tx.$queryRawUnsafe(reconciliationSql);
+      await tx.supplier.updateMany({ data: { walletBalance: 999 } });
+    }),
+  ).rejects.toThrow(/read-only/i);
+  expect(Number((await prisma.supplier.findFirst()).walletBalance)).toBe(0);
+});
+
+test.each([
+  Prisma.DbNull,
+  Prisma.JsonNull,
+  123,
+  "scalar",
+  { zenopay_order_id: 123 },
+  { zenopay_order_id: false },
+  { zenopay_order_id: {} },
+  { zenopay_order_id: [] },
+  { zenopay_order_id: " " },
+])(
+  "read-only report flags malformed legacy attempt %p",
+  async (paymentResult) => {
+    const { order } = await fixture({ paymentResult });
+    expect(await readOnlyReport()).toContainEqual({
+      code: "UNBOUND_PENDING_PAYMENT_REVIEW",
+      scope: "order",
+      record_id: order.id,
+    });
+  },
+);
+test("read-only report accepts a pending string attempt", async () => {
+  await fixture();
+  expect(await readOnlyReport()).toEqual([]);
+});
