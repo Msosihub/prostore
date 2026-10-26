@@ -1,0 +1,451 @@
+{
+  "scope": "empty_disposable_postgresql16_sql_replay_not_prisma_deploy",
+  "migrationCount": 53,
+  "migrations": [
+    {
+      "name": "20250821230257_chat_inquiry_models",
+      "sha256": "e58b3cb8a80a83b6ab827db09cc5346180cb2853875f8ada148e2facf90d49da",
+      "passed": true
+    },
+    {
+      "name": "20250822223502_add_quote_model",
+      "sha256": "7ff66193d0c53ca0c148ee2cd3a2efbfd60e7907cf1bfcec7605aea5f5d9b533",
+      "passed": true
+    },
+    {
+      "name": "20250823145126_fix_categories",
+      "sha256": "6a088e53b783576f0da2d594ed2ada24883cde59d8a3f7e09a3b63574c887bab",
+      "passed": true
+    },
+    {
+      "name": "20250825235711_message_model_modified",
+      "sha256": "26dbdf9dc824d76ccec543499a08578deab51d4d71ae569c3a51d85b782772f8",
+      "passed": true
+    },
+    {
+      "name": "20250826002003_sent_at",
+      "sha256": "4ce2463e454d3fe9c4dc565181adadef67c8fcb10f3246d8bb28da4e4a1885d0",
+      "passed": true
+    },
+    {
+      "name": "20250826023851_moderation_sms",
+      "sha256": "b33bb2e1c5b10d3b14a2faa624beea559d3ba306046e63e3753a8a633952ef0f",
+      "passed": true
+    },
+    {
+      "name": "20250826194951_iiii",
+      "sha256": "7729f5910554449b4048158aa2154788dfdcd08c0a4ca09bab98eeb08b68556e",
+      "passed": true
+    },
+    {
+      "name": "20250827031325_messages_convo_in_one_place",
+      "sha256": "025b935cee83e30232afc88f8ca47f544b118c35946618407a7ca4e9841714dc",
+      "passed": true
+    },
+    {
+      "name": "20250827203914_auth",
+      "sha256": "077ad9fd3afbf218cb7ec515f08f4ab8ee4783f74347b1b85c446d2ce2cc341d",
+      "passed": true
+    },
+    {
+      "name": "20250829192617_y",
+      "sha256": "0cdfe3a423d5b5516dd5e696c0a226e7763973b994e119894c56e261841718b5",
+      "passed": true
+    },
+    {
+      "name": "20250904031012_inquiry_modal",
+      "sha256": "96d5c6560bf4a94a11798346aef3a53e9c0fb893836dc4c5b72b424f1cf36ead",
+      "passed": true
+    },
+    {
+      "name": "20250904031840_inquiry_model_mods",
+      "sha256": "bbbe156077d2d3e4b098f798dbc750096013bf2b2a024e6ef302072a902c5ecd",
+      "passed": true
+    },
+    {
+      "name": "20250904220651_inquiry_fix",
+      "sha256": "1a262a6206327970c34a3c870140e3ec05074a327e12fb230b080660b0cb0110",
+      "passed": true
+    },
+    {
+      "name": "20250904220959_inquiry_fix2",
+      "sha256": "4f1419e8e7d9fe9b175c0a04247830824cf8c9063d3c617598e136b790d00e48",
+      "passed": true
+    },
+    {
+      "name": "20250908214403_",
+      "sha256": "aa67a700a56a137b1a33c803a53e5aaf7fa4dfd9e195fe76d819b4dffefdd010",
+      "passed": true
+    },
+    {
+      "name": "20250908222725_baseline_sync",
+      "sha256": "1a262a6206327970c34a3c870140e3ec05074a327e12fb230b080660b0cb0110",
+      "passed": true
+    },
+    {
+      "name": "20250908232429_baseline_sync2",
+      "sha256": "edcbbd92994ed695555cc70602250faa6d7a0cc8a48e935d57d9e8f0ab269baa",
+      "passed": true
+    },
+    {
+      "name": "20250910223318_remove_inquiry_unique2",
+      "sha256": "7cc1b719de8d1508ca046fca326d675c981dcb4e920eb61e9db58e152e4540b8",
+      "passed": true
+    },
+    {
+      "name": "20250916210640_mime_type",
+      "sha256": "3aa06f3f13a298516d861f2e12e3e1edc9cbeede27cb01330c35e5d2bd4abec4",
+      "passed": true
+    },
+    {
+      "name": "20250919160955_is_buy_now",
+      "sha256": "17b19032eaf86fdb0e9837378221495747d3f7cd97562310ba55eb168077eba5",
+      "passed": true
+    },
+    {
+      "name": "20250924132102_try_migrate_reset",
+      "sha256": "910fbd8ac979556322b0f0151e36870dfcafb98818c1ec23ac817b46305ae049",
+      "passed": true
+    },
+    {
+      "name": "20250924193843_",
+      "sha256": "79d104421e9112128de760b002731abd73d7b2adacf703695b00a0125c1a3803",
+      "passed": true
+    },
+    {
+      "name": "20250926030638_add_business_hours",
+      "sha256": "20d2ea7529414a9354fd64dc525b42a3f45b1de9ec01495fba6a4be49c9be8d7",
+      "passed": true
+    },
+    {
+      "name": "20250928003126_fix_documents",
+      "sha256": "30d14b169e0a2965f83e9e9711be44ee13d4b2f69b4933320ccd0ef9b433d395",
+      "passed": true
+    },
+    {
+      "name": "20250928014612_add_cert_no_null",
+      "sha256": "b0227eb4f5ee4bb4e9664a7f24340521f7f695650230e3d336e1e895a639b92a",
+      "passed": true
+    },
+    {
+      "name": "20250928223848_admin",
+      "sha256": "fb7a75aa3fbf88a7b54880691166a2e63e1fcdad4c96616121cc939b0ec89b59",
+      "passed": true
+    },
+    {
+      "name": "20250928233512_reorder",
+      "sha256": "c825fa6e2cba60abfaed72881f9d92d7af70a1b5d8166f61b46ea664f725305c",
+      "passed": true
+    },
+    {
+      "name": "20250929013736_audit",
+      "sha256": "9b7f21a31c359266f2583013a5cd819e86eaa04ff8ce190134507ab7122868f0",
+      "passed": true
+    },
+    {
+      "name": "20250929183948_suplier_createdat",
+      "sha256": "b69c0033165423e08c781b0ed70c2dd56c037f91a42501c1455e18d181887bc1",
+      "passed": true
+    },
+    {
+      "name": "20250929225352_admin_page",
+      "sha256": "8254cebdfd867da7b0143acb3b01e4de732324833385dae3b564c0e9dceb8c3a",
+      "passed": true
+    },
+    {
+      "name": "20250930115405_banner",
+      "sha256": "5a07fa1f3fc9dfcad177f7bae4151347a2162406981802b58bfd1a1329f0a839",
+      "passed": true
+    },
+    {
+      "name": "20250930115834_banner_correction",
+      "sha256": "424c30683173b90575070c6c59436061b75ab9c4fa8cc18cdd0c78eabfbeab75",
+      "passed": true
+    },
+    {
+      "name": "20250930220630_banner_new",
+      "sha256": "a5489aad3128bf5f7a1ddc1165f1450bf97116d295755cb1c1db87531672dc63",
+      "passed": true
+    },
+    {
+      "name": "20251012115911_banner_links",
+      "sha256": "a8ab270fe0aca18f32687a309f7a7e5f54fc608a6334bc0a6299e6e6ab55418b",
+      "passed": true
+    },
+    {
+      "name": "20251019172715_order_item_supplier_id",
+      "sha256": "ece02497ac76c67f91c4da5ff2ac7f66d2e29c07eeef0abe1f98c8be7712cf2d",
+      "passed": true
+    },
+    {
+      "name": "20260201172257_add_payment_status",
+      "sha256": "243ddcb066c78daabdedab2ea49821ec1aa9128a00d9ebe82e1ef200f2ead9f2",
+      "passed": true
+    },
+    {
+      "name": "20260301205521_otp",
+      "sha256": "c709dad870e6e8de0d11f34c3d8b28d8b7797883c9c9d7ab30976b76ced49c2c",
+      "passed": true
+    },
+    {
+      "name": "20260301235513_onboarding",
+      "sha256": "78173ef8d6ddd3019afdcf5ba272d206088800768382ec385e61c79cc7b8178d",
+      "passed": true
+    },
+    {
+      "name": "20260307130922_payment",
+      "sha256": "0298c743638397fed49a1dcc7ecd33217155a1da11d859fcb188dc63c1f89b99",
+      "passed": true
+    },
+    {
+      "name": "20260415205211_add_botmessage",
+      "sha256": "e94d72036fbee1ecd57e6427f8f5035027859bb6470834abdf96746a3707ef7c",
+      "passed": true
+    },
+    {
+      "name": "20260415223509_add_lead_links",
+      "sha256": "92556c78ba2deaa7315ca4aecd83fe337c46c9bca6461df7c168eb09dce51441",
+      "passed": true
+    },
+    {
+      "name": "20260416001145_add_notified_flag",
+      "sha256": "d48077d64a3416c5a733b5af70b07f1436aa503687a3ed033c78b93c34871e21",
+      "passed": true
+    },
+    {
+      "name": "20260520122756_update_product_model",
+      "sha256": "085b5d73bbab10c76bb7651185c01890837ce6995ed5bea8249364e5a8d9319d",
+      "passed": true
+    },
+    {
+      "name": "20260520222612_update_product_model",
+      "sha256": "3420dc7769d522f6600af7ddf528dae6b6fcc9da2219278c8201bb35dfa4fd35",
+      "passed": true
+    },
+    {
+      "name": "20260521012353_payrole",
+      "sha256": "3a1f054fcd5b1de33bd954f06059795fc4ea8d6f97bdc9d28c5a0fbb8ca9d982",
+      "passed": true
+    },
+    {
+      "name": "20260521025145_payrole",
+      "sha256": "d0302f7133fc9490e8c6c92b7414e2a2645efdcd3c86237df54105db9f90d461",
+      "passed": true
+    },
+    {
+      "name": "20261026150000_marketplace_chat",
+      "sha256": "127c3259cda4291c7e4d6aee86f2cc9155e426f862b62420d1344f46b3d0d4dd",
+      "passed": true
+    },
+    {
+      "name": "20261026180000_otp_throttle",
+      "sha256": "a5674e2e3f925e5f5c63b24357dc59bed8e6df2100958d26564a3e960ab8dd8e",
+      "passed": true
+    },
+    {
+      "name": "20261026193000_payment_recovery",
+      "sha256": "5bcfa77de90631a1c7f11669debb17003c3c074fde559efffddc8a0becb56329",
+      "passed": true
+    },
+    {
+      "name": "20261026203000_order_notification_outbox",
+      "sha256": "8a9b7756f2046aafe88a74696e8ca012d3db7c56b4aa5399b2fb3836d752e242",
+      "passed": true
+    },
+    {
+      "name": "20261027000000_manual_money_review",
+      "sha256": "91a5c847ef2f4a8bf96938d4fd50afd2d31e886f8d041a49a0df5b27d21ada1a",
+      "passed": true
+    },
+    {
+      "name": "20261027010000_refund_quantity_guard",
+      "sha256": "4aa1fe5fbd68e42d01fd14d617f580cdf13c3d48504700253d97ba7e8eefdfcd",
+      "passed": true
+    },
+    {
+      "name": "20261027020000_runtime_marketplace_baseline",
+      "sha256": "60ffdbc7de686a880f3913d782072e85ba5e6374d0f54d4c531fa05da725ed56",
+      "passed": true
+    }
+  ],
+  "reconciliation": {
+    "cases": [
+      {
+        "case": "empty",
+        "passed": true,
+        "allowed": true
+      },
+      {
+        "case": "nonfinancial_accounts",
+        "passed": true,
+        "allowed": true
+      },
+      {
+        "case": "wallet_history",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "pending_escrow",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "paid_order",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "unpaid_order_items",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "pending_attempt",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "legacy_messages",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "payout_history",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "timestamp_loss",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "invalid_inquiry_reference",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "orphan_inquiry_reference",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "valid_inquiry_reference",
+        "passed": true,
+        "allowed": true
+      },
+      {
+        "case": "partial_ddl",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "existing_ledger",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "failure_after_ddl_rolls_back_all_objects",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "concurrent_financial_writer",
+        "passed": true,
+        "allowed": false
+      },
+      {
+        "case": "wrong_column_and_partial_index_preflight",
+        "passed": true
+      }
+    ],
+    "backupRestore": {
+      "passed": true,
+      "scope": "full_53_file_chain_schema_with_synthetic_ledger_row",
+      "dumpBytes": 73303
+    },
+    "contracts": "four repaired tables exact columns/types/defaults/PKs/FKs; five unique indexes; two enum label sequences"
+  },
+  "criticalRuntimeShapeDrift": [],
+  "runtimeTypeDrift": [],
+  "enumDrift": [],
+  "externalImportedMissingModels": [
+    "access_tokens",
+    "account_users",
+    "accounts",
+    "action_mailbox_inbound_emails",
+    "active_storage_attachments",
+    "active_storage_blobs",
+    "active_storage_variant_records",
+    "agent_bot_inboxes",
+    "agent_bots",
+    "applied_slas",
+    "ar_internal_metadata",
+    "articles",
+    "attachments",
+    "audits",
+    "automation_rules",
+    "campaigns",
+    "canned_responses",
+    "categories",
+    "channel_api",
+    "channel_email",
+    "channel_facebook_pages",
+    "channel_line",
+    "channel_sms",
+    "channel_telegram",
+    "channel_twilio_sms",
+    "channel_twitter_profiles",
+    "channel_web_widgets",
+    "channel_whatsapp",
+    "contact_inboxes",
+    "contacts",
+    "conversation_participants",
+    "conversations",
+    "csat_survey_responses",
+    "custom_attribute_definitions",
+    "custom_filters",
+    "custom_roles",
+    "dashboard_apps",
+    "data_imports",
+    "email_templates",
+    "folders",
+    "inbox_members",
+    "inboxes",
+    "installation_configs",
+    "integrations_hooks",
+    "labels",
+    "macros",
+    "mentions",
+    "messages",
+    "notes",
+    "notification_settings",
+    "notification_subscriptions",
+    "notifications",
+    "platform_app_permissibles",
+    "platform_apps",
+    "portal_members",
+    "portals",
+    "portals_members",
+    "related_categories",
+    "reporting_events",
+    "schema_migrations",
+    "sla_events",
+    "sla_policies",
+    "taggings",
+    "tags",
+    "team_members",
+    "teams",
+    "telegram_bots",
+    "users",
+    "webhooks",
+    "working_hours"
+  ],
+  "limits": [
+    "SQL replay does not execute native Prisma migrate deploy or populate _prisma_migrations.",
+    "All Prostore scalar presence/nullability/type/precision checked; exact PK/FK/default/index contracts checked for repaired objects, not every historical constraint.",
+    "External imported Chatwoot schema remains outside this repair.",
+    "No populated deployed schema, hosting or live provider was accessed."
+  ]
+}

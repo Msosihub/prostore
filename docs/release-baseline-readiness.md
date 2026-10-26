@@ -1,5 +1,7 @@
 # Release baseline readiness — no production activation
 
+Update: the forward repair and new isolated-chain evidence are documented in [runtime-schema-reconciliation.md](runtime-schema-reconciliation.md). Earlier gap counts below describe the pre-repair baseline; populated environment adoption and native/provider/hosting gates remain unresolved.
+
 Base: published manual-review commit `51763bd47298cd49fac554ab5f3013d6605095b9` (draft PR #10). Work is on local `chore/release-migration-readiness`; this tranche has not been published, merged or deployed. Mac previews remain untouched.
 
 ## Concrete fixes

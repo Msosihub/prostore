@@ -130,7 +130,10 @@ export async function removeCatalogProduct(id: string) {
       (current.supplier && product.supplierId !== current.supplier.id)
     )
       throw new CatalogError("Product unavailable");
-    // Referenced products remain protected by their foreign keys; no history is deleted.
+    // Historical databases use ON DELETE CASCADE for order items. Never rely on
+    // that FK to protect purchase history. The product lock also serializes FK inserts.
+    if (await tx.orderItem.count({ where: { productId: id } }))
+      throw new CatalogError("Products referenced by orders must be retained");
     await tx.productPricing.deleteMany({ where: { productId: id } });
     await tx.product.delete({ where: { id } });
   });

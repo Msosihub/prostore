@@ -52,6 +52,7 @@ try {
     PROSTORE_TEST_CLIENT: clientPath,
     ZENOPAY_API_KEY: "",
     AT_API_KEY: "",
+    PROSTORE_TEST_HISTORICAL_CHAIN: process.argv.includes("--historical-chain") ? "1" : "",
     PROSTORE_BACKUP_FIXTURE: process.argv.includes("--backup-restore") ? "1" : "",
     PRISMA_SCHEMA_ENGINE_BINARY: "/bin/true",
     PRISMA_QUERY_ENGINE_LIBRARY: "/bin/true",
@@ -78,7 +79,9 @@ try {
   );
   process.exitCode = result.status ?? 1;
   if (result.status === 0 && process.argv.includes("--backup-restore")) {
-    console.log("PASS disposable backup/restore:", JSON.stringify(require("./verify-disposable-restore.cjs").verifyRestore(name)));
+    const report = require("./verify-disposable-restore.cjs").verifyRestore(name);
+    if (process.argv.includes("--historical-chain")) report.scope = "disposable_historical_migration_chain_with_synthetic_records";
+    console.log("PASS disposable backup/restore:", JSON.stringify(report));
   }
 } finally {
   if (started) docker(["stop", "--time", "2", name]);
