@@ -1,12 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { deliveryContact, deliverySmsRecipient } from "@/lib/fulfillment-view";
+
 import { lockPaidOrder } from "@/lib/order-delivery";
 import { prisma } from "@/db/prisma";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
-import { sendSms } from "@/lib/africasTalking";
+import { queueOrderNotification } from "@/lib/order-notification-events";
 
 async function requireSupplierProfile() {
   const session = await auth();
@@ -80,25 +80,14 @@ export async function markItemDispatched({
           metadata: { supplierId: supplier.id, source: "MANUAL" },
         },
       });
-      return {
-        name: item.name,
-        phone: deliveryContact(order.shippingAddress).phone,
-        note: input.note,
-      };
+      await queueOrderNotification(tx, {
+        orderId,
+        kind: "BUYER_DISPATCH",
+        targetId: order.userId,
+        productId,
+      });
+      return true;
     });
-    const recipient = deliverySmsRecipient(changed?.phone);
-    let notificationFailed = !!changed && !recipient;
-    if (changed && recipient) {
-      try {
-        await sendSms(
-          recipient,
-          `Nimboya: Mzigo wako "${changed.name}" umetumwa.\n${changed.note || ""}\nAgizo #${orderId.slice(0, 8)}. Ukipokea, thibitisha kwenye akaunti yako.`,
-        );
-      } catch {
-        notificationFailed = true;
-        console.error("Dispatch notification failed after committed dispatch");
-      }
-    }
 
     revalidatePath("/supplier/orders");
     revalidatePath(`/order/${orderId}`);
@@ -106,11 +95,9 @@ export async function markItemDispatched({
 
     return {
       success: true,
-      message: notificationFailed
-        ? "Mzigo umerekodiwa umetumwa; SMS haikufika. Taarifa ipo kwenye agizo."
-        : changed
-          ? "Mzigo umewekwa dispatched."
-          : "Mzigo huu tayari umerekodiwa umetumwa au kupokelewa.",
+      message: changed
+        ? "Mzigo umerekodiwa umetumwa; taarifa ya SMS imewekwa kwenye foleni."
+        : "Mzigo huu tayari umerekodiwa umetumwa au kupokelewa.",
     };
   } catch {
     console.error("Dispatch action failed");
@@ -128,43 +115,36 @@ export async function remindBuyerToConfirmDelivery({
   try {
     const { supplier } = await requireSupplierProfile();
 
-    const item = await prisma.orderItem.findFirst({
-      where: {
+    const ids = z
+      .object({ orderId: z.string().uuid(), productId: z.string().uuid() })
+      .parse({ orderId, productId });
+    await prisma.$transaction(async (tx) => {
+      const order = await lockPaidOrder(tx, ids.orderId);
+      const item = order.orderitems.find(
+        (item) =>
+          item.productId === ids.productId &&
+          item.supplierId === supplier.id &&
+          !item.isDelivered &&
+          item.status === "DISPATCHED",
+      );
+      if (!item) throw new Error("Order item not found");
+      const dispute = await tx.returnRequest.findUnique({
+        where: { orderId_productId: ids },
+      });
+      if (dispute && dispute.status !== "REJECTED")
+        throw new Error("Dispute blocks reminder");
+      await queueOrderNotification(tx, {
         orderId,
         productId,
-        supplierId: supplier.id,
-        isDelivered: false,
-        status: "DISPATCHED",
-        order: { isPaid: true },
-      },
-      include: { order: { select: { shippingAddress: true } } },
+        kind: "BUYER_REMINDER",
+        targetId: order.userId,
+      });
     });
-
-    if (!item) throw new Error("Order item not found");
-
-    const buyerPhone = deliverySmsRecipient(
-      deliveryContact(item.order.shippingAddress).phone,
-    );
-
-    if (!buyerPhone) {
-      return { success: false, message: "Mteja hana namba ya SMS." };
-    }
-
-    await sendSms(
-      buyerPhone,
-      `Nimboya: Tafadhali thibitisha kama umepokea "${item.name}" kwa agizo #${orderId.slice(0, 8)}. Hii itasaidia supplier kulipwa kwa wakati.`,
-    );
-
-    await prisma.orderItemEvent.create({
-      data: {
-        orderId,
-        productId,
-        actorId: supplier.userId,
-        type: "DELIVERY_CONFIRMATION_REMINDER_SENT",
-      },
-    });
-
-    return { success: true, message: "SMS reminder imetumwa kwa buyer." };
+    return {
+      success: true,
+      message:
+        "Taarifa ya ukumbusho imewekwa kwenye foleni; maombi yanayorudiwa hayatumi SMS nyingine.",
+    };
   } catch {
     console.error("Reminder SMS failed");
     return { success: false, message: "Imeshindikana kutuma reminder." };

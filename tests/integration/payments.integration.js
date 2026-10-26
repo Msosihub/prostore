@@ -66,7 +66,8 @@ test("concurrent callbacks commit inventory, wallet, ledger and notifications on
     ),
   ).toBe(2000);
   expect(await prisma.supplierLedger.count()).toBe(1);
-  expect(sendSms).toHaveBeenCalledTimes(2);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(await prisma.orderNotification.count({where:{kind:{in:["BUYER_PAYMENT","SELLER_PAYMENT"]}}})).toBe(2);
 });
 test("two orders competing for stock cannot oversell; loser rolls back", async () => {
   const first = await fixture({ stock: 3 });
@@ -404,7 +405,8 @@ test("whole-order and single-item delivery race release each escrow credit once"
   expect(Number(supplier.pendingBalance)).toBe(0);
   expect(Number(supplier.walletBalance)).toBe(2500);
   expect(await releases()).toBe(2);
-  expect(sendSms).toHaveBeenCalledTimes(2);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(await prisma.orderNotification.count({where:{kind:"SELLER_DELIVERY"}})).toBe(2);
   expect(
     (await prisma.order.findUnique({ where: { id: data.order.id } }))
       .isDelivered,
@@ -931,7 +933,8 @@ test("concurrent seller dispatch retries preserve one event/time and one notific
       where: { orderId: f.order.id, type: "DISPATCHED" },
     }),
   ).toBe(1);
-  expect(sendSms).toHaveBeenCalledTimes(1);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(await prisma.orderNotification.count({where:{kind:"BUYER_DISPATCH"}})).toBe(1);
   const first = await prisma.orderItem.findUnique({
     where: {
       orderId_productId: { orderId: f.order.id, productId: f.product.id },
@@ -1926,7 +1929,8 @@ test("crash after atomic settlement recovers journal without duplicate stock or 
   await due(order.id);
   expect(await reconcileZenopay(order.id, attempt(order))).toBe("COMPLETED");
   expect(await prisma.supplierLedger.count()).toBe(1);
-  expect(sendSms).toHaveBeenCalledTimes(2);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(await prisma.orderNotification.count()).toBe(2);
 });
 test("legacy paid orders remain review across repeated verification; never replay inventory", async () => {
   const { order } = await fixture();
@@ -2088,4 +2092,112 @@ test("callback during cooldown requests retry instead of acknowledging unverifie
  await reconcileZenopay(order.id,attempt(order));
  await expect(reconcileZenopay(order.id,attempt(order),true)).rejects.toThrow("busy");
  expect(getZenopayStatus).toHaveBeenCalledTimes(1);expect(await prisma.supplierLedger.count()).toBe(0);
+});
+
+import {notificationBatch, notificationRetention} from "@/lib/order-notification-outbox";
+import {queueOrderNotification} from "@/lib/order-notification-events";
+import {retryOrderNotification, setOrderSmsPreference} from "@/lib/actions/order-notification.actions";
+import {notificationQueue} from "@/lib/admin-notifications";
+const acceptedSms = (to) => Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:101,messageId:"synthetic-provider-id"}]}});
+async function queuedNotification() {
+ const data=await fixture();await fulfillOrder(data.order.id,attempt(data.order),"verified");
+ await prisma.orderNotification.updateMany({where:{kind:"SELLER_PAYMENT"},data:{state:"SUPPRESSED",reason:"TEST_FIXTURE_ONLY"}});
+ return {...data,notification:await prisma.orderNotification.findFirst({where:{kind:"BUYER_PAYMENT"}})};
+}
+test("outbox persistence failure rolls back payment, stock and escrow",async()=>{
+ const {order,product}=await fixture();
+ await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" ADD CONSTRAINT reject_seller_notification CHECK (kind <> \'SELLER_PAYMENT\')');
+ try {await expect(fulfillOrder(order.id,attempt(order),"verified")).rejects.toThrow();expect(await prisma.orderNotification.count()).toBe(0);expect(await prisma.supplierLedger.count()).toBe(0);expect((await prisma.product.findUnique({where:{id:product.id}})).stock).toBe(5);}
+ finally {await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" DROP CONSTRAINT reject_seller_notification');}
+});
+test("delivery outbox and escrow release roll back together",async()=>{
+ const data=await paidFixture();await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" ADD CONSTRAINT reject_delivery_notification CHECK (kind <> \'SELLER_DELIVERY\')');
+ try {await expect(confirmDelivery(data.order.id,data.product.id,buyer(data))).rejects.toThrow();expect(await releases()).toBe(0);expect((await prisma.supplier.findUnique({where:{id:data.supplier.id}})).walletBalance.toString()).toBe("0");}
+ finally {await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" DROP CONSTRAINT reject_delivery_notification');}
+});
+test("worker dry-run sends nothing; concurrent workers claim each event once",async()=>{
+ const data=await queuedNotification();sendSms.mockImplementation(async to=>acceptedSms(to));
+ expect(await notificationBatch()).toHaveLength(1);expect(sendSms).not.toHaveBeenCalled();
+ await Promise.all(Array.from({length:6},()=>notificationBatch({dryRun:false})));
+ expect(sendSms).toHaveBeenCalledTimes(1);
+ expect(await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).toMatchObject({state:"ACCEPTED",attempts:1,providerMessageId:"synthetic-provider-id"});
+ await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);
+});
+test("repeated event enqueue does not recreate accepted notification",async()=>{
+ const data=await queuedNotification();sendSms.mockImplementation(async to=>acceptedSms(to));await notificationBatch({dryRun:false});
+ await prisma.$transaction(tx=>queueOrderNotification(tx,{orderId:data.order.id,kind:"BUYER_PAYMENT",targetId:data.user.id}));await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);
+});
+test("expired worker lease becomes unknown without automatic duplicate send",async()=>{
+ const data=await queuedNotification();await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"SENDING",attempts:1,leaseToken:"crashed",leaseUntil:new Date(0)}});
+ await notificationBatch({dryRun:false});await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("UNKNOWN");
+});
+test("stale worker completion cannot overwrite expired-lease review state",async()=>{
+ const data=await queuedNotification();let release,started;const ready=new Promise(r=>started=r);
+ sendSms.mockImplementationOnce(to=>{started();return new Promise(resolve=>release=()=>resolve(acceptedSms(to)));});
+ const old=notificationBatch({dryRun:false});await ready;await prisma.orderNotification.update({where:{id:data.notification.id},data:{leaseUntil:new Date(0)}});await notificationBatch({dryRun:false});release();await old;
+ expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("UNKNOWN");expect(sendSms).toHaveBeenCalledTimes(1);
+});
+test("ambiguous network outcomes remain unknown and provider errors are redacted",async()=>{
+ const data=await queuedNotification();sendSms.mockRejectedValue(new Error("secret-contact-body"));await notificationBatch({dryRun:false});await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("UNKNOWN");expect(JSON.stringify(await prisma.orderNotificationEvent.findMany())).not.toContain("secret-contact-body");
+});
+test("explicit provider transient rejection backs off and caps attempts at five",async()=>{
+ const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:500}]}}));
+ for(let i=0;i<5;i++){await notificationBatch({dryRun:false});await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(i+1);await prisma.orderNotification.update({where:{id:data.notification.id},data:{nextAttemptAt:new Date(0)}});}
+ expect(await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).toMatchObject({state:"FAILED",attempts:5});await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(5);
+});
+test("permanent invalid route fails without provider call",async()=>{
+ const data=await queuedNotification();await prisma.user.update({where:{id:data.user.id},data:{phone:"invalid",paymentPhone:null}});await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("FAILED");
+});
+test("account opt-out suppresses queued SMS, preserves OTP preference and cannot replay",async()=>{
+ const data=await queuedNotification();auth.mockResolvedValue({user:{id:data.user.id}});expect((await setOrderSmsPreference(false)).success).toBe(true);await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("SUPPRESSED");await setOrderSmsPreference(true);await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();
+});
+test("provider opt-out is suppressed and admin cannot override it",async()=>{
+ const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:406}]}}));await notificationBatch({dryRun:false});await prisma.user.update({where:{id:data.user.id},data:{role:"ADMIN"}});auth.mockResolvedValue({user:{id:data.user.id}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);
+});
+test("admin retry requires fresh role, unknown acknowledgement and remaining attempt budget",async()=>{
+ const data=await queuedNotification();await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"UNKNOWN",attempts:1}});auth.mockResolvedValue(null);expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);
+ auth.mockResolvedValue({user:{id:data.user.id,role:"ADMIN"}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);await expect(notificationQueue({})).rejects.toThrow("Unauthorized");
+ await prisma.user.update({where:{id:data.user.id},data:{role:"ADMIN"}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:false})).success).toBe(false);expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(true);expect(sendSms).not.toHaveBeenCalled();
+ await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"FAILED",attempts:5}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);
+ expect((await notificationQueue({page:"999"})).filters.page).toBe(1);
+});
+test("retention only removes old terminal event history and preserves replay tombstones",async()=>{
+ const data=await queuedNotification();const old=new Date(Date.now()-120*86400000),cutoff=new Date(Date.now()-100*86400000);
+ await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"ACCEPTED",completedAt:old}});await prisma.orderNotificationEvent.updateMany({data:{createdAt:old}});
+ expect((await notificationRetention({olderThan:cutoff})).eligible).toBe(1);expect(await prisma.orderNotificationEvent.count()).toBe(2);
+ await notificationRetention({olderThan:cutoff,dryRun:false});expect(await prisma.orderNotificationEvent.count()).toBe(1);expect(await prisma.orderNotification.count()).toBe(2);
+ await expect(notificationRetention({olderThan:new Date()})).rejects.toThrow();
+ await prisma.$transaction(tx=>queueOrderNotification(tx,{orderId:data.order.id,kind:"BUYER_PAYMENT",targetId:data.user.id}));expect(await prisma.orderNotification.count()).toBe(2);
+});
+
+test("delayed seller alert includes remaining escrow items after partial delivery",async()=>{
+ const data=await paidFixture({twoItems:true});const seller=await prisma.user.create({data:{name:"Synthetic Seller",role:"SUPPLIER"}});await prisma.supplier.update({where:{id:data.supplier.id},data:{userId:seller.id}});
+ await confirmDelivery(data.order.id,data.product.id,buyer(data));sendSms.mockImplementation(async to=>acceptedSms(to));await notificationBatch({dryRun:false});
+ const sellerAlert=sendSms.mock.calls.find(([,body])=>body.includes("umepokea agizo jipya"));expect(sellerAlert).toBeDefined();expect(sellerAlert[1]).toContain("Second");expect(sellerAlert[1]).not.toContain(`2x ${data.product.name}`);
+});
+test("revoked supplier is suppressed before queued financial SMS is sent",async()=>{
+ const data=await fixture();await fulfillOrder(data.order.id,attempt(data.order),"verified");await prisma.user.update({where:{id:data.user.id},data:{role:"BUYER"}});sendSms.mockImplementation(async to=>acceptedSms(to));await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);expect((await prisma.orderNotification.findFirst({where:{kind:"SELLER_PAYMENT"}})).reason).toBe("SELLER_ACCESS_REVOKED");
+});
+test("provider optout persists account preference for later order notifications",async()=>{
+ const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:406}]}}));await notificationBatch({dryRun:false});expect((await prisma.user.findUnique({where:{id:data.user.id}})).orderSmsEnabled).toBe(false);
+});
+test("release preflight and notification report execute read-only",async()=>{
+ for(const name of ["release-preflight.sql","notification-outbox-dry-run.sql"]){const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts",name),"utf8");const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(s=>s&&!s.startsWith("BEGIN")&&s!=="ROLLBACK");await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");for(const statement of statements){const rows=await tx.$queryRawUnsafe(statement);if(name==="release-preflight.sql")for(const row of rows)expect(Object.values(row).includes(false)).toBe(false);}});}
+});
+
+test("SMS preference migration preserves existing accounts with transactional default",async()=>{
+ const data=await fixture();const sql=require("fs").readFileSync(require("path").join(__dirname,"../../prisma/migrations/20261026203000_order_notification_outbox/migration.sql"),"utf8").split(";")[0];
+ await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe('ALTER TABLE "User" DROP COLUMN "orderSmsEnabled"');await tx.$executeRawUnsafe(sql);const user=await tx.user.findUnique({where:{id:data.user.id}});expect(user.orderSmsEnabled).toBe(true);expect(user.name).toBe(data.user.name);});
+});
+import {remindBuyerToConfirmDelivery} from "@/lib/actions/supplier-order.actions";
+test("delivery reminder retries queue once and revoked/disputed paths cannot send",async()=>{
+ const data=await paidFixture();await prisma.order.update({where:{id:data.order.id},data:{shippingAddress:{phone:"+255700000000"}}});const seller=await prisma.user.create({data:{name:"Synthetic Reminder Seller",role:"SUPPLIER"}});await prisma.supplier.update({where:{id:data.supplier.id},data:{userId:seller.id}});await prisma.orderItem.updateMany({where:{orderId:data.order.id},data:{status:"DISPATCHED"}});auth.mockResolvedValue({user:{id:seller.id,role:"SUPPLIER"}});
+ const args={orderId:data.order.id,productId:data.product.id};const results=await Promise.all(Array.from({length:4},()=>remindBuyerToConfirmDelivery(args)));expect(results.every(r=>r.success)).toBe(true);expect(await prisma.orderNotification.count({where:{kind:"BUYER_REMINDER"}})).toBe(1);expect(sendSms).not.toHaveBeenCalled();
+ await prisma.user.update({where:{id:seller.id},data:{role:"BUYER"}});expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);await prisma.user.update({where:{id:seller.id},data:{role:"SUPPLIER"}});await openOrderDispute(data.order.id,data.product.id,data.user.id,"Synthetic dispute");expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);
+ await prisma.orderNotification.updateMany({where:{kind:{not:"BUYER_REMINDER"}},data:{state:"SUPPRESSED"}});await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findFirst({where:{kind:"BUYER_REMINDER"}})).state).toBe("SUPPRESSED");
+});
+if(process.env.PROSTORE_BACKUP_FIXTURE==="1") test("prepare synthetic recovery fixture for independent pg_dump/restore",async()=>{
+ const data=await fixture();getZenopayStatus.mockResolvedValue(confirmed(data.order));await reconcileZenopay(data.order.id,attempt(data.order));await confirmDelivery(data.order.id,data.product.id,buyer(data),{rating:5,comment:"Synthetic restore check"});
+ const adminProfile=await prisma.admin.create({data:{userId:data.user.id}});await prisma.auditLog.create({data:{adminId:adminProfile.id,action:"SYNTHETIC_BACKUP_CHECK",entityId:data.order.id,entityType:"Order"}});
+ expect(await prisma.orderNotification.count()).toBe(3);expect(await prisma.paymentAttempt.count()).toBe(1);expect(await prisma.auditLog.count()).toBe(1);
 });

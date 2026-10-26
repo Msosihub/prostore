@@ -47,6 +47,7 @@ model VerificationToken {
 }
 
 model User {
+  orderSmsEnabled Boolean @default(true)
   marketThreads MarketThread[]
   marketMessages MarketMessage[]
 
@@ -104,6 +105,7 @@ model Cart {
 }
 
 model Order {
+  orderNotifications OrderNotification[]
   paymentAttempts PaymentAttempt[]
   marketProposal MarketProposal?
 
@@ -1887,4 +1889,37 @@ model PaymentAttemptEvent {
   createdAt DateTime @default(now()) @db.Timestamp(6)
   attempt PaymentAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
   @@index([attemptId, createdAt])
+}
+
+model OrderNotification {
+ id String @id @default(uuid()) @db.Uuid
+ eventKey String @unique
+ orderId String @db.Uuid
+ kind String
+ targetId String
+ productId String? @db.Uuid
+ state String @default("QUEUED")
+ attempts Int @default(0)
+ nextAttemptAt DateTime @default(now()) @db.Timestamp(6)
+ leaseToken String?
+ leaseUntil DateTime? @db.Timestamp(6)
+ reason String?
+ providerMessageId String?
+ acceptedAt DateTime? @db.Timestamp(6)
+ completedAt DateTime? @db.Timestamp(6)
+ createdAt DateTime @default(now()) @db.Timestamp(6)
+ updatedAt DateTime @default(now()) @updatedAt @db.Timestamp(6)
+ order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+ events OrderNotificationEvent[]
+ @@index([state, nextAttemptAt])
+}
+model OrderNotificationEvent {
+ actorId String? @db.Uuid
+ id String @id @default(uuid()) @db.Uuid
+ notificationId String @db.Uuid
+ state String
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamp(6)
+ notification OrderNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+ @@index([notificationId, createdAt])
 }

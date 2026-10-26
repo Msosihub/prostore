@@ -187,6 +187,10 @@ async function prepare() {
   );
   for (const statement of migration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  // Fixture User already reflects the latest schema; exercise ALTER against its prior shape.
+  await prisma.$executeRawUnsafe('ALTER TABLE "User" DROP COLUMN "orderSmsEnabled"');
+  const outboxMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261026203000_order_notification_outbox/migration.sql"), "utf8");
+  for (const statement of outboxMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const recoveryMigration = fs.readFileSync(
     path.join(
       __dirname,
@@ -208,7 +212,7 @@ async function prepare() {
 }
 async function reset() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "PaymentAttemptEvent", "PaymentAttempt", "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
+    `TRUNCATE "OrderNotificationEvent", "OrderNotification", "PaymentAttemptEvent", "PaymentAttempt", "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
   );
 }
 async function fixture({ stock = 5, qty = 2, paymentResult } = {}) {

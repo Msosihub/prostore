@@ -7,7 +7,7 @@ import {
   pesapalTrackingId,
 } from "@/lib/payment-methods";
 import { prisma } from "@/db/prisma";
-import { sendSms } from "./africasTalking";
+import { queueOrderNotification } from "@/lib/order-notification-events";
 // import { CartItem } from "@/types";
 
 type Settlement =
@@ -222,77 +222,25 @@ export async function settleOrder(orderId: string, settlement: Settlement) {
         );
       }
     }
+    await queueOrderNotification(tx, {
+      orderId,
+      kind: "BUYER_PAYMENT",
+      targetId: order.userId,
+    });
+    for (const supplierId of [
+      ...new Set(
+        order.orderitems
+          .map((item) => item.supplierId)
+          .filter((id): id is string => !!id),
+      ),
+    ].sort()) {
+      await queueOrderNotification(tx, {
+        orderId,
+        kind: "SELLER_PAYMENT",
+        targetId: supplierId,
+      });
+    }
     return true;
   });
-  if (!settled) return false;
-
-  // 3. Dispatch Automated Confirmation SMS to the Buyer
-  const buyerPhone = order.user.phone || order.user.paymentPhone;
-  if (buyerPhone) {
-    const itemNames = order.orderitems
-      .map((i) => `${i.qty}x ${i.name}`)
-      .join(", ");
-    const buyerMsg = `Mambo ${order.user.name}, malipo ya agizo lako #${order.id.slice(0, 8)} yamekamilika! Bidhaa: ${itemNames}. Jumla kuu: TZS ${formatPriceString(Number(order.totalPrice))}. Asante kwa kuchagua Nimboya!`;
-
-    try {
-      await sendSms(buyerPhone, buyerMsg);
-    } catch {
-      console.error("Failed sending fulfillment SMS to buyer");
-    }
-  }
-
-  // 4. Group order items by Supplier to distribute consolidated notification metrics
-  const supplierGroups: Record<
-    string,
-    {
-      phone: string | null;
-      name: string;
-      items: Array<{ name: string; qty: number }>;
-    }
-  > = {};
-
-  for (const item of order.orderitems) {
-    const supplier = item.supplierId
-      ? await prisma.supplier.findUnique({
-          where: { id: item.supplierId },
-          select: { id: true, name: true, companyName: true, phone: true },
-        })
-      : null;
-    if (!supplier) continue;
-
-    const sName = supplier.companyName || supplier.name;
-
-    if (!supplierGroups[supplier.id]) {
-      supplierGroups[supplier.id] = {
-        phone: supplier.phone,
-        name: sName,
-        items: [],
-      };
-    }
-    supplierGroups[supplier.id].items.push({ name: item.name, qty: item.qty });
-  }
-
-  // 5. Dispatch single consolidated SMS alert to each vendor involved
-  for (const supplierId in supplierGroups) {
-    const group = supplierGroups[supplierId];
-    if (group.phone) {
-      const supplierItemsStr = group.items
-        .map((i) => `${i.qty}x ${i.name}`)
-        .join(", ");
-      const supplierMsg = `Habari ${group.name}, umepokea agizo jipya la jumla! Agizo ID: #${order.id.slice(0, 8)}. Bidhaa za kuandaa: ${supplierItemsStr}. Fedha zimewekwa salama kwenye Escrow yako. Tafadhali ingia Nimboya Dashboard kuanza kuandaa mzigo.`;
-
-      try {
-        await sendSms(group.phone, supplierMsg);
-      } catch {
-        console.error("Failed sending fulfillment SMS to supplier");
-      }
-    }
-  }
-
-  return true;
-}
-
-// Simple locale pricing helper format tool to keep message text strings clean
-function formatPriceString(val: number): string {
-  return new Intl.NumberFormat("en-US").format(val);
+  return settled;
 }
