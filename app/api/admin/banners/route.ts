@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth-guard";
 // app/api/admin/banners/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
@@ -11,6 +12,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  if (!await requireAdmin().catch(() => null)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json();
   const banner = await prisma.banner.create({
     data: {

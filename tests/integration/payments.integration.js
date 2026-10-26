@@ -1576,3 +1576,96 @@ test("seller inbox cursor pages all own buyers and never another seller", async 
     market.listThreads("seller", first.items[0].id),
   ).rejects.toThrow();
 });
+
+// Admin operations use canonical records and fresh authorization, without financial mutations.
+import { getAdminOverview, getAdminOrders, getAdminDisputes } from "@/lib/admin-operations";
+test("admin overview distinguishes unpaid totals and held/available balances", async () => {
+  const { user, order, supplier } = await fixture();
+  await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  auth.mockResolvedValue({ user: { id: user.id, role: "BUYER" } });
+  await prisma.supplier.update({ where: { id: supplier.id }, data: { pendingBalance: 1200, walletBalance: 300 } });
+  let overview = await getAdminOverview();
+  expect(overview).toMatchObject({ orders: 1, unpaid: 1, paidOrders: 0, paidTotal: "0", pendingBalance: "1200", walletBalance: "300" });
+  await prisma.order.update({ where: { id: order.id }, data: { isPaid: true } });
+  overview = await getAdminOverview();
+  expect(overview.paidTotal).toBe(String(order.totalPrice));
+  expect(overview.unpaid).toBe(0);
+});
+test("admin order paging preserves paid filter and product search without private fields", async () => {
+  const { user, product, order } = await fixture();
+  await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  auth.mockResolvedValue({ user: { id: user.id } });
+  for (let i = 0; i < 21; i++) await newOrder({ user, product });
+  await prisma.order.update({ where: { id: order.id }, data: { isPaid: true } });
+  const result = await getAdminOrders({ status: "unpaid", q: "Test Item", page: "999" });
+  expect(result).toMatchObject({ total: 21, page: 2, pages: 2 });
+  expect(result.items).toHaveLength(1);
+  expect(result.items[0]).not.toHaveProperty("shippingAddress");
+  const exact = await getAdminOrders({ q: order.id, status: "paid" });
+  expect(exact.items.map(o => o.id)).toEqual([order.id]);
+});
+test("admin dispute queue excludes terminal requests by default and never changes money", async () => {
+  const { user, product, supplier, order } = await fixture();
+  await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  auth.mockResolvedValue({ user: { id: user.id } });
+  await prisma.returnRequest.create({ data: { orderId: order.id, productId: product.id, supplierId: supplier.id, buyerId: user.id, reason: "Synthetic private reason" } });
+  expect((await getAdminDisputes({})).total).toBe(1);
+  await prisma.returnRequest.updateMany({ data: { status: "REJECTED" } });
+  expect((await getAdminDisputes({})).total).toBe(0);
+  const all = await getAdminDisputes({ status: "all" });
+  expect(all.total).toBe(1);
+  expect(all.items[0]).not.toHaveProperty("reason");
+  expect(await prisma.supplierLedger.count()).toBe(0);
+});
+test("database revocation blocks admin operational queries despite stale session", async () => {
+  const { user } = await fixture();
+  auth.mockResolvedValue({ user: { id: user.id, role: "ADMIN" } });
+  for (const fn of [getAdminOverview, getAdminOrders, getAdminDisputes]) await expect(fn({})).rejects.toThrow("Unauthorized");
+});
+import { getAdminDocuments } from "@/lib/admin-operations";
+import { PUT as reviewAdminDocument } from "@/app/api/admin/supplier-docs/[id]/route";
+test("admin documents pending queue excludes rejected records and honors seller scope", async () => {
+  const { user, supplier } = await fixture();
+  await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  auth.mockResolvedValue({ user: { id: user.id } });
+  for (const [label, verified, rejectionReason] of [["Pending", false, null], ["Rejected", false, "Unreadable"], ["Approved", true, null]]) await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label, name: label, fileUrl: "", verified, rejectionReason } });
+  const pending = await getAdminDocuments({ supplierId: supplier.id });
+  expect(pending.items.map(d => d.label)).toEqual(["Pending"]);
+  expect((await getAdminDocuments({ status: "rejected" })).items.map(d => d.label)).toEqual(["Rejected"]);
+  expect((await getAdminOverview()).pendingDocuments).toBe(pending.total);
+});
+test("document review saves audit atomically and requires every configured document type", async () => {
+  const { user, supplier } = await fixture();
+  await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  auth.mockResolvedValue({ user: { id: user.id } });
+  const doc = await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label: "Synthetic license", name: "License", type: "License", fileUrl: "" } });
+  const old = process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS;
+  process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = "true";
+  try {
+    const invoke = (id, body) => reviewAdminDocument(new Request("http://localhost", { method: "PUT", body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
+    expect((await invoke(doc.id, { verified: false, rejectionReason: " " })).status).toBe(400);
+    expect((await invoke(doc.id, { verified: true })).status).toBe(200);
+    expect(await prisma.auditLog.count({ where: { action: "DOCUMENT_APPROVED" } })).toBe(1);
+    expect((await prisma.supplier.findUnique({ where: { id: supplier.id } })).isVerified).toBe(false);
+    const certificate = await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label: "Synthetic certificate", name: "Certificate", type: "Certificate", fileUrl: "" } });
+    expect((await invoke(certificate.id, { verified: true })).status).toBe(200);
+    expect((await prisma.supplier.findUnique({ where: { id: supplier.id } })).isVerified).toBe(true);
+    expect(await prisma.auditLog.count({ where: { action: "SUPPLIER_AUTO_VERIFIED" } })).toBe(1);
+  } finally { if (old === undefined) delete process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS; else process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = old; }
+});
+test("concurrent final document approvals verify seller once and retain every attachment", async () => {
+  const { user, supplier } = await fixture();
+  await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  auth.mockResolvedValue({ user: { id: user.id } });
+  const docs = [];
+  for (const type of ["License", "Certificate"]) docs.push(await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label: type, name: type, type, fileUrl: "https://example.test/one", files: ["https://example.test/one", "https://example.test/two"], description: "Review both pages" } }));
+  expect((await getAdminDocuments({})).items[0].files).toHaveLength(2);
+  const old = process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS;
+  process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = "true";
+  try {
+    const results = await Promise.all(docs.map(doc => reviewAdminDocument(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ verified: true }) }), { params: Promise.resolve({ id: doc.id }) })));
+    expect(results.map(r => r.status)).toEqual([200, 200]);
+    expect((await prisma.supplier.findUnique({ where: { id: supplier.id } })).isVerified).toBe(true);
+    expect(await prisma.auditLog.count({ where: { action: "SUPPLIER_AUTO_VERIFIED" } })).toBe(1);
+  } finally { if (old === undefined) delete process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS; else process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = old; }
+});

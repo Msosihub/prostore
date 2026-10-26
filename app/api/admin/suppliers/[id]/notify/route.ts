@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/db/prisma";
 import { sendSms } from "@/lib/africasTalking";
 import { APP_NAME, SUPPLIER_URL } from "@/lib/constants";
@@ -10,8 +10,8 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

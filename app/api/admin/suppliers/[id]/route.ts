@@ -1,7 +1,7 @@
 // app/api/admin/suppliers/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { Prisma } from "@prisma/client";
 
 type AuditLog = {
@@ -33,8 +33,8 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   try {
@@ -71,8 +71,8 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   // console.log("PUT Admin user verified:", session.user.id);
@@ -110,7 +110,7 @@ export async function PUT(
         updatable[f as keyof Prisma.SupplierUpdateInput] = body[f];
       }
     }
-    console.log("Updatable fields:", updatable);
+
     const updated = await prisma.supplier.update({
       where: { id },
       data: updatable,
@@ -151,7 +151,7 @@ export async function PUT(
   } catch (err: unknown) {
     console.error("PUT /api/admin/suppliers/[id] error:", err);
     return NextResponse.json(
-      { error: (err as Error).message || "Failed to update" },
+      { error: "Failed to update supplier" },
       { status: 500 }
     );
   }
@@ -161,8 +161,8 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

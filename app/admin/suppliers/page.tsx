@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -51,6 +52,8 @@ type EditForm = {
 };
 
 export default function AdminSuppliersPage() {
+  const searchParams = useSearchParams();
+  const verification = searchParams.get("isVerified");
   const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
@@ -75,7 +78,7 @@ export default function AdminSuppliersPage() {
 
   useEffect(() => {
     loadSuppliers();
-  }, [page, q]);
+  }, [page, q, verification]);
 
   async function loadSuppliers() {
     setLoading(true);
@@ -84,6 +87,8 @@ export default function AdminSuppliersPage() {
       params.set("page", String(page));
       params.set("pageSize", String(pageSize));
       if (q) params.set("q", q);
+      if (verification === "false" || verification === "true")
+        params.set("isVerified", verification);
       const res = await fetch(`/api/admin/suppliers?${params.toString()}`);
 
       if (!res.ok) throw new Error("Failed to load suppliers");
@@ -208,7 +213,17 @@ export default function AdminSuppliersPage() {
   return (
     <div className="container max-w-6xl py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Admin — Suppliers</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Admin — Suppliers</h1>
+          {verification === "false" && (
+            <p>
+              Unverified sellers ·{" "}
+              <Link href="/admin/suppliers" className="underline">
+                Show all sellers
+              </Link>
+            </p>
+          )}
+        </div>
 
         <div className="flex items-center gap-2">
           <Input
@@ -320,7 +335,7 @@ export default function AdminSuppliersPage() {
                     <div className="text-xs text-muted-foreground mt-2">
                       Latest doc: {s.latestDocument.label} •{" "}
                       {new Date(
-                        s.latestDocument.uploadedAt
+                        s.latestDocument.uploadedAt,
                       ).toLocaleDateString()}
                     </div>
                   ) : null}
@@ -396,7 +411,7 @@ export default function AdminSuppliersPage() {
               placeholder="Email address"
               value={editForm.email}
               onChange={(e) =>
-                setEditForm((f) => ({ ...f, location: e.target.value }))
+                setEditForm((f) => ({ ...f, email: e.target.value }))
               }
             />
             <div className="flex gap-2">

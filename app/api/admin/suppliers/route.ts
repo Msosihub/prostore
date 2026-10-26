@@ -1,6 +1,6 @@
 // app/api/admin/suppliers/route.ts
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/db/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -16,10 +16,10 @@ import { Prisma } from "@prisma/client";
 export async function GET(req: Request) {
   // console.log("GET /api/admin/suppliers called");
 
-  const session = await auth();
+  const session = await requireAdmin().catch(() => null);
   //role
   //   console.log("Authenticating user...", session);
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -110,8 +110,8 @@ export async function GET(req: Request) {
 
 // Optional: POST to create supplier via admin (rare). If you don't want this, remove or restrict.
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
