@@ -63,3 +63,13 @@ assert(!("hasMerchantReturnPolicy" in seo.productStructuredData(p).offers));
 console.log(
   "PASS 24 storefront URL/schema/privacy/pagination/pricing assertions",
 );
+
+for (const slug of ['pioneer-6"-x-9"-speaker', 'discount-50%', 'literal-%22', 'spika-音楽', 'slash%2Fkept']) {
+  assert.equal(seo.productSlugFromParam(encodeURIComponent(slug)), slug);
+  assert.equal(seo.productPath(slug), '/product/' + encodeURIComponent(slug));
+}
+for (const param of ['%', '%ZZ', '%2Foutside', '%5Coutside', '..', '.', '%00']) {
+  assert.equal(seo.productSlugFromParam(param), undefined);
+}
+assert.equal(seo.productSlugFromParam('literal-%2522'), 'literal-%22');
+console.log('PASS encoded slug single-decode, quotes, percent, Unicode and invalid/path-segment guards');

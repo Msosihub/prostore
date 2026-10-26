@@ -12,6 +12,14 @@ const {prisma}=require(state.stage+'/tests/integration/database.cjs');
  const {id,createdAt,...template}=original;
  for(let i=0;i<25;i++){const row=await prisma.product.create({data:{...template,name:'DEMO product '+i,slug:'demo-product-'+i,images:['/images/sample-products/p'+(i%6+1)+'-1.jpg'],isFeatured:i<4}});demoIds.push(row.id);}
 
+ for (const slug of ['pioneer-6"-x-9"-speaker', 'discount-50%', 'literal-%22', 'pioneer-6%22-x-9%22-speaker', 'spika-音楽', 'slash%2Fkept']) {
+   const row=await prisma.product.create({data:{...template,name:'Slug fixture '+slug,slug}});demoIds.push(row.id);
+   await page.goto(state.baseUrl+'/product/'+encodeURIComponent(slug));
+   await page.getByRole('heading',{name:row.name,exact:true}).waitFor();
+   assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'),state.baseUrl+'/product/'+encodeURIComponent(slug));
+   const markup=await page.locator('script[type="application/ld+json"]').evaluateAll(ns=>ns.map(n=>JSON.parse(n.textContent)).find(x=>x['@type']==='Product'));
+   assert.equal(markup.name,row.name);assert.equal(markup.url,state.baseUrl+'/product/'+encodeURIComponent(slug));
+ }
  await page.goto(state.baseUrl+'/');await page.getByRole('heading',{name:'Mpya sokoni',exact:true}).waitFor();
  await page.waitForFunction(()=>document.querySelectorAll('h1').length===1);assert.equal(await page.getByRole('heading',{level:1}).count(),1);await page.screenshot({path:state.stage+'/storefront-only-desktop.png',fullPage:true});
  await page.setViewportSize({width:375,height:812});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:state.stage+'/storefront-only-mobile.png',fullPage:true});

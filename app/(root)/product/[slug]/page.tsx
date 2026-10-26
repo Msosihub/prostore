@@ -16,14 +16,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-description";
 import SkeletonProduct from "@/components/shared/product/skeleton-product";
 import { Metadata } from "next";
-import { publicUrl, productPath, plainDescription, productStructuredData, jsonLd, isPublicProduct } from "@/lib/storefront-seo";
+import { publicUrl, productPath, plainDescription, productStructuredData, jsonLd, isPublicProduct, productSlugFromParam } from "@/lib/storefront-seo";
 import ShareButton from "@/components/ShareButton";
 import NimboyaTrustBlock from "@/components/shared/nimboya-trust-block";
 
 export const revalidate = 60;
 
 export async function generateMetadata({params}: {params:Promise<{slug:string}>}):Promise<Metadata> {
- const {slug}=await params;const product=await getProductBySlug(slug);
+ const {slug}=await params;const decoded=productSlugFromParam(slug);const product=decoded ? await getProductBySlug(decoded) : undefined;
  if(!product)return {title:"Bidhaa haijapatikana",robots:{index:false,follow:true}};
  const title=product.name;const description=plainDescription(product.description);
  return {title,description,alternates:{canonical:publicUrl(productPath(product.slug))},robots:{index:isPublicProduct(product),follow:true},openGraph:{title,description,url:publicUrl(productPath(product.slug)),type:"website",images:product.images.slice(0,1)}};
@@ -33,7 +33,8 @@ const ProductDetailsPagez = async (props: {
   params: Promise<{ slug: string }>;
 }) => {
   const { slug } = await props.params;
-  const product = await getProductBySlug(slug);
+  const decoded = productSlugFromParam(slug);
+  const product = decoded ? await getProductBySlug(decoded) : undefined;
   const safeCartData = await getMyCart();
 
   if (!product) return notFound();
