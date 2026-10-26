@@ -17,7 +17,7 @@ const ProductPrice = ({
   const format = (val: Decimal | number) =>
     `TSh ${val.toLocaleString("en-TZ", {
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
     })}`;
 
   return (

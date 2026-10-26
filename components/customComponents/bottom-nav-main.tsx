@@ -13,8 +13,8 @@ interface BottomNavProps {
 }
 
 export default function BottomNav({
-  unreadMessagesCount = 20,
-  cartItemsCount = 10,
+  unreadMessagesCount = 0,
+  cartItemsCount = 0,
 }: BottomNavProps) {
   const pathname = usePathname();
 
@@ -32,8 +32,8 @@ export default function BottomNav({
     { name: "Mwanzo", href: "/", icon: Home },
     { name: "Makundi", href: "/categories", icon: Grid },
     {
-      name: "Messenger",
-      href: "/buyer/chat",
+      name: "Ujumbe",
+      href: "/buyer/messages",
       icon: MessageCircle,
       badge: unreadMessagesCount,
     },
