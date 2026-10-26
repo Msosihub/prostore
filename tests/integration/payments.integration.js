@@ -1180,3 +1180,399 @@ test("Buy Now tier totals settle into the same seller item-value report, excludi
   expect(credits).toHaveLength(1);
   expect(Number(credits[0].amount)).toBe(4000);
 });
+
+// First-party tables are created by the actual additive migration in prepare().
+import * as market from "@/lib/market-chat";
+import {
+  sendMarketMessage,
+  createMarketProposal,
+} from "@/lib/actions/market-chat.actions";
+const { randomUUID: marketId } = require("node:crypto");
+async function marketFixture() {
+  const f = await fixture({ stock: 30 });
+  const seller = await prisma.user.create({
+    data: { name: "Market Seller", role: "SUPPLIER" },
+  });
+  await prisma.supplier.update({
+    where: { id: f.supplier.id },
+    data: { userId: seller.id },
+  });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: {
+      address: {
+        fullName: "Buyer",
+        streetAddress: "Test street",
+        city: "Dar",
+        postalCode: "12345",
+        country: "Tanzania",
+        phone: "+255700000000",
+        paymentPhone: "+255700000000",
+      },
+      paymentMethod: "Mobile",
+    },
+  });
+  await prisma.productPricing.create({
+    data: { productId: f.product.id, minQty: 5, price: 800 },
+  });
+  const outsider = await prisma.user.create({ data: { name: "Other buyer" } });
+  const sellerB = await prisma.user.create({
+    data: { name: "Other seller", role: "SUPPLIER" },
+  });
+  auth.mockResolvedValue({ user: { id: f.user.id } });
+  const t = await market.startThread(f.product.id);
+  return { ...f, seller, outsider, sellerB, threadId: t.id };
+}
+const marketActor = (user) => auth.mockResolvedValue({ user: { id: user.id } });
+async function marketProposal(f, quantity = 5) {
+  marketActor(f.seller);
+  const p = await market.propose({
+    id: marketId(),
+    threadId: f.threadId,
+    quantity,
+  });
+  marketActor(f.user);
+  return p;
+}
+test("product chat starts once concurrently, binds canonical seller and isolates all participants", async () => {
+  const f = await marketFixture();
+  const threads = await Promise.all(
+    Array.from({ length: 5 }, () => market.startThread(f.product.id)),
+  );
+  expect(new Set(threads.map((t) => t.id))).toEqual(new Set([f.threadId]));
+  for (const other of [f.outsider, f.sellerB]) {
+    marketActor(other);
+    await expect(market.loadThread(f.threadId)).rejects.toThrow();
+    await expect(
+      market.sendMessage({
+        id: marketId(),
+        threadId: f.threadId,
+        content: "forged",
+      }),
+    ).rejects.toThrow();
+  }
+  marketActor(f.user);
+  expect((await market.listThreads("buyer")).items).toHaveLength(1);
+  marketActor(f.seller);
+  expect((await market.listThreads("seller")).items).toHaveLength(1);
+  await expect(market.startThread(f.product.id)).rejects.toThrow();
+});
+test("messages persist once across concurrent retries and reject changed payload/sender replay", async () => {
+  const f = await marketFixture();
+  const input = {
+    id: marketId(),
+    threadId: f.threadId,
+    content: "Nahitaji vipande 5",
+  };
+  await Promise.all(Array.from({ length: 6 }, () => market.sendMessage(input)));
+  expect(await prisma.marketMessage.count()).toBe(1);
+  await expect(
+    market.sendMessage({ ...input, content: "Changed" }),
+  ).rejects.toThrow();
+  marketActor(f.seller);
+  await expect(market.sendMessage(input)).rejects.toThrow();
+  expect((await market.listThreads("seller")).items[0]._count.messages).toBe(1);
+  await market.markSeen({ threadId: f.threadId, ids: [input.id] });
+  expect((await market.listThreads("seller")).items[0]._count.messages).toBe(0);
+});
+test("paged history recovers older messages without crossing thread cursor", async () => {
+  const f = await marketFixture();
+  for (let i = 0; i < 55; i++)
+    await market.sendMessage({
+      id: marketId(),
+      threadId: f.threadId,
+      content: "Bidhaa " + i,
+    });
+  const latest = await market.loadThread(f.threadId);
+  expect(latest.messages).toHaveLength(50);
+  expect(latest.hasOlder).toBe(true);
+  const older = await market.loadThread(f.threadId, latest.messages[0].id);
+  expect(older.messages).toHaveLength(5);
+  expect(older.hasOlder).toBe(false);
+  expect(
+    new Set([...older.messages, ...latest.messages].map((m) => m.id)).size,
+  ).toBe(55);
+  await expect(market.loadThread(f.threadId, marketId())).rejects.toThrow();
+});
+test("server actions block contact obfuscations and do not echo or persist sensitive text", async () => {
+  const f = await marketFixture();
+  for (const content of [
+    "０７１２３４５６７８",
+    "n [at] example [dot] com",
+    "@account",
+    "wa.me/255700000000",
+  ]) {
+    const result = await sendMarketMessage({
+      id: marketId(),
+      threadId: f.threadId,
+      content,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).not.toContain(content);
+  }
+  expect(await prisma.marketMessage.count()).toBe(0);
+  expect(
+    (
+      await sendMarketMessage({
+        id: marketId(),
+        threadId: f.threadId,
+        content: "Naomba 5 kwa 800 TZS",
+      })
+    ).ok,
+  ).toBe(true);
+  marketActor(f.seller);
+  const result = await createMarketProposal({
+    id: marketId(),
+    threadId: f.threadId,
+    quantity: 5,
+    notes: "0712345678",
+  });
+  expect(result.ok).toBe(false);
+  expect(await prisma.marketProposal.count()).toBe(0);
+});
+test("anonymous actions and forged sender fields cannot persist messages", async () => {
+  const f = await marketFixture();
+  auth.mockResolvedValue(null);
+  expect(
+    (
+      await sendMarketMessage({
+        id: marketId(),
+        threadId: f.threadId,
+        content: "Test",
+      })
+    ).ok,
+  ).toBe(false);
+  marketActor(f.user);
+  expect(
+    (
+      await sendMarketMessage({
+        id: marketId(),
+        threadId: f.threadId,
+        content: "Test",
+        senderId: f.seller.id,
+      })
+    ).ok,
+  ).toBe(false);
+  expect(await prisma.marketMessage.count()).toBe(0);
+});
+test("only bound seller proposes; structured price and duplicate IDs cannot be forged", async () => {
+  const f = await marketFixture();
+  await expect(
+    market.propose({ id: marketId(), threadId: f.threadId, quantity: 5 }),
+  ).rejects.toThrow();
+  marketActor(f.sellerB);
+  await expect(
+    market.propose({ id: marketId(), threadId: f.threadId, quantity: 5 }),
+  ).rejects.toThrow();
+  marketActor(f.seller);
+  const input = { id: marketId(), threadId: f.threadId, quantity: 5 };
+  await Promise.all(Array.from({ length: 5 }, () => market.propose(input)));
+  expect(await prisma.marketProposal.count()).toBe(1);
+  await expect(market.propose({ ...input, quantity: 6 })).rejects.toThrow();
+  expect((await createMarketProposal({ ...input, price: "1" })).ok).toBe(false);
+  const p = await prisma.marketProposal.findUnique({ where: { id: input.id } });
+  expect(p.snapshot.itemsPrice).toBe("4000.00");
+  expect(p.snapshot.totalPrice).toBe("7000.00");
+});
+test("duplicate/replayed acceptance produces exactly one ordinary unpaid order and immutable snapshot", async () => {
+  const f = await marketFixture();
+  const p = await marketProposal(f);
+  const checked = await market.reviewProposal(p.id);
+  const before = await prisma.order.count();
+  const results = await Promise.all(
+    Array.from({ length: 6 }, () =>
+      market.acceptProposal({ id: p.id, fingerprint: checked.fingerprint }),
+    ),
+  );
+  expect(new Set(results.map((r) => r.orderId)).size).toBe(1);
+  expect(await prisma.order.count()).toBe(before + 1);
+  const order = await prisma.order.findUnique({
+    where: { id: results[0].orderId },
+    include: { orderitems: true },
+  });
+  expect(order.isPaid).toBe(false);
+  expect(Number(order.totalPrice)).toBe(7000);
+  expect(Number(order.orderitems[0].price)).toBe(800);
+  expect(order.orderitems[0].supplierId).toBe(f.supplier.id);
+  expect(await prisma.supplierLedger.count()).toBe(0);
+  expect(
+    (await prisma.product.findUnique({ where: { id: f.product.id } })).stock,
+  ).toBe(30);
+  marketActor(f.outsider);
+  await expect(
+    market.acceptProposal({ id: p.id, fingerprint: checked.fingerprint }),
+  ).rejects.toThrow();
+  marketActor(f.seller);
+  await expect(market.reviewProposal(p.id)).rejects.toThrow();
+});
+test("changed address forces fresh review; failed accept leaves proposal recoverable", async () => {
+  const f = await marketFixture();
+  const p = await marketProposal(f);
+  const old = await market.reviewProposal(p.id);
+  const user = await prisma.user.findUnique({ where: { id: f.user.id } });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: { address: { ...user.address, streetAddress: "Updated street" } },
+  });
+  await expect(
+    market.acceptProposal({ id: p.id, fingerprint: old.fingerprint }),
+  ).rejects.toThrow("Hakiki tena");
+  expect(
+    (await prisma.marketProposal.findUnique({ where: { id: p.id } })).status,
+  ).toBe("OPEN");
+  const current = await market.reviewProposal(p.id);
+  const result = await market.acceptProposal({
+    id: p.id,
+    fingerprint: current.fingerprint,
+  });
+  expect(
+    (await prisma.order.findUnique({ where: { id: result.orderId } }))
+      .shippingAddress.streetAddress,
+  ).toBe("Updated street");
+});
+test.each(["price", "stock", "supplier", "role"])(
+  "changed %s cannot silently accept stale proposal",
+  async (change) => {
+    const f = await marketFixture();
+    const p = await marketProposal(f);
+    const old = await market.reviewProposal(p.id);
+    if (change === "price")
+      await prisma.productPricing.updateMany({
+        where: { productId: f.product.id },
+        data: { price: 900 },
+      });
+    if (change === "stock")
+      await prisma.product.update({
+        where: { id: f.product.id },
+        data: { stock: 1 },
+      });
+    if (change === "supplier") {
+      const s = await prisma.supplier.create({
+        data: {
+          userId: f.sellerB.id,
+          name: "Other",
+          email: "other@example.test",
+        },
+      });
+      await prisma.product.update({
+        where: { id: f.product.id },
+        data: { supplierId: s.id },
+      });
+    }
+    if (change === "role")
+      await prisma.user.update({
+        where: { id: f.seller.id },
+        data: { role: "BUYER" },
+      });
+    await expect(
+      market.acceptProposal({ id: p.id, fingerprint: old.fingerprint }),
+    ).rejects.toThrow();
+    expect(
+      (await prisma.marketProposal.findUnique({ where: { id: p.id } })).orderId,
+    ).toBeNull();
+  },
+);
+test("cancel versus accept race yields a single consistent terminal state", async () => {
+  const f = await marketFixture();
+  const p = await marketProposal(f);
+  const checked = await market.reviewProposal(p.id);
+  const before = await prisma.order.count();
+  auth.mockReset();
+  auth
+    .mockResolvedValueOnce({ user: { id: f.user.id } })
+    .mockResolvedValueOnce({ user: { id: f.seller.id } });
+  const results = await Promise.allSettled([
+    market.acceptProposal({ id: p.id, fingerprint: checked.fingerprint }),
+    market.cancelProposal(p.id),
+  ]);
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  const saved = await prisma.marketProposal.findUnique({ where: { id: p.id } });
+  expect(["ACCEPTED", "CANCELLED"]).toContain(saved.status);
+  expect(await prisma.order.count()).toBe(
+    before + (saved.status === "ACCEPTED" ? 1 : 0),
+  );
+});
+
+test("display labels cannot leak contact-like profile data and no private fields are selected", async () => {
+  const f = await marketFixture();
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: {
+      name: "person@example.com",
+      paymentPhone: "+255711111111",
+      password: "private-value",
+    },
+  });
+  await prisma.supplier.update({
+    where: { id: f.supplier.id },
+    data: { companyName: "telegram sellername" },
+  });
+  const loaded = await market.loadThread(f.threadId);
+  expect(loaded.thread.buyer.name).toBe("Mnunuzi");
+  expect(loaded.thread.supplier.companyName).toBe(loaded.thread.supplier.name);
+  const json = JSON.stringify(loaded);
+  for (const privateText of [
+    "person@example.com",
+    "telegram sellername",
+    "paymentPhone",
+    "password",
+    "private-value",
+  ])
+    expect(json).not.toContain(privateText);
+  marketActor(f.seller);
+  expect(
+    (
+      await createMarketProposal({
+        id: marketId(),
+        threadId: f.threadId,
+        quantity: 5,
+      })
+    ).ok,
+  ).toBe(false);
+});
+test("actual migration keeps accepted proposal/order link restrictive", async () => {
+  const f = await marketFixture();
+  const p = await marketProposal(f);
+  const review = await market.reviewProposal(p.id);
+  const result = await market.acceptProposal({
+    id: p.id,
+    fingerprint: review.fingerprint,
+  });
+  await prisma.orderItem.deleteMany({ where: { orderId: result.orderId } });
+  await expect(
+    prisma.order.delete({ where: { id: result.orderId } }),
+  ).rejects.toThrow();
+  expect(
+    (await prisma.marketProposal.findUnique({ where: { id: p.id } })).orderId,
+  ).toBe(result.orderId);
+});
+
+test("seller inbox cursor pages all own buyers and never another seller", async () => {
+  const f = await marketFixture();
+  for (let i = 0; i < 33; i++) {
+    const buyer = await prisma.user.create({
+      data: { name: "Paged buyer " + i },
+    });
+    await prisma.marketThread.create({
+      data: {
+        buyerId: buyer.id,
+        supplierId: f.supplier.id,
+        productId: f.product.id,
+      },
+    });
+  }
+  marketActor(f.seller);
+  const first = await market.listThreads("seller");
+  expect(first.items).toHaveLength(30);
+  expect(first.hasMore).toBe(true);
+  const last = await market.listThreads("seller", first.items.at(-1).id);
+  expect(last.items).toHaveLength(4);
+  expect(last.hasMore).toBe(false);
+  expect(new Set([...first.items, ...last.items].map((t) => t.id)).size).toBe(
+    34,
+  );
+  marketActor(f.sellerB);
+  await expect(
+    market.listThreads("seller", first.items[0].id),
+  ).rejects.toThrow();
+});

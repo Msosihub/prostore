@@ -47,6 +47,9 @@ model VerificationToken {
 }
 
 model User {
+  marketThreads MarketThread[]
+  marketMessages MarketMessage[]
+
   id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                  String           @default("NO_NAME")
   email                 String?          @unique
@@ -101,6 +104,8 @@ model Cart {
 }
 
 model Order {
+  marketProposal MarketProposal?
+
   id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId          String      @db.Uuid
   shippingAddress Json        @db.Json
@@ -267,6 +272,8 @@ model AuditLog {
 }
 
 model Product {
+  marketThreads MarketThread[]
+
   id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name           String
   slug           String           @unique(map: "product_slug_idx")
@@ -351,6 +358,8 @@ model Attachment {
 }
 
 model Supplier {
+  marketThreads MarketThread[]
+
   id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId            String              @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name              String
@@ -1795,4 +1804,45 @@ enum PayoutStatus {
   APPROVED
   REJECTED
   TRANSFERRED
+}
+
+// First-party commerce chat is isolated from legacy Chatwoot mirrors.
+model MarketThread {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buyerId String @db.Uuid
+  supplierId String @db.Uuid
+  productId String @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  updatedAt DateTime @updatedAt @db.Timestamp(6)
+  buyer User @relation(fields: [buyerId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  messages MarketMessage[]
+  proposals MarketProposal[]
+  @@unique([buyerId, supplierId, productId])
+  @@index([buyerId, updatedAt])
+  @@index([supplierId, updatedAt])
+}
+model MarketMessage {
+  id String @id @db.Uuid
+  threadId String @db.Uuid
+  senderId String @db.Uuid
+  content String
+  seen Boolean @default(false)
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  thread MarketThread @relation(fields: [threadId], references: [id])
+  sender User @relation(fields: [senderId], references: [id])
+  @@index([threadId, createdAt, id])
+}
+model MarketProposal {
+  id String @id @db.Uuid
+  threadId String @db.Uuid
+  quantity Int
+  snapshot Json
+  status String @default("OPEN")
+  orderId String? @unique @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamp(6)
+  thread MarketThread @relation(fields: [threadId], references: [id])
+  order Order? @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  @@index([threadId, createdAt])
 }

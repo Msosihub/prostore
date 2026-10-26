@@ -32,7 +32,16 @@ const supplierNavigationRoutes = [
     icon: Package,
   },
   { title: "Maagizo (Orders)", href: "/supplier/orders", icon: History },
-  { title: "Ujumbe (SMS)", href: "/supplier/messages", icon: MessageSquare },
+  {
+    title: "Mazungumzo ya Bidhaa",
+    href: "/supplier/marketplace-chat",
+    icon: MessageSquare,
+  },
+  {
+    title: "Chatwoot (Awali)",
+    href: "/supplier/messages",
+    icon: MessageSquare,
+  },
   {
     title: "Maombi ya Bei (Inquiries)",
     href: "/supplier/inquires",

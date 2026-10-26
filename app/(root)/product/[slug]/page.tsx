@@ -1,3 +1,4 @@
+import { StartProductChat } from "@/components/market-chat/workspace";
 import { Badge } from "@/components/ui/badge";
 import { getProductBySlug } from "@/lib/actions/product.actions";
 import { notFound } from "next/navigation";
@@ -134,7 +135,10 @@ const ProductDetailsPagez = async (props: {
                 </div>
               </div>
 
-              <ReviewSummary rating={Number(product.rating)} numReviews={product.numReviews} />
+              <ReviewSummary
+                rating={Number(product.rating)}
+                numReviews={product.numReviews}
+              />
             </div>
 
             {/* 🟢 UNIFIED PRICE RE-CALCULATION STEPPER LAYER CONTAINER */}
@@ -158,6 +162,7 @@ const ProductDetailsPagez = async (props: {
               />
             </div>
 
+            <StartProductChat productId={product.id} />
             <NimboyaTrustBlock compact />
 
             <div className="space-y-2 border-t border-slate-100 pt-3">
