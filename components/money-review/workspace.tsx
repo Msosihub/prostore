@@ -68,6 +68,7 @@ export default async function MoneyWorkspace({
       )}
       {!params.id && scope !== "admin" && (
         <RequestForm
+          actorId={data.actorId}
           kind={scope === "supplier" ? "WITHDRAWAL" : "REFUND"}
           items={items}
           blocked={data.balance?.blocked}

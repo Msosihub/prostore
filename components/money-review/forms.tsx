@@ -1,5 +1,10 @@
 "use client";
 import { useRef, useState } from "react";
+import {
+  moneyRequestIdentity,
+  clearMoneyRequestIdentity,
+  type PendingMoneyIdentity,
+} from "@/lib/money-request-identity";
 import { useRouter } from "next/navigation";
 import {
   requestMoneyReview,
@@ -8,15 +13,26 @@ import {
 const field = "block w-full rounded border border-slate-400 p-2";
 export function RequestForm({
   kind,
+  actorId,
   items = [],
   blocked = false,
 }: {
   kind: "WITHDRAWAL" | "REFUND";
+  actorId: string;
   items?: { orderId: string; productId: string; name: string; qty: number }[];
   blocked?: boolean;
 }) {
   const router = useRouter();
-  const key = useRef<string | undefined>(undefined);
+  const identity = useRef<PendingMoneyIdentity | undefined>(undefined);
+  const owner = `${actorId}:${kind}`;
+  const storage = () => {
+    try {
+      return window.sessionStorage;
+    } catch {
+      return null;
+    }
+  };
+  const [resetBlocked, setResetBlocked] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   return (
@@ -24,19 +40,17 @@ export function RequestForm({
       className="space-y-3 rounded-xl border bg-white p-4"
       onSubmit={async (event) => {
         event.preventDefault();
-        if (pending) return;
+        if (pending || resetBlocked) return;
         const form = event.currentTarget;
         const data = new FormData(form);
-        key.current ??= crypto.randomUUID();
         const item = items.find(
           (i) => `${i.orderId}:${i.productId}` === data.get("item"),
         );
         setPending(true);
         try {
-          const result = await requestMoneyReview({
+          const payload = {
             kind,
-            requestKey: key.current,
-            reason: data.get("reason"),
+            reason: String(data.get("reason") ?? "").trim(),
             ...(kind === "WITHDRAWAL"
               ? { amount: data.get("amount") }
               : {
@@ -44,16 +58,41 @@ export function RequestForm({
                   productId: item?.productId,
                   quantity: Number(data.get("quantity")),
                 }),
+          };
+          identity.current = await moneyRequestIdentity(
+            storage(),
+            owner,
+            payload,
+            identity.current,
+          );
+          const result = await requestMoneyReview({
+            ...payload,
+            requestKey: identity.current.requestKey,
           });
-          setMessage(result.message);
+          setMessage(
+            result.message +
+              (!result.success && !identity.current.persistent
+                ? " Browser retry storage is unavailable; keep this page open and check existing cases before resubmitting."
+                : ""),
+          );
           if (result.success) {
-            key.current = undefined;
+            const cleared = clearMoneyRequestIdentity(storage(), owner);
+            setResetBlocked(!cleared);
+            if (!cleared)
+              setMessage(
+                "Case saved. Browser retry metadata could not be cleared; a new request is unavailable until reset succeeds. Existing cases are unchanged.",
+              );
+            identity.current = undefined;
             form.reset();
             router.refresh();
           }
-        } catch {
+        } catch (error) {
           setMessage(
-            "Connection interrupted. Retry unchanged details to recover the same request.",
+            error instanceof Error &&
+              (error.message.startsWith("An earlier request") ||
+                error.message.startsWith("Check existing"))
+              ? error.message
+              : "Connection interrupted. Retry unchanged details to recover the same request; check existing cases before starting another.",
           );
         } finally {
           setPending(false);
@@ -142,9 +181,41 @@ export function RequestForm({
       )}
       <button
         className="rounded bg-emerald-800 px-4 py-2 text-white disabled:opacity-50"
-        disabled={pending || blocked || (kind === "REFUND" && !items.length)}
+        disabled={
+          pending ||
+          resetBlocked ||
+          blocked ||
+          (kind === "REFUND" && !items.length)
+        }
       >
         {pending ? "Saving…" : "Submit review request"}
+      </button>
+      <button
+        type="button"
+        className="block text-sm underline"
+        disabled={pending}
+        onClick={() => {
+          if (
+            !window.confirm(
+              "Check your existing cases first. Start a different request only if you intend an additional reservation or review.",
+            )
+          )
+            return;
+          const cleared = clearMoneyRequestIdentity(storage(), owner);
+          identity.current = undefined;
+          setResetBlocked(!cleared);
+          if (!cleared) {
+            setMessage(
+              "Browser retry metadata could not be cleared. Check existing cases; a different request is unavailable until reset succeeds.",
+            );
+            return;
+          }
+          setMessage(
+            "Ready for a different request. Existing cases were not changed.",
+          );
+        }}
+      >
+        Start another request
       </button>
       <p role="status" aria-live="polite">
         {message}

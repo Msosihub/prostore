@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { retryOrderNotification } from "@/lib/actions/order-notification.actions";
 export default function NotificationRetry({
   id,
@@ -8,6 +9,9 @@ export default function NotificationRetry({
   id: string;
   unknown: boolean;
 }) {
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const [queued, setQueued] = useState(false);
   const [ack, setAck] = useState(false),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
@@ -24,7 +28,7 @@ export default function NotificationRetry({
         </label>
       )}
       <button
-        disabled={busy || (unknown && !ack)}
+        disabled={busy || refreshing || queued || (unknown && !ack)}
         className="rounded border p-2 disabled:opacity-50"
         onClick={async () => {
           setBusy(true);
@@ -34,6 +38,12 @@ export default function NotificationRetry({
               acknowledgeUnknown: ack,
             });
             setMessage(r.message);
+            if (r.success) {
+              setQueued(true);
+              // Re-read the current filtered server page; cache invalidation alone
+              // does not guarantee a mounted router snapshot is refreshed.
+              startRefresh(() => router.refresh());
+            }
           } catch {
             setMessage("Unable to queue retry.");
           } finally {
