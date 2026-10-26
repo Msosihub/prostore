@@ -165,7 +165,7 @@ const freePort = () =>
       .readFileSync(fixtureFile, "utf8")
       .replace(
         '  "User",',
-        '  "Cart", "VerificationToken", "Review", "Account", "Session", "Certification", "Banner", "BannerItem", "SupplierPolicy", "ProductComment", "Notification", \n  "User",',
+        '  "Cart", "Review", "Account", "Session", "Certification", "Banner", "BannerItem", "SupplierPolicy", "ProductComment", "Notification", \n  "User",',
       )
       .replace(
         "defaultValue.startsWith",
@@ -246,6 +246,7 @@ const freePort = () =>
       "multi-seller",
       "buy-now",
       "market-chat",
+      "catalog-otp",
     ])
       await run(path.join(root, "tests/browser", test + ".cjs"), driverEnv);
     console.log("PASS all disposable browser workflow assertions");

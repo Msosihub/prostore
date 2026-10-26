@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { requireSupplier } from "@/lib/auth-guard";
 import { prisma } from "@/db/prisma";
 
 type IncomingPolicy = {
@@ -9,7 +9,7 @@ type IncomingPolicy = {
 };
 
 export async function GET() {
-  const session = await auth();
+  const session = await requireSupplier().catch(() => null);
   if (!session?.user?.id) return NextResponse.json({}, { status: 401 });
 
   const supplier = await prisma.supplier.findUnique({
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const session = await auth();
+  const session = await requireSupplier().catch(() => null);
   if (!session?.user?.id) return NextResponse.json({}, { status: 401 });
 
   const body = await req.json();

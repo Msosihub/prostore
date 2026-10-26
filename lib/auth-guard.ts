@@ -5,8 +5,15 @@ import { redirect } from "next/navigation";
 
 export async function requireSupplier() {
   const session = await auth();
+  if (!session?.user?.id) redirect("/unauthorized");
 
-  if (session?.user?.role !== "SUPPLIER") {
+  const current = session?.user?.id
+    ? await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true },
+      })
+    : null;
+  if (current?.role !== "SUPPLIER") {
     redirect("/unauthorized");
   }
 

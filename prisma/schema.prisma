@@ -1846,3 +1846,12 @@ model MarketProposal {
   order Order? @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   @@index([threadId, createdAt])
 }
+
+// Identifier-scoped OTP limits persist after token consumption and delivery failure.
+model OtpThrottle {
+  identifier String @id
+  windowStartedAt DateTime @default(now())
+  sendCount Int @default(0)
+  failedAttempts Int @default(0)
+  lastSentAt DateTime?
+}

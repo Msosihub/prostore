@@ -22,6 +22,7 @@ const models = [
   "Message",
   "Inquiry",
   "Attachment",
+  "VerificationToken",
   "Admin",
   "AuditLog",
   "SupplierDocument",
@@ -186,10 +187,12 @@ async function prepare() {
   );
   for (const statement of migration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const otpMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261026180000_otp_throttle/migration.sql"), "utf8");
+  for (const statement of otpMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
 }
 async function reset() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE ${models.map(quote).join(",")} CASCADE`,
+    `TRUNCATE "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
   );
 }
 async function fixture({ stock = 5, qty = 2, paymentResult } = {}) {

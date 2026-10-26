@@ -1,10 +1,10 @@
 // /app/api/supplier/documents/route.ts
-import { auth } from "@/auth";
+import { requireSupplier } from "@/lib/auth-guard";
 import { prisma } from "@/db/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const session = await auth();
+  const session = await requireSupplier().catch(() => null);
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
+  const session = await requireSupplier().catch(() => null);
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -50,9 +50,9 @@ export async function POST(req: Request) {
     validUntil?: Date;
     certNumber?: string;
   };
-  const cleanedFiles = files.map((f) => f.trim()).filter(Boolean);
+  const cleanedFiles = Array.isArray(files) ? files.filter((f): f is string => typeof f === "string").map(f => f.trim()).filter(f => /^https?:\/\//i.test(f)) : [];
 
-  if (!label || !files || !Array.isArray(files) || files.length === 0) {
+  if (typeof label !== "string" || !label.trim() || !Array.isArray(files) || !cleanedFiles.length || cleanedFiles.length !== files.length || cleanedFiles.length > 20) {
     return NextResponse.json(
       { error: "Missing label or files" },
       { status: 400 }
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await auth();
+  const session = await requireSupplier().catch(() => null);
   if (!session?.user?.id)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

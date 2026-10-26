@@ -1669,3 +1669,183 @@ test("concurrent final document approvals verify seller once and retain every at
     expect(await prisma.auditLog.count({ where: { action: "SUPPLIER_AUTO_VERIFIED" } })).toBe(1);
   } finally { if (old === undefined) delete process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS; else process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = old; }
 });
+
+import { createProduct, updateProduct, deleteProduct, getProductById, createBrandAction, createCategoryAction } from "@/lib/actions/product.actions";
+import { requestOtp, consumeOtp } from "@/lib/otp";
+async function catalogFixture() {
+  const f = await fixture();
+  await prisma.user.update({ where: { id: f.user.id }, data: { role: "SUPPLIER" } });
+  auth.mockResolvedValue({ user: { id: f.user.id, role: "SUPPLIER" } });
+  const input = { name: "Secure test product", slug: "secure-test", description: "Synthetic product", images: ["https://example.test/item.png"], price: "1000.00", stock: 5, brandId: f.product.brandId, categoryId: f.product.categoryId, subcategoryId: f.product.subcategoryId, supplierId: f.supplier.id, pricingTiers: [{ minQty: 5, price: 800 }] };
+  return { ...f, input };
+}
+test("catalog actions reject anonymous, buyer, revoked supplier and forged owner", async () => {
+  const f = await catalogFixture();
+  for (const session of [null, { user: { id: f.user.id, role: "ADMIN" } }]) {
+    await prisma.user.update({ where: { id: f.user.id }, data: { role: "BUYER" } });
+    auth.mockResolvedValue(session);
+    expect((await createProduct(f.input)).success).toBe(false);
+    expect((await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5 })).success).toBe(false);
+    expect((await deleteProduct(f.product.id)).success).toBe(false);
+  }
+  await prisma.user.update({ where: { id: f.user.id }, data: { role: "SUPPLIER" } });
+  auth.mockResolvedValue({ user: { id: f.user.id } });
+  expect((await createProduct({ ...f.input, supplierId: crypto.randomUUID() })).success).toBe(false);
+  expect(await prisma.product.count()).toBe(1);
+});
+test("seller catalog isolation, admin targeting and reassignment rejection", async () => {
+  const f = await catalogFixture();
+  const stranger = await prisma.user.create({ data: { role: "SUPPLIER", name: "Other seller" } });
+  const shop = await prisma.supplier.create({ data: { userId: stranger.id, name: "Other shop", email: "other@example.test", phone: "+255700000009" } });
+  auth.mockResolvedValue({ user: { id: stranger.id } });
+  expect((await updateProduct({ ...f.input, supplierId: shop.id, id: f.product.id, expectedStock: 5 })).success).toBe(false);
+  expect((await deleteProduct(f.product.id)).success).toBe(false);
+  expect(await getProductById(f.product.slug)).toBeNull();
+  expect((await createBrandAction("Forged")).success).toBe(false);
+  expect((await createCategoryAction("Forged")).success).toBe(false);
+  const admin = await prisma.user.create({ data: { role: "ADMIN", name: "Admin" } });
+  auth.mockResolvedValue({ user: { id: admin.id } });
+  expect((await createProduct(f.input)).success).toBe(true);
+  expect((await updateProduct({ ...f.input, supplierId: shop.id, id: f.product.id, expectedStock: 5 })).success).toBe(false);
+});
+test.each([{ stock: 1.5 }, { stock: -1 }, { price: "-1" }, { price: "1.001" }, { pricingTiers: [{ minQty: 1.5, price: 5 }] }, { pricingTiers: [{ minQty: 5, price: 800 }, { minQty: 5, price: 700 }] }])("invalid catalog quantities/prices cannot write %#", async override => {
+  const f = await catalogFixture();
+  expect((await createProduct({ ...f.input, ...override })).success).toBe(false);
+  expect(await prisma.product.count()).toBe(1);
+});
+test("concurrent stale-stock edits produce one winner and atomic tiers", async () => {
+  const f = await catalogFixture();
+  const result = await Promise.all([6, 7].map(stock => updateProduct({ ...f.input, id: f.product.id, stock, expectedStock: 5 })));
+  expect(result.filter(r => r.success)).toHaveLength(1);
+  const product = await prisma.product.findUnique({ where: { id: f.product.id }, include: { pricingTiers: true } });
+  expect([6, 7]).toContain(product.stock);
+  expect(product.pricingTiers.map(t => Number(t.price))).toEqual([800]);
+  expect((await getProductById(f.product.id)).id).toBe(f.product.id);
+  expect((await getProductById(f.input.slug)).id).toBe(f.product.id);
+});
+test("catalog edit after stock deduction cannot overwrite new stock", async () => {
+  const f = await catalogFixture();
+  await prisma.product.update({ where: { id: f.product.id }, data: { stock: { decrement: 1 } } });
+  expect((await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5 })).success).toBe(false);
+  expect((await prisma.product.findUnique({ where: { id: f.product.id } })).stock).toBe(4);
+});
+test("referenced product delete rolls back tier deletion", async () => {
+  const f = await catalogFixture();
+  await prisma.productPricing.create({ data: { productId: f.product.id, minQty: 5, price: 800 } });
+  expect((await deleteProduct(f.product.id)).success).toBe(false);
+  expect(await prisma.productPricing.count({ where: { productId: f.product.id } })).toBe(1);
+});
+test("OTP parallel send is bounded and token is cryptographic six-digit server content", async () => {
+  const phone = "+255700000011";
+  const result = await Promise.allSettled(Array.from({ length: 6 }, () => requestOtp(phone)));
+  expect(result.filter(r => r.status === "fulfilled")).toHaveLength(1);
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  expect(record.token).toMatch(/^\d{6}$/);
+  expect(sendSms).toHaveBeenCalledWith(phone, expect.stringContaining(record.token));
+});
+test("concurrent failed guesses commit cap and valid token cannot bypass lockout", async () => {
+  const phone = "+255700000012";
+  await requestOtp(phone);
+  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  const wrong = record.token === "111111" ? "222222" : "111111";
+  await Promise.all(Array.from({ length: 8 }, () => consumeOtp(phone, wrong)));
+  expect((await prisma.otpThrottle.findUnique({ where: { identifier: phone } })).failedAttempts).toBe(5);
+  expect(await consumeOtp(phone, record.token)).toBeNull();
+  await expect(requestOtp(phone)).rejects.toMatchObject({ status: 429 });
+});
+test("OTP expires, replays fail and resend limit survives successful consumption", async () => {
+  const phone = "+255700000013";
+  for (let i = 0; i < 3; i++) {
+    if (i) await prisma.otpThrottle.update({ where: { identifier: phone }, data: { lastSentAt: new Date(0) } });
+    await requestOtp(phone);
+    const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+    if (!i) {
+      const results = await Promise.all([consumeOtp(phone, record.token), consumeOtp(phone, record.token)]);
+      expect(results.filter(Boolean)).toHaveLength(1);
+    } else expect(await consumeOtp(phone, record.token)).not.toBeNull();
+  }
+  await expect(requestOtp(phone)).rejects.toMatchObject({ status: 429 });
+  await prisma.otpThrottle.update({ where: { identifier: phone }, data: { windowStartedAt: new Date(0) } });
+  await requestOtp(phone);
+  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  await prisma.verificationToken.updateMany({ where: { identifier: phone }, data: { expires: new Date(0) } });
+  expect(await consumeOtp(phone, record.token)).toBeNull();
+});
+test("undelivered SMS invalidates credential and email never reports fake success", async () => {
+  sendSms.mockRejectedValueOnce(new Error("private provider payload"));
+  await expect(requestOtp("+255700000014")).rejects.toMatchObject({ status: 503 });
+  expect(await prisma.verificationToken.count()).toBe(0);
+  await expect(requestOtp("buyer@example.test")).rejects.toMatchObject({ status: 400 });
+  expect(sendSms).toHaveBeenCalledTimes(1);
+});
+test("pre-migration unexpired phone OTP remains usable once with new throttling", async () => {
+  const phone = "+255700000015";
+  await prisma.verificationToken.create({ data: { identifier: phone, token: "654321", expires: new Date(Date.now() + 60000), attempts: 2 } });
+  expect(await consumeOtp(phone, "654321")).not.toBeNull();
+  expect(await consumeOtp(phone, "654321")).toBeNull();
+  expect(await prisma.otpThrottle.count({ where: { identifier: phone } })).toBe(1);
+});
+test("OTP expiry is checked after a blocked verifier acquires its lock", async () => {
+  const phone = "+255700000016";
+  await requestOtp(phone);
+  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  let unlock, acquired;
+  const ready = new Promise(resolve => { acquired = resolve; });
+  const release = new Promise(resolve => { unlock = resolve; });
+  const holder = prisma.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${phone}, 0))`;
+    acquired(); await release;
+    await tx.verificationToken.updateMany({ where: { identifier: phone }, data: { expires: new Date(0) } });
+  });
+  await ready;
+  const verifying = consumeOtp(phone, record.token);
+  unlock(); await holder;
+  expect(await verifying).toBeNull();
+});
+test("failed older SMS delivery cannot delete a newer resend", async () => {
+  const phone = "+255700000017";
+  let fail, reached;
+  const ready = new Promise(resolve => { reached = resolve; });
+  sendSms.mockImplementationOnce(() => { reached(); return new Promise((_, reject) => { fail = reject; }); });
+  const first = requestOtp(phone).catch(error => error.status);
+  await ready;
+  await prisma.otpThrottle.update({ where: { identifier: phone }, data: { lastSentAt: new Date(0) } });
+  await requestOtp(phone);
+  const latest = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  fail(new Error("Synthetic delivery failure"));
+  expect(await first).toBe(503);
+  expect(await consumeOtp(phone, latest.token)).not.toBeNull();
+});
+test("seller creates and deletes own unreferenced product with tiers", async () => {
+  const f = await catalogFixture();
+  const created = await createProduct(f.input);
+  expect(created.success).toBe(true);
+  expect((await deleteProduct(created.product.id)).success).toBe(true);
+  expect(await prisma.productPricing.count({ where: { productId: created.product.id } })).toBe(0);
+});
+test("product and original tiers roll back when replacement tier persistence fails", async () => {
+  const f = await catalogFixture();
+  await prisma.productPricing.create({ data: { productId: f.product.id, minQty: 2, price: 900 } });
+  await prisma.$executeRawUnsafe(`CREATE FUNCTION reject_test_tier() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic tier failure'; END $$`);
+  await prisma.$executeRawUnsafe(`CREATE TRIGGER reject_test_tier BEFORE INSERT ON "ProductPricing" FOR EACH ROW EXECUTE FUNCTION reject_test_tier()`);
+  try {
+    expect((await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5, stock: 7, price: "1200.00" })).success).toBe(false);
+    const unchanged = await prisma.product.findUnique({ where: { id: f.product.id }, include: { pricingTiers: true } });
+    expect(unchanged.stock).toBe(5);
+    expect(Number(unchanged.price)).toBe(1000);
+    expect(unchanged.pricingTiers.map(t => Number(t.price))).toEqual([900]);
+  } finally { await prisma.$executeRawUnsafe(`DROP TRIGGER reject_test_tier ON "ProductPricing"`); await prisma.$executeRawUnsafe(`DROP FUNCTION reject_test_tier()`); }
+});
+import { POST as uploadSellerDocument } from "@/app/api/suppliers/documents/route";
+import { PUT as updateSellerProfile } from "@/app/api/suppliers/me/route";
+test("revoked seller profile/document writes fail before mutation; malformed files rejected", async () => {
+  const f = await catalogFixture();
+  await prisma.user.update({ where: { id: f.user.id }, data: { role: "BUYER" } });
+  const request = () => new Request("http://localhost", { method: "POST", body: JSON.stringify({ label: "Demo", files: null }) });
+  expect((await uploadSellerDocument(request())).status).toBe(401);
+  expect((await updateSellerProfile(request())).status).toBe(401);
+  await prisma.user.update({ where: { id: f.user.id }, data: { role: "SUPPLIER" } });
+  expect((await uploadSellerDocument(request())).status).toBe(400);
+  expect(await prisma.supplierDocument.count()).toBe(0);
+});
