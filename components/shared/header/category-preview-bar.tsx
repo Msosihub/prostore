@@ -38,7 +38,7 @@ export default function CategoryPreviewBar({
       {previewCategories.map((cat) => (
         <Link
           key={cat.id}
-          href={`/search?category=${encodeURIComponent(cat.name_en)}`}
+          href={`/categories/${cat.id}`}
           className="text-xs font-medium px-3 py-1 rounded-full bg-slate-100 text-slate-700 hover:bg-orange-100 hover:text-orange-700 transition-colors whitespace-nowrap"
         >
           {cat.name_sw || cat.name_en}{" "}

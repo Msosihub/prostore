@@ -1,27 +1,2 @@
-"use client";
-
-import { Supplier } from "@/types";
-import Script from "next/script";
-
-export function SupplierSchema({ supplier }: { supplier: Supplier }) {
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://localhost";
-
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: supplier.companyName,
-    url: `${siteUrl}/${supplier.username}`,
-    description: supplier.about,
-    logo: supplier.bannerUrl
-      ? `${siteUrl}${supplier.bannerUrl}` || ""
-      : `${siteUrl}/default-banner.jpg` || "",
-  };
-
-  return (
-    <Script
-      id="supplier-jsonld"
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
-  );
-}
+import { jsonLd,publicUrl,sellerPath,plainDescription,imageUrl } from "@/lib/storefront-seo";
+export function SupplierSchema({supplier}:{supplier:{id:string;name:string;companyName?:string|null;about?:string|null;logo?:string|null}}){const logo=imageUrl(supplier.logo);return <script type="application/ld+json" dangerouslySetInnerHTML={{__html:jsonLd({'@context':'https://schema.org','@type':'Organization',name:supplier.companyName||supplier.name,url:publicUrl(sellerPath(supplier.id)),...(supplier.about?{description:plainDescription(supplier.about,500)}:{}),...(logo?{logo}:{})})}}/>;}

@@ -1,6 +1,7 @@
 // import { APP_NAME } from "@/lib/constants";
 // import Image from "next/image";
 // import Link from "next/link";
+import { notFound } from "next/navigation";
 import Menu from "@/components/shared/header/menu";
 import MainNav from "./main-nav";
 import SupplierSearch from "@/components/supplier/supplier-search";
@@ -18,11 +19,12 @@ export default async function SupplierLayout({
 }>) {
   const paramx = await params;
   const supplierId = paramx.supplierId;
+  if (!/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(supplierId)) notFound();
   //get That Supplier
   const supplier = await prisma.supplier.findUnique({
     where: { id: supplierId },
   });
-  if (!supplier) return;
+  if (!supplier) notFound();
   // Normalize nulls to undefined
   // const normalizedSupplier: Supplier = {
   //   id: supplier.id,

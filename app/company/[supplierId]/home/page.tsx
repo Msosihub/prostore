@@ -18,7 +18,11 @@ import {
   Truck,
 } from "lucide-react";
 import ShareButton from "@/components/ShareButton";
+import { notFound } from "next/navigation";
+import { publicUrl, sellerPath, plainDescription } from "@/lib/storefront-seo";
 import { SupplierSchema } from "@/components/seo/supplier-schema";
+
+export async function generateMetadata({params}:{params:Promise<{supplierId:string}>}){const {supplierId}=await params;if(!/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(supplierId))return {title:"Duka halijapatikana",robots:{index:false,follow:true}};const seller=await prisma.supplier.findUnique({where:{id:supplierId},select:{name:true,companyName:true,description:true}});return seller?{title:`${seller.companyName||seller.name} — Duka`,description:plainDescription(seller.description||"Angalia bidhaa za duka hili kwenye Nimboya."),alternates:{canonical:publicUrl(sellerPath(supplierId))}}:{title:"Duka halijapatikana",robots:{index:false,follow:true}};}
 
 export default async function SupplierHomePage({
   params,
@@ -27,6 +31,7 @@ export default async function SupplierHomePage({
 }) {
   const paramsx = await params;
   const supplierId = paramsx.supplierId;
+  if (!/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(supplierId)) notFound();
   const supplier = await prisma.supplier.findUnique({
     where: { id: supplierId },
     include: {
@@ -37,13 +42,7 @@ export default async function SupplierHomePage({
     },
   });
 
-  if (!supplier) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <p className="text-gray-600">Supplier not found</p>
-      </div>
-    );
-  }
+  if (!supplier) notFound();
 
   const supplierx = JSON.parse(JSON.stringify(supplier));
 
@@ -62,7 +61,7 @@ export default async function SupplierHomePage({
                 height={630}
                 src={
                   supplier.bannerUrl ||
-                  "http://static.photos/industry/1200x630/1"
+                  "/images/logo.svg"
                 }
                 alt="Banner"
                 className="w-full h-full object-cover"

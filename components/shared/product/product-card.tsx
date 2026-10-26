@@ -1,10 +1,10 @@
-import { Card, CardContent } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
+import { Package } from "lucide-react";
 import ProductPrice from "./product-price";
 import StockBadge from "./stock-badge";
 import { Decimal } from "@prisma/client/runtime/library";
-
+import { productPath, unitPrice } from "@/lib/storefront-seo";
 type ProductCardProps = {
   id: string;
   name: string;
@@ -16,101 +16,79 @@ type ProductCardProps = {
   price: number;
   stock: number;
   slug: string;
-  pricingTiers?: {
-    minQty: number;
-    price: Decimal;
-  }[];
+  pricingTiers?: { minQty: number; price: Decimal }[];
 };
-
-const ProductCard = ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  id,
+export default function ProductCard({
   name,
   brand,
   category,
-  subcategory,
   supplier,
   images,
   slug,
   price,
   stock,
   pricingTiers,
-}: ProductCardProps) => {
-  // Extract intermediate bulk wholesale calculations
-  const middleTier =
-    pricingTiers && pricingTiers.length >= 2
-      ? pricingTiers[Math.floor(pricingTiers.length / 2)]
-      : null;
-
+}: ProductCardProps) {
+  const bulk = pricingTiers
+    ?.filter((t) => t.minQty > 1 && t.minQty <= stock && Number(t.price) > 0)
+    .sort((a, b) => Number(a.price) - Number(b.price))[0];
   return (
-    <Card className="w-full bg-white rounded-xl shadow-sm overflow-hidden group transition-all duration-300 hover:shadow-md border border-slate-100 hover:border-slate-200 flex flex-col h-full">
-      {/* Product Image Wrapper - Fixed Aspect Ratio ensures consistent grids */}
-      <div className="relative w-full aspect-square overflow-hidden bg-slate-50 border-b border-slate-50 shrink-0">
-        <Link href={`/product/${slug}`} className="block w-full h-full">
+    <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-emerald-700 hover:shadow-md">
+      <Link
+        href={productPath(slug)}
+        className="relative block aspect-square bg-[#f6f6f2]"
+        tabIndex={-1}
+        aria-hidden="true"
+      >
+        {images?.[0] ? (
           <Image
-            src={images?.[0] || "/images/sample-products/p3-1.jpg"}
-            alt={name}
+            src={images[0]}
+            alt=""
             fill
-            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 250px"
-            priority={false}
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 280px"
+            className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
           />
-        </Link>
-      </div>
-
-      {/* Item Body Metrics Container */}
-      <CardContent className="p-2.5 flex flex-col justify-between flex-grow gap-1">
-        <div className="space-y-1">
-          {/* Metadata Path Tags */}
-          <div className="text-[10px] md:text-xs text-slate-400 font-medium tracking-tight truncate">
-            {brand && `${brand} • `}
-            {category} • {subcategory}
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-400">
+            <Package size={40} />
           </div>
-
-          {/* Item Core Name */}
+        )}
+      </Link>
+      <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
+        <div>
+          <p className="truncate text-[11px] text-slate-500">
+            {[brand, category].filter(Boolean).join(" · ")}
+          </p>
           <Link
-            href={`/product/${slug}`}
-            className="block group-hover:text-orange-600 transition-colors"
+            href={productPath(slug)}
+            className="mt-2 block text-sm font-semibold leading-snug text-slate-900 hover:text-emerald-800 sm:text-base"
           >
-            <h3 className="font-semibold text-xs sm:text-sm text-slate-800 tracking-tight leading-tight line-clamp-2 h-8 sm:h-9">
-              {name}
-            </h3>
+            <h3 className="line-clamp-2 min-h-10">{name}</h3>
           </Link>
-
-          {/* Wholesaler Label */}
-          <div className="text-[10px] sm:text-xs text-slate-500 truncate">
-            Muuzaji:{" "}
-            <span className="font-semibold text-slate-700">{supplier}</span>
-          </div>
+          <p className="mt-2 truncate text-xs text-slate-500">
+            Muuzaji: {supplier}
+          </p>
         </div>
-
-        {/* Dynamic Pricing Matrix Blocks */}
-        <div className="space-y-1.5 pt-1 mt-auto">
-          {/* Price Layout Element Layer */}
-          <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-baseline">
-            {stock > 0 ? (
-              <ProductPrice
-                value={middleTier ? Number(middleTier.price) : price}
-                original={middleTier ? price : undefined}
-                label={middleTier ? `${middleTier.minQty}+ pcs` : undefined}
-              />
-            ) : (
-              <span className="text-rose-600 font-bold text-xs sm:text-sm bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
-                Zimeisha
-              </span>
-            )}
-          </div>
-
-          {/* Availability Badge */}
-          {stock > 0 && (
-            <div className="pt-0.5 transform scale-95 origin-left">
-              <StockBadge stock={stock} />
-            </div>
+        <div className="mt-auto space-y-2">
+          <ProductPrice value={unitPrice({ price, pricingTiers })} />
+          {bulk && (
+            <p className="text-xs text-slate-600">
+              TSh{" "}
+              {Number(bulk.price).toLocaleString("en-TZ", {
+                maximumFractionDigits: 2,
+              })}{" "}
+              / bidhaa ukiagiza {bulk.minQty} pcs
+            </p>
+          )}
+          {stock > 0 ? (
+            <StockBadge stock={stock} />
+          ) : (
+            <p className="text-xs font-medium text-slate-500">
+              Zimeisha kwa sasa
+            </p>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   );
-};
-
-export default ProductCard;
+}

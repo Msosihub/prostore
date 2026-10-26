@@ -1,3 +1,4 @@
+import { publicUrl } from "@/lib/storefront-seo";
 /* Native GET navigation keeps search recovery independent of the client router. */
 /* eslint-disable @next/next/no-html-link-for-pages */
 import Pagination from "@/components/shared/pagination4";
@@ -17,25 +18,10 @@ const sortOrdersMap = [
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-export async function generateMetadata(props: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const params = await props.searchParams;
-  const q = catalogParam(params.q, "all").trim();
-  const category = catalogParam(params.category, "all");
-
-  const isQuerySet = q && q !== "all" && q.trim() !== "";
-  const isCategorySet =
-    category && category !== "all" && category.trim() !== "";
-
-  // 🟢 ALIBABA/AMAZON GRADE RICH SEO INDEX METADATA HEADERS
-  if (isQuerySet || isCategorySet) {
-    return {
-      title: `Tafuta ${isQuerySet ? `"${q}"` : ""} ${isCategorySet ? `katika ${category}` : ""} | Nimboya Soko la Jumla`,
-      description: `Gundua bei bora za jumla kwa ${q || category} kutoka kwa wasambazaji waliothibitishwa kote Tanzania kwenye Nimboya Marketplace.`,
-    };
-  }
-  return { title: "Tafuta Bidhaa za Jumla | Nimboya" };
+export async function generateMetadata(props: {searchParams:Promise<SearchParams>}) {
+ const params=await props.searchParams;const q=catalogParam(params.q,"all").trim();const page=catalogPage(catalogParam(params.page,"1"));
+ const filtered=["q","category","price","rating"].some(k=>{const v=catalogParam(params[k],"all");return v!=="all"&&v.trim()!=="";}) || !["newest","all", ""].includes(catalogParam(params.sort,"newest"));
+ return {title:q&&q!=="all"?`Matokeo ya ${q}`:`Bidhaa zote${page>1?` — Ukurasa ${page}`:""}`,description:"Linganisha bidhaa na bei kutoka maduka kwenye Nimboya.",robots:{index:!filtered,follow:true},...(!filtered?{alternates:{canonical:publicUrl(`/search${page>1?`?page=${page}`:""}`)}}:{})};
 }
 
 export default async function SearchPage(props: {

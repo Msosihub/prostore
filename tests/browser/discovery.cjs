@@ -27,6 +27,13 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
    const p=await prisma.product.create({data:{...template,name:`Browse fixture ${i}`,slug:`browse-fixture-${i}`}});
    ids.push(p.id);
   }
+  // Category pagination must be server rendered and crawlable without JavaScript.
+  const categoryResponse=await context.request.get(state.baseUrl+'/categories/'+original.categoryId+'?page=2');
+  assert.equal(categoryResponse.status(),200);
+  const categoryHtml=await categoryResponse.text();
+  assert(categoryHtml.includes('Kurasa za kundi'));
+  assert(categoryHtml.includes('/categories/'+original.categoryId+'?page=3'));
+  assert(categoryHtml.includes('rel="canonical" href="'+state.baseUrl+'/categories/'+original.categoryId+'?page=2"'));
   await input.fill('Browse fixture'); await page.getByRole('button',{name:'Tafuta',exact:true}).click();
   await page.getByRole('navigation',{name:'Kurasa za bidhaa'}).waitFor();
   await page.getByRole('link',{name:'Mbele',exact:true}).click();

@@ -34,3 +34,7 @@ test("both card variants omit unsupported review/sales claims",()=>{
   expect(html).not.toContain('text-yellow-500'); expect(html).toContain('Fixture');
  }
 });
+test('non-monotonic bulk tiers advertise an exact quantity, not all higher quantities',()=>{
+ const html=render(ProductCard,{id:'fixture',slug:'fixture',name:'Fixture',brand:'Test',category:'Test',supplier:'Test',images:[],price:1000,stock:30,pricingTiers:[{minQty:5,price:800},{minQty:10,price:900}]});
+ expect(html).toContain('ukiagiza 5 pcs');expect(html).not.toContain('5+');
+});
