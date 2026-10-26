@@ -39,6 +39,13 @@ export default function DailySalesChart({
     year: "2-digit",
   });
 
+  if (!salesByDayData.length)
+    return (
+      <p role="status" className="py-8 text-sm text-slate-500">
+        Hakuna maagizo yaliyolipiwa bado.
+      </p>
+    );
+
   return (
     <div className="w-full h-[320px] pt-2 select-none">
       <ResponsiveContainer width="100%" height="100%">

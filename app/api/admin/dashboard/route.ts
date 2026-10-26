@@ -1,13 +1,12 @@
 // app/api/admin/dashboard/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export async function GET() {
-  // Admin guard (assumes next-auth session contains user.role)
-  // console.log("GET /api/admin/dashboard called", req.url);
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  try {
+    await requireAdmin();
+  } catch {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -43,7 +42,11 @@ export async function GET() {
     const recentLogs = await prisma.auditLog.findMany({
       take: 10,
       orderBy: { createdAt: "desc" },
-      include: { admin: { include: { user: true } } },
+      include: {
+        admin: {
+          select: { id: true, user: { select: { name: true, email: true } } },
+        },
+      },
     });
     // console.log("Recent logs fetched:", recentLogs.length);
 
@@ -180,7 +183,7 @@ export async function GET() {
     console.error("GET /api/admin/dashboard error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -16,6 +16,8 @@ import {
   markOrderAsDelivered,
   markOrderItemAsDelivered,
   updateOrderToPaidCOD,
+  getOrderSummary,
+  getMyOrders,
 } from "@/lib/actions/order.actions";
 import { confirmDelivery, openOrderDispute } from "@/lib/order-delivery";
 import { fulfillOrder, settleOrder } from "@/lib/order-fulfillment";
@@ -1076,4 +1078,33 @@ test("dispatch racing receipt cannot regress delivered item or double release", 
   expect(
     (await prisma.order.findUnique({ where: { id: f.order.id } })).isDelivered,
   ).toBe(false);
+});
+
+test("workspace summaries match each seller ledger and buyer partial receipt", async () => {
+  const f = await multiSellerFixture();
+  await confirmDelivery(f.order.id, f.product.id, {
+    kind: "buyer",
+    userId: f.user.id,
+  });
+  const a = await getOrderSummary(f.a.id);
+  expect(a.totalSales).toBe(2000);
+  expect(a.walletBalance).toBe(2000);
+  expect(a.pendingEscrow).toBe(0);
+  expect(a.usersCount).toBe(1);
+  expect(a.latestSales[0].totalPrice).toBe(2000);
+  auth.mockResolvedValue({ user: { id: f.b.id, role: "SUPPLIER" } });
+  const b = await getOrderSummary(f.b.id);
+  expect(b.totalSales).toBe(1000);
+  expect(b.walletBalance).toBe(0);
+  expect(b.pendingEscrow).toBe(1000);
+  expect(b.latestSales[0].totalPrice).toBe(1000);
+  expect(b.salesData.reduce((sum, p) => sum + p.totalSales, 0)).toBe(1000);
+  const denied = await getOrderSummary(f.a.id);
+  expect(denied.totalSales).toBe(0);
+  expect(denied.latestSales).toEqual([]);
+  auth.mockResolvedValue({ user: { id: f.user.id, role: "BUYER" } });
+  const mine = await getMyOrders({ page: 1 });
+  expect(mine.data).toHaveLength(1);
+  expect(mine.data[0].isPaid).toBe(true);
+  expect(mine.data[0].orderitems.filter((i) => i.isDelivered)).toHaveLength(1);
 });

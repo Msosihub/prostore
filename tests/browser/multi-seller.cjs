@@ -244,6 +244,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       2000,
     );
     await page.screenshot({
+      fullPage: true,
       path: state.stage + "/multi-seller-buyer-mobile.png",
     });
     await page
@@ -287,6 +288,63 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.screenshot({
       path: state.stage + "/multi-seller-admin-mobile.png",
     });
+    await page.goto(state.baseUrl + "/user/orders");
+    const ownCard = page
+      .locator('a[href="/order/' + order.id + '"]')
+      .filter({ hasText: "Zilizopokelewa: 1/2" });
+    await ownCard.first().waitFor();
+    await page.screenshot({
+      path: state.stage + "/buyer-partial-summary-mobile.png",
+    });
+    await vb.p.goto(state.baseUrl + "/supplier/overview");
+    await vb.p
+      .getByText("Thamani ya Bidhaa Zilizolipiwa", { exact: true })
+      .waitFor();
+    const dashboard = await vb.p.locator("main").innerText();
+    assert(!dashboard.includes("3121359"));
+    assert(!dashboard.includes("Staging Vendor"));
+    await vb.p.locator(".recharts-bar-rectangle path").first().waitFor();
+    await vb.p.waitForFunction(() => {
+      const bar = document.querySelector(".recharts-bar-rectangle path");
+      return bar && bar.getBoundingClientRect().height > 10;
+    });
+    await vb.p.screenshot({
+      path: state.stage + "/seller-summary-mobile.png",
+      fullPage: true,
+    });
+    assert.equal(
+      (
+        await buyer.request.get(state.baseUrl + "/api/admin/dashboard")
+      ).status(),
+      403,
+    );
+    await prisma.user.update({
+      where: { id: seller.id },
+      data: { role: "BUYER" },
+    });
+    await vb.p.reload();
+    await vb.p
+      .getByText("Muhtasari haupatikani kwa sasa", { exact: true })
+      .waitFor();
+    assert.equal(
+      await vb.p.getByText("Escrow Pending", { exact: true }).count(),
+      0,
+    );
+    const adminUser = await prisma.user.findFirst({
+      where: { phone: "+255700000004" },
+    });
+    await prisma.user.update({
+      where: { id: adminUser.id },
+      data: { role: "BUYER" },
+    });
+    assert.equal(
+      (
+        await admin.c.request.get(state.baseUrl + "/api/admin/dashboard")
+      ).status(),
+      403,
+    );
+    await admin.p.goto(state.baseUrl + "/admin/orders");
+    await admin.p.waitForURL((url) => url.pathname === "/unauthorized");
     await page.goto(state.baseUrl + "/admin/orders");
     await page.waitForURL("**/unauthorized");
     await prisma.user.update({

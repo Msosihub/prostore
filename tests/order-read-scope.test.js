@@ -126,7 +126,73 @@ test.each(["BUYER", "SUPPLIER", "ADMIN"])(
       createdAt: true,
       totalPrice: true,
       paymentStatus: true,
+      isPaid: true,
+      orderitems: { select: { isDelivered: true } },
       isDelivered: true,
     });
   },
 );
+
+test("empty seller summary has no invented chart points", async () => {
+  const summary = await getOrderSummary("owner");
+  expect(summary.available).toBe(true);
+  expect(summary.totalSales).toBe(0);
+  expect(summary.salesData).toEqual([]);
+  expect(summary.salesByDayData).toEqual([]);
+});
+test("seller paid-item values, customer count and chronology remain separate from wallet", async () => {
+  prisma.orderItem.findMany.mockResolvedValue([
+    {
+      orderId: "b",
+      price: "2000",
+      qty: 2,
+      isDelivered: false,
+      order: {
+        id: "b",
+        userId: "customer",
+        createdAt: new Date("2026-02-03T12:00:00Z"),
+        user: { name: "Buyer" },
+      },
+    },
+    {
+      orderId: "a",
+      price: "1000",
+      qty: 1,
+      isDelivered: true,
+      order: {
+        id: "a",
+        userId: "customer",
+        createdAt: new Date("2025-12-03T12:00:00Z"),
+        user: { name: "Buyer" },
+      },
+    },
+  ]);
+  const summary = await getOrderSummary("owner");
+  expect(summary.totalSales).toBe(5000);
+  expect(summary.deliveredValue).toBe(1000);
+  expect(summary.walletBalance).toBe(0);
+  expect(summary.usersCount).toBe(1);
+  expect(summary.salesData).toEqual([
+    { month: "12/25", totalSales: 1000 },
+    { month: "02/26", totalSales: 4000 },
+  ]);
+  expect(prisma.orderItem.findMany.mock.calls[0][0].where).toEqual({
+    supplierId: "vendor",
+    order: { isPaid: true },
+  });
+  expect(prisma.orderItem.count).toHaveBeenCalledWith({
+    where: {
+      supplierId: "vendor",
+      status: { in: ["PAID", "PREPARING"] },
+      isDelivered: false,
+      order: { isPaid: true },
+    },
+  });
+});
+
+test("failed summary read is explicitly unavailable", async () => {
+  prisma.orderItem.findMany.mockRejectedValueOnce(
+    new Error("database unavailable"),
+  );
+  expect((await getOrderSummary("owner")).available).toBe(false);
+});

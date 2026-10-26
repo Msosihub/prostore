@@ -310,6 +310,8 @@ export async function getMyOrders({
       createdAt: true,
       totalPrice: true,
       paymentStatus: true,
+      isPaid: true,
+      orderitems: { select: { isDelivered: true } },
       isDelivered: true,
     },
     orderBy: { createdAt: "desc" },
@@ -414,7 +416,7 @@ export async function getMyOrders({
 //       salesData,
 //     };
 //   } catch (error) {
-//     console.error("Failed to compile order analytics summary:", error);
+//     console.error("Failed to compile order analytics summary");
 //     return {
 //       ordersCount: 0,
 //       productsCount: 0,
@@ -494,9 +496,13 @@ export async function getOrderSummary(supplierId: string) {
         (salesByMonth[month] || 0) + Number(item.price) * item.qty;
     }
 
-    const salesData = Object.entries(salesByMonth).map(
-      ([month, totalSales]) => ({ month, totalSales }),
-    );
+    const salesData = Object.entries(salesByMonth)
+      .map(([month, totalSales]) => ({ month, totalSales }))
+      .sort((a, b) => {
+        const [am, ay] = a.month.split("/").map(Number);
+        const [bm, by] = b.month.split("/").map(Number);
+        return ay - by || am - bm;
+      });
 
     const latestSalesMap = new Map();
 
@@ -565,7 +571,7 @@ export async function getOrderSummary(supplierId: string) {
     const awaitingDispatchCount = await prisma.orderItem.count({
       where: {
         supplierId: supplierIdid,
-        status: "PREPARING",
+        status: { in: ["PAID", "PREPARING"] },
         isDelivered: false,
         order: { isPaid: true },
       },
@@ -583,6 +589,7 @@ export async function getOrderSummary(supplierId: string) {
     const latestSales = Array.from(latestSalesMap.values()).slice(0, 6);
 
     return {
+      available: true,
       ordersCount: uniqueOrderIds.size,
       productsCount,
       rejectedOrdersCount,
@@ -599,9 +606,10 @@ export async function getOrderSummary(supplierId: string) {
       pendingEscrow: Number(supplierWallet?.pendingBalance || 0),
       walletBalance: Number(supplierWallet?.walletBalance || 0),
     };
-  } catch (error) {
-    console.error("Failed to compile order analytics summary:", error);
+  } catch {
+    console.error("Failed to compile order analytics summary");
     return {
+      available: false,
       ordersCount: 0,
       productsCount: 0,
       rejectedOrdersCount: 0,
