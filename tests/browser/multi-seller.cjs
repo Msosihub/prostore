@@ -328,6 +328,32 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       await vb.p.getByText("Escrow Pending", { exact: true }).count(),
       0,
     );
+    await admin.p.goto(
+      state.baseUrl + "/admin/payments?status=SETTLED&page=99",
+    );
+    await admin.p
+      .getByRole("heading", { name: "Payment recovery", exact: true })
+      .waitFor();
+    await admin.p.getByText("Page 1 of 1", { exact: false }).waitFor();
+    await admin.p.locator('a[href^="/admin/payments/"]').first().click();
+    await admin.p
+      .getByRole("heading", { name: "Payment attempt", exact: true })
+      .waitFor();
+    await admin.p
+      .getByRole("button", { name: "Check existing payment", exact: true })
+      .click();
+    await admin.p
+      .getByText("Payment confirmed and order recorded.", { exact: true })
+      .waitFor();
+    assert.equal(
+      await admin.p.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth,
+      ),
+      false,
+    );
+    await admin.p
+      .locator("#admin-content")
+      .screenshot({ path: state.stage + "/payment-recovery-mobile.png" });
     await admin.p.goto(state.baseUrl + "/admin");
     await admin.p.getByRole("heading", { name: "Operations overview" }).waitFor();
     assert.equal(await admin.p.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);

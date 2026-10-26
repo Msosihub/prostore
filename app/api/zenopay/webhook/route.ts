@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         { status: 404 },
       );
     }
-    await reconcileZenopay(orderId, attempt);
+    await reconcileZenopay(orderId, attempt, true);
     return NextResponse.json({ received: true });
   } catch {
     return NextResponse.json(

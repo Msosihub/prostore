@@ -1,3 +1,5 @@
+import { prisma } from "@/db/prisma";
+import PaymentRefresh from "@/components/admin/payment-refresh";
 import { requireAdmin } from "@/lib/auth-guard";
 import { getFulfillmentOrder } from "@/lib/fulfillment-view";
 import FulfillmentDetails from "@/components/orders/fulfillment-details";
@@ -14,5 +16,16 @@ export default async function AdminOrderPage({
   if (!z.string().uuid().safeParse(id).success) notFound();
   const order = await getFulfillmentOrder(id);
   if (!order) notFound();
-  return <FulfillmentDetails order={order} />;
+  const payment = await prisma.order.findUnique({
+    where: { id },
+    select: { paymentMethod: true },
+  });
+  return (
+    <div className="space-y-4">
+      {payment?.paymentMethod === "ZENOPAY" && (
+        <PaymentRefresh orderId={id} admin />
+      )}
+      <FulfillmentDetails order={order} />
+    </div>
+  );
 }

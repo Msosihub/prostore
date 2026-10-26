@@ -37,7 +37,7 @@ global.fetch = async (input, init = {}) => {
               order_id: id,
               amount: p.amount,
               payment_status: p.status,
-              reference: "fixture-reference",
+              reference: `fixture-${id}`,
             },
           ]
         : [],

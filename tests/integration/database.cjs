@@ -187,12 +187,28 @@ async function prepare() {
   );
   for (const statement of migration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
-  const otpMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261026180000_otp_throttle/migration.sql"), "utf8");
-  for (const statement of otpMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const recoveryMigration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../prisma/migrations/20261026193000_payment_recovery/migration.sql",
+    ),
+    "utf8",
+  );
+  for (const statement of recoveryMigration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const otpMigration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../prisma/migrations/20261026180000_otp_throttle/migration.sql",
+    ),
+    "utf8",
+  );
+  for (const statement of otpMigration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
 }
 async function reset() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
+    `TRUNCATE "PaymentAttemptEvent", "PaymentAttempt", "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
   );
 }
 async function fixture({ stock = 5, qty = 2, paymentResult } = {}) {

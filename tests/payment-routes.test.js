@@ -1,3 +1,8 @@
+jest.mock("@/lib/payment-recovery", () => ({
+  ...jest.requireActual("@/lib/payment-recovery"),
+  reservePayment: jest.fn(),
+}));
+import { reservePayment } from "@/lib/payment-recovery";
 jest.mock("@/auth", () => ({ auth: jest.fn() }));
 jest.mock("@/db/prisma", () => ({
   prisma: { order: { findUnique: jest.fn(), updateMany: jest.fn() } },
@@ -41,6 +46,12 @@ beforeEach(() => {
     if (order.paymentResult) return { count: 0 };
     Object.assign(order, data);
     return { count: 1 };
+  });
+  reservePayment.mockImplementation(async (_id, _user, ref) => {
+    const result = await prisma.order.updateMany({
+      data: { paymentResult: { zenopay_order_id: ref } },
+    });
+    return !!result.count;
   });
   zenopayRequest.mockResolvedValue({ status: "success" });
   reconcileZenopay.mockResolvedValue("PENDING");
@@ -141,7 +152,7 @@ test("callback uses server verification and ignores claimed success", async () =
       )
     ).status,
   ).toBe(200);
-  expect(reconcileZenopay).toHaveBeenCalledWith(id, `${id}=correct`);
+  expect(reconcileZenopay).toHaveBeenCalledWith(id, `${id}=correct`, true);
   expect(prisma.order.updateMany).not.toHaveBeenCalled();
 });
 test("verification failure asks for retry without details", async () => {

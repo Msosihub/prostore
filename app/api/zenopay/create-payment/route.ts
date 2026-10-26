@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
+import { reservePayment } from "@/lib/payment-recovery";
 import { COD_METHODS, PESAPAL_METHODS } from "@/lib/payment-methods";
 import { auth } from "@/auth";
 import { zenopayRequest } from "@/lib/zenopay";
@@ -41,9 +41,11 @@ export async function POST(req: Request) {
         success: status !== "FAILED",
         status,
         message:
-          status === "FAILED"
-            ? "Payment failed. Contact support before starting another payment."
-            : "Payment status checked. No additional payment request sent.",
+          status === "REQUIRES_REVIEW"
+            ? "Payment requires support review. Do not pay again."
+            : status === "FAILED"
+              ? "Payment failed. Contact support before starting another payment."
+              : "Payment status checked. No additional payment request sent.",
       });
     }
     // Legacy/other-provider results need reconciliation, not an automatic new charge.
@@ -78,20 +80,13 @@ export async function POST(req: Request) {
     const attempt = `${order.id}=${randomUUID()}`;
     // Persist before the network call; concurrent clicks can only claim once.
     // A timeout is ambiguous and must retain the attempt for reconciliation.
-    const claim = await prisma.order.updateMany({
-      where: {
-        id: order.id,
-        userId: session.user.id,
-        isPaid: false,
-        paymentResult: { equals: Prisma.AnyNull },
-      },
-      data: {
-        paymentMethod: "ZENOPAY",
-        paymentStatus: "PENDING",
-        paymentResult: { zenopay_order_id: attempt },
-      },
-    });
-    if (!claim.count)
+    const claim = await reservePayment(
+      order.id,
+      session.user.id,
+      attempt,
+      Number(order.totalPrice),
+    );
+    if (!claim)
       return NextResponse.json(
         { error: "Payment already in progress. Check the order status." },
         { status: 409 },
