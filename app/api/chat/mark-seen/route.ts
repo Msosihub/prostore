@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { z } from "zod";
+import { participantScope } from "@/lib/chat-access";
 import { prisma } from "@/db/prisma";
 
 export async function POST(req: Request) {
@@ -9,7 +11,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { conversationId } = await req.json();
+  const input = z
+    .object({ conversationId: z.string().uuid() })
+    .strict()
+    .safeParse(await req.json().catch(() => null));
+  if (!input.success)
+    return NextResponse.json(
+      { error: "Invalid conversation" },
+      { status: 400 },
+    );
+  const { conversationId } = input.data;
+  const participant = await prisma.conversation.findFirst({
+    where: { id: conversationId, ...participantScope(session.user.id) },
+    select: { id: true },
+  });
+  if (!participant)
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
 
   await prisma.message.updateMany({
     where: {
@@ -19,7 +39,7 @@ export async function POST(req: Request) {
         not: session.user.id,
       },
       conversation: {
-        OR: [{ supplierId: session.user.id }, { buyerId: session.user.id }],
+        ...participantScope(session.user.id),
       },
     },
     data: {

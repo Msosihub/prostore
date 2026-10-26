@@ -18,6 +18,10 @@ const prisma = new generated.PrismaClient({
   errorFormat: "minimal",
 });
 const models = [
+  "Conversation",
+  "Message",
+  "Inquiry",
+  "Attachment",
   "User",
   "Supplier",
   "Brand",

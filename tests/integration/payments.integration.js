@@ -690,3 +690,165 @@ test("read-only report accepts a pending string attempt", async () => {
   await fixture();
   expect(await readOnlyReport()).toEqual([]);
 });
+
+const { getConversation } = require("@/lib/actions/chat.actions");
+const { POST: markChatSeen } = require("@/app/api/chat/mark-seen/route");
+const { POST: createChatInquiry } = require("@/app/api/inquiries/route");
+async function chatFixture() {
+  const f = await fixture();
+  const vendor = await prisma.user.create({
+    data: { name: "Chat Vendor", role: "SUPPLIER" },
+  });
+  const outsider = await prisma.user.create({
+    data: { name: "Other Buyer", role: "BUYER" },
+  });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: {
+      password: "private-password-fixture",
+      address: { private: "private-address-fixture" },
+    },
+  });
+  await prisma.supplier.update({
+    where: { id: f.supplier.id },
+    data: { userId: vendor.id },
+  });
+  const conversation = await prisma.conversation.create({
+    data: {
+      buyerId: f.user.id,
+      supplierId: vendor.id,
+      productId: f.product.id,
+    },
+  });
+  const other = await prisma.conversation.create({
+    data: { buyerId: outsider.id, supplierId: vendor.id },
+  });
+  const privateMessage = await prisma.message.create({
+    data: {
+      conversationId: other.id,
+      senderId: outsider.id,
+      content: "private-other-thread-fixture",
+    },
+  });
+  const privateInquiry = await prisma.inquiry.create({
+    data: { conversationId: other.id, details: "private-inquiry-fixture" },
+  });
+  const incoming = await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId: vendor.id,
+      content: "Participant message",
+      replyToId: privateMessage.id,
+      inquiryId: privateInquiry.id,
+      moderationNote: "private-moderation-fixture",
+    },
+  });
+  await prisma.message.create({
+    data: {
+      conversationId: conversation.id,
+      senderId: f.user.id,
+      content: "Buyer message",
+    },
+  });
+  return { ...f, vendor, outsider, conversation, other, incoming };
+}
+const chatRequest = (data) =>
+  new Request("http://localhost", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+test("participant conversation projection excludes credentials and cross-thread reply/inquiry data", async () => {
+  const f = await chatFixture();
+  auth.mockResolvedValue({ user: { id: f.user.id, role: "BUYER" } });
+  const conversation = await getConversation(f.conversation.id);
+  expect(conversation.id).toBe(f.conversation.id);
+  expect(
+    conversation.messages.find((m) => m.id === f.incoming.id),
+  ).toMatchObject({ replyTo: null, inquiry: null });
+  for (const marker of [
+    "private-password-fixture",
+    "private-address-fixture",
+    "private-other-thread-fixture",
+    "private-inquiry-fixture",
+    "private-moderation-fixture",
+  ])
+    expect(JSON.stringify(conversation)).not.toContain(marker);
+  auth.mockResolvedValue({ user: { id: f.vendor.id, role: "SUPPLIER" } });
+  expect((await getConversation(f.conversation.id)).id).toBe(f.conversation.id);
+  auth.mockResolvedValue({ user: { id: f.outsider.id, role: "ADMIN" } });
+  expect(await getConversation(f.conversation.id)).toBeNull();
+});
+test("mark seen cannot mutate foreign threads or broaden a missing ID; own outgoing messages stay unread", async () => {
+  const f = await chatFixture();
+  auth.mockResolvedValue({ user: { id: f.outsider.id } });
+  expect(
+    (await markChatSeen(chatRequest({ conversationId: f.conversation.id })))
+      .status,
+  ).toBe(404);
+  auth.mockResolvedValue({ user: { id: f.user.id } });
+  expect((await markChatSeen(chatRequest({}))).status).toBe(400);
+  expect(await prisma.message.count({ where: { seen: true } })).toBe(0);
+  expect(
+    (await markChatSeen(chatRequest({ conversationId: f.conversation.id })))
+      .status,
+  ).toBe(200);
+  expect(await prisma.message.count({ where: { seen: true } })).toBe(1);
+  expect(
+    (await prisma.message.findUnique({ where: { id: f.incoming.id } })).seen,
+  ).toBe(true);
+});
+test("inquiry creation is buyer-owned and product-vendor scoped with no nested write authority", async () => {
+  const f = await chatFixture();
+  const body = {
+    conversationId: f.conversation.id,
+    productId: f.product.id,
+    quantity: 3,
+  };
+  for (const user of [f.vendor, f.outsider]) {
+    auth.mockResolvedValue({ user: { id: user.id } });
+    expect((await createChatInquiry(chatRequest(body))).status).toBe(404);
+  }
+  auth.mockResolvedValue({ user: { id: f.user.id } });
+  expect(
+    (await createChatInquiry(chatRequest({ ...body, buyerId: f.outsider.id })))
+      .status,
+  ).toBe(400);
+  expect((await createChatInquiry(chatRequest(body))).status).toBe(200);
+  expect(
+    await prisma.inquiry.findFirst({
+      where: { conversationId: f.conversation.id },
+    }),
+  ).toMatchObject({ buyerId: f.user.id, status: "PENDING" });
+});
+
+test("inquiry decimals cannot round a positive quantity to zero or overflow storage", async () => {
+  const f = await chatFixture();
+  auth.mockResolvedValue({ user: { id: f.user.id } });
+  const body = { conversationId: f.conversation.id, productId: f.product.id };
+  for (const fields of [
+    { quantity: 0.001 },
+    { quantity: 10000000000 },
+    { targetPrice: 0.001 },
+    { targetPrice: 10000000000 },
+  ])
+    expect(
+      (await createChatInquiry(chatRequest({ ...body, ...fields }))).status,
+    ).toBe(400);
+  expect(
+    await prisma.inquiry.count({
+      where: { conversationId: f.conversation.id },
+    }),
+  ).toBe(0);
+  expect(
+    (
+      await createChatInquiry(
+        chatRequest({ ...body, quantity: 0.01, targetPrice: 9999999999.99 }),
+      )
+    ).status,
+  ).toBe(200);
+  const row = await prisma.inquiry.findFirst({
+    where: { conversationId: f.conversation.id },
+  });
+  expect(row.quantity.toString()).toBe("0.01");
+  expect(row.targetPrice.toString()).toBe("9999999999.99");
+});

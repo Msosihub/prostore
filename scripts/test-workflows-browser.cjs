@@ -165,7 +165,7 @@ const freePort = () =>
       .readFileSync(fixtureFile, "utf8")
       .replace(
         '  "User",',
-        '  "Cart", "VerificationToken", "Review", "Account", "Session", "Certification", "Banner", "BannerItem", "SupplierPolicy", "ProductComment", "Notification", "Message", "Conversation",\n  "User",',
+        '  "Cart", "VerificationToken", "Review", "Account", "Session", "Certification", "Banner", "BannerItem", "SupplierPolicy", "ProductComment", "Notification", \n  "User",',
       )
       .replace(
         "defaultValue.startsWith",
@@ -234,7 +234,14 @@ const freePort = () =>
       if (i === 119) throw Error("Staging server startup timed out");
       await new Promise((r) => setTimeout(r, 500));
     }
-    for (const test of ["flow", "cart", "payment", "delivery", "dispute"])
+    for (const test of [
+      "flow",
+      "cart",
+      "payment",
+      "delivery",
+      "dispute",
+      "chat",
+    ])
       await run(path.join(root, "tests/browser", test + ".cjs"), driverEnv);
     console.log("PASS all disposable browser workflow assertions");
   } finally {

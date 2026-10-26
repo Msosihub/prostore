@@ -5,7 +5,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   const token = req.headers.get("x-nimboya-internal-key");
-  if (token !== process.env.INTERNAL_SHARED_SECRET) {
+  const expected = process.env.INTERNAL_SHARED_SECRET;
+  if (!expected || token !== expected) {
     return new NextResponse("Forbidden Context Key", { status: 403 });
   }
 
