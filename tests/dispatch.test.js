@@ -36,6 +36,7 @@ beforeEach(() => {
     orderitems: [item],
   }));
   tx = {
+    orderNotification: {upsert: jest.fn()},
     returnRequest: { findUnique: jest.fn().mockResolvedValue(null) },
     orderItem: {
       update: jest.fn().mockImplementation(async () => {
@@ -51,8 +52,9 @@ test("dispatch and repeated retry write/notify only once", async () => {
   expect((await markItemDispatched(input)).success).toBe(true);
   expect((await markItemDispatched(input)).success).toBe(true);
   expect(tx.orderItemEvent.create).toHaveBeenCalledTimes(1);
-  expect(sendSms).toHaveBeenCalledTimes(1);
-  expect(sendSms.mock.calls[0][0]).toBe("+255700000009");
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(tx.orderNotification.upsert).toHaveBeenCalledTimes(1);
+
 });
 test.each(["anonymous", "wrong seller", "unpaid", "disputed", "revoked"])(
   "%s cannot dispatch",
@@ -74,7 +76,8 @@ test("failed SMS does not report committed dispatch as failed or retry it", asyn
   sendSms.mockRejectedValueOnce(new Error("sensitive provider detail"));
   expect((await markItemDispatched(input)).success).toBe(true);
   expect((await markItemDispatched(input)).success).toBe(true);
-  expect(sendSms).toHaveBeenCalledTimes(1);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(tx.orderNotification.upsert).toHaveBeenCalledTimes(1);
   expect(tx.orderItemEvent.create).toHaveBeenCalledTimes(1);
 });
 test("oversized manual notes rejected on server", async () => {

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Metadata } from "next";
 import { auth } from "@/auth";
 import { SessionProvider } from "next-auth/react";
@@ -15,6 +16,9 @@ const Profile = async () => {
       <div className="max-w-md mx-auto space-y-4">
         <h2 className="h2-bold">Profile</h2>
         <ProfileForm />
+        <Link href="/user/notifications" className="underline">
+          Order SMS preferences
+        </Link>
       </div>
     </SessionProvider>
   );

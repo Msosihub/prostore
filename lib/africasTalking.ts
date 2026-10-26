@@ -19,8 +19,10 @@ export async function sendSms(to: string, message: string) {
   try {
     const res = await fetch(url, {
       method: "POST",
+      signal: AbortSignal.timeout(15000),
       headers: {
         apiKey,
+        Accept: "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body,

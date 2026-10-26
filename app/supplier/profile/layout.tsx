@@ -1,3 +1,4 @@
+import Link from "next/link";
 import ProfileNav from "./profile-nav";
 
 export default function SupplierProfileLayout({
@@ -14,6 +15,9 @@ export default function SupplierProfileLayout({
         </div>
       </div>
 
+      <Link href="/user/notifications" className="underline">
+        Order SMS preferences
+      </Link>
       {/* Primary child content injection wrapper portal frame layout lines */}
       <div className="w-full max-w-5xl mx-auto px-1 pt-2">{children}</div>
     </div>

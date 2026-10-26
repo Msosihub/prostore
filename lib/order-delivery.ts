@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/db/prisma";
-import { sendSms } from "@/lib/africasTalking";
+import { queueOrderNotification } from "@/lib/order-notification-events";
 
 type TransactionClient = Parameters<
   Parameters<typeof prisma.$transaction>[0]
@@ -134,6 +134,12 @@ export async function confirmDelivery(
             },
             update: feedback,
           });
+        await queueOrderNotification(tx, {
+          orderId,
+          kind: "SELLER_DELIVERY",
+          targetId: item.supplierId,
+          productId: item.productId,
+        });
         completed.push({
           supplierId: item.supplierId,
           name: item.name,
@@ -153,21 +159,6 @@ export async function confirmDelivery(
     },
     { timeout: 15000, maxWait: 10000 },
   );
-  for (const item of notifications) {
-    try {
-      const supplier = await prisma.supplier.findUnique({
-        where: { id: item.supplierId },
-        select: { phone: true, name: true },
-      });
-      if (supplier?.phone)
-        await sendSms(
-          supplier.phone,
-          `Habari ${supplier.name}, mteja (${item.buyerName}) amethibitisha kupokea ${item.qty}x ${item.name}. Agizo #${orderId.slice(0, 8)}. Malipo yametolewa kwenye wallet yako.`,
-        );
-    } catch {
-      console.error("Delivery notification failed");
-    }
-  }
   return { released: notifications.length };
 }
 

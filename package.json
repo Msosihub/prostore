@@ -12,6 +12,7 @@
     "tree": "npx tree-cli -l 2 -i \"node_modules,.next,.git\"",
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit",
+    "test:backup:restore": "node scripts/test-payments-postgres.cjs --backup-restore",
     "test:payments:postgres": "node scripts/test-payments-postgres.cjs",
     "build:validate:offline": "node scripts/validate-compile-offline.cjs",
     "test:workflows:browser": "node scripts/test-workflows-browser.cjs"

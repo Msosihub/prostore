@@ -37,6 +37,7 @@ beforeEach(() => {
   });
   sendSms.mockResolvedValue(undefined);
   tx = {
+    orderNotification: {upsert: jest.fn()},
     order: {
       updateMany: jest.fn(async () => {
         if (state.paid) return { count: 0 };
@@ -87,7 +88,8 @@ test("sequential callbacks settle stock, escrow and notifications once", async (
   await fulfillOrder("order", "attempt", "ref");
   await fulfillOrder("order", "attempt", "ref");
   expect(state).toEqual({ paid: true, stock: 3, balance: 2000, ledger: true });
-  expect(sendSms).toHaveBeenCalledTimes(2);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(tx.orderNotification.upsert).toHaveBeenCalledTimes(2);
   expect(tx.product.updateMany).toHaveBeenCalledTimes(1);
 });
 test("concurrent callbacks have one transaction winner", async () => {
@@ -97,7 +99,8 @@ test("concurrent callbacks have one transaction winner", async () => {
   ]);
   expect(state.stock).toBe(3);
   expect(state.balance).toBe(2000);
-  expect(sendSms).toHaveBeenCalledTimes(2);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(tx.orderNotification.upsert).toHaveBeenCalledTimes(2);
 });
 test("inventory failure rolls back paid claim and can retry", async () => {
   state.stock = 0;
@@ -122,7 +125,8 @@ test("SMS failure never rolls back or repeats financial fulfillment", async () =
   await fulfillOrder("order", "attempt", "ref");
   await fulfillOrder("order", "attempt", "ref");
   expect(state.stock).toBe(3);
-  expect(sendSms).toHaveBeenCalledTimes(2);
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(tx.orderNotification.upsert).toHaveBeenCalledTimes(2);
 });
 
 test("legacy escrow with an unpaid header requires review without another decrement", async () => {

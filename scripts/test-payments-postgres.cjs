@@ -52,6 +52,7 @@ try {
     PROSTORE_TEST_CLIENT: clientPath,
     ZENOPAY_API_KEY: "",
     AT_API_KEY: "",
+    PROSTORE_BACKUP_FIXTURE: process.argv.includes("--backup-restore") ? "1" : "",
     PRISMA_SCHEMA_ENGINE_BINARY: "/bin/true",
     PRISMA_QUERY_ENGINE_LIBRARY: "/bin/true",
   };
@@ -76,6 +77,9 @@ try {
     { cwd: root, env, stdio: "inherit" },
   );
   process.exitCode = result.status ?? 1;
+  if (result.status === 0 && process.argv.includes("--backup-restore")) {
+    console.log("PASS disposable backup/restore:", JSON.stringify(require("./verify-disposable-restore.cjs").verifyRestore(name)));
+  }
 } finally {
   if (started) docker(["stop", "--time", "2", name]);
 }
