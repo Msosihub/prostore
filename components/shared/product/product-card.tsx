@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import ProductPrice from "./product-price";
 import StockBadge from "./stock-badge";
-import Rating from "./rating";
 import { Decimal } from "@prisma/client/runtime/library";
 
 type ProductCardProps = {
@@ -87,14 +86,6 @@ const ProductCard = ({
 
         {/* Dynamic Pricing Matrix Blocks */}
         <div className="space-y-1.5 pt-1 mt-auto">
-          {/* Rating Block (Scaled down appropriately for dense styling) */}
-          <div className="flex items-center gap-1 text-[10px] text-amber-500 font-medium">
-            <Rating value={4.5} />
-            <span className="text-slate-400 font-normal text-[9px] pt-0.5">
-              (12)
-            </span>
-          </div>
-
           {/* Price Layout Element Layer */}
           <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-baseline">
             {stock > 0 ? (
