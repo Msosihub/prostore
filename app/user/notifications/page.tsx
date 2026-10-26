@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/db/prisma";
 import { redirect } from "next/navigation";
@@ -13,6 +14,7 @@ export default async function Preferences() {
   return (
     <section className="mx-auto max-w-xl space-y-4 p-4">
       <h1 className="text-2xl font-bold">Order SMS preferences</h1>
+      <Link href="/user/refunds" className="underline">Refund reviews</Link>
       <OrderSmsPreference enabled={user.orderSmsEnabled} />
     </section>
   );

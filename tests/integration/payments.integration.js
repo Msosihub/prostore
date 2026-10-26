@@ -2196,8 +2196,151 @@ test("delivery reminder retries queue once and revoked/disputed paths cannot sen
  await prisma.user.update({where:{id:seller.id},data:{role:"BUYER"}});expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);await prisma.user.update({where:{id:seller.id},data:{role:"SUPPLIER"}});await openOrderDispute(data.order.id,data.product.id,data.user.id,"Synthetic dispute");expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);
  await prisma.orderNotification.updateMany({where:{kind:{not:"BUYER_REMINDER"}},data:{state:"SUPPRESSED"}});await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findFirst({where:{kind:"BUYER_REMINDER"}})).state).toBe("SUPPRESSED");
 });
+// Manual money reviews: real PostgreSQL locking, holds and audit boundaries.
+import { submitMoneyRequest, decideMoneyRequest, withdrawalBalance } from "@/lib/money-review";
+import { requestMoneyReview, reviewMoneyCase } from "@/lib/actions/money-review.actions";
+import { moneyReviewView } from "@/lib/money-review-views";
+const moneyKey = () => require("node:crypto").randomUUID();
+async function moneyFixture() {
+  const f = await fixture();
+  const seller = await prisma.user.create({ data: { name: "Seller", role: "SUPPLIER", email: "money-seller@example.test" } });
+  const admin = await prisma.user.create({ data: { name: "Admin", role: "ADMIN", email: "money-admin@example.test" } });
+  const other = await prisma.user.create({ data: { name: "Other", role: "SUPPLIER", email: "money-other@example.test" } });
+  await prisma.supplier.update({ where: { id: f.supplier.id }, data: { userId: seller.id, walletBalance: 1000 } });
+  return { ...f, seller, admin, other };
+}
+const withdrawal = (amount = "600.00") => ({ kind: "WITHDRAWAL", requestKey: moneyKey(), amount, reason: "Synthetic withdrawal request" });
+const refund = f => ({ kind: "REFUND", requestKey: moneyKey(), orderId: f.order.id, productId: f.product.id, quantity: 1, reason: "Synthetic item issue" });
+const decision = (id, state) => ({ id, state, reason: "Synthetic reviewed decision" });
+test("money actions deny anonymous, buyer withdrawal and revoked seller; no holds created", async () => {
+  const f = await moneyFixture();
+  auth.mockResolvedValue(null);
+  expect((await requestMoneyReview(withdrawal())).success).toBe(false);
+  auth.mockResolvedValue({ user: { id: f.user.id, role: "SUPPLIER" } });
+  expect((await requestMoneyReview(withdrawal())).success).toBe(false);
+  await prisma.user.update({ where: { id: f.seller.id }, data: { role: "BUYER" } });
+  auth.mockResolvedValue({ user: { id: f.seller.id, role: "SUPPLIER" } });
+  expect((await requestMoneyReview(withdrawal())).success).toBe(false);
+  expect(await prisma.moneyReviewCase.count()).toBe(0);
+});
+test("concurrent same-key requests create one hold and one audit event", async () => {
+  const f = await moneyFixture(), input = withdrawal();
+  const ids = await Promise.all(Array.from({ length: 5 }, () => submitMoneyRequest(f.seller.id, input)));
+  expect(new Set(ids).size).toBe(1);
+  expect(await prisma.moneyReviewEvent.count()).toBe(1);
+  expect((await prisma.supplier.findUnique({ where: { id: f.supplier.id } })).walletBalance.toString()).toBe("1000");
+  await expect(submitMoneyRequest(f.seller.id, { ...input, amount: "700" })).rejects.toThrow();
+});
+test("concurrent independent holds cannot oversubscribe wallet", async () => {
+  const f = await moneyFixture();
+  const results = await Promise.allSettled([submitMoneyRequest(f.seller.id, withdrawal()), submitMoneyRequest(f.seller.id, withdrawal())]);
+  expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
+  const b = await prisma.$transaction(tx => withdrawalBalance(tx, f.supplier.id));
+  expect(b.reserved.toString()).toBe("600"); expect(b.available.toString()).toBe("400");
+  expect(await prisma.supplierLedger.count()).toBe(0);
+});
+test("approval retains hold, cancel/reject races release exactly once with no wallet debit", async () => {
+  const f = await moneyFixture(), id = await submitMoneyRequest(f.seller.id, withdrawal());
+  await decideMoneyRequest(f.admin.id, decision(id, "APPROVED"));
+  expect((await prisma.$transaction(tx => withdrawalBalance(tx, f.supplier.id))).reserved.toString()).toBe("600");
+  const results = await Promise.allSettled([decideMoneyRequest(f.seller.id, decision(id, "CANCELLED")), decideMoneyRequest(f.admin.id, decision(id, "REJECTED"))]);
+  expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
+  const b = await prisma.$transaction(tx => withdrawalBalance(tx, f.supplier.id));
+  expect(b.available.toString()).toBe("1000"); expect(b.reserved.toString()).toBe("0");
+  expect(await prisma.moneyReviewEvent.count()).toBe(3);
+});
+test("wrong seller cannot read/cancel and revoked admin cannot review direct action", async () => {
+  const f = await moneyFixture(), id = await submitMoneyRequest(f.seller.id, withdrawal());
+  await expect(decideMoneyRequest(f.other.id, decision(id, "CANCELLED"))).rejects.toThrow("Unauthorized");
+  await prisma.supplier.create({ data: { userId: f.other.id, name: "Other", email: "other-supplier@example.test" } });
+  auth.mockResolvedValue({ user: { id: f.other.id } });
+  expect((await moneyReviewView("supplier", { id })).cases).toHaveLength(0);
+  await prisma.user.update({ where: { id: f.admin.id }, data: { role: "BUYER" } });
+  auth.mockResolvedValue({ user: { id: f.admin.id, role: "ADMIN" } });
+  expect((await reviewMoneyCase(decision(id, "APPROVED"))).success).toBe(false);
+});
+test("legacy transferred payouts pause new holds rather than guessing prior wallet accounting", async () => {
+  const f = await moneyFixture();
+  await prisma.payoutRequest.create({ data: { supplierId: f.supplier.id, userId: f.seller.id, amount: 1, status: "TRANSFERRED", paymentMethod: "fixture", accountNumber: "synthetic" } });
+  await expect(submitMoneyRequest(f.seller.id, withdrawal())).rejects.toThrow();
+});
+test("refund ownership, unpaid and legacy refunded boundaries", async () => {
+  const f = await moneyFixture();
+  await expect(submitMoneyRequest(f.other.id, refund(f))).rejects.toThrow("Unauthorized");
+  await expect(submitMoneyRequest(f.user.id, refund(f))).rejects.toThrow();
+  await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  await prisma.returnRequest.create({ data: { orderId: f.order.id, productId: f.product.id, buyerId: f.user.id, supplierId: f.supplier.id, reason: "legacy", status: "REFUNDED" } });
+  await expect(submitMoneyRequest(f.user.id, refund(f))).rejects.toThrow("Existing refund");
+});
+test("partial refund requests snapshot item prices and cannot over-allocate under concurrency", async () => {
+  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  const results = await Promise.allSettled(Array.from({ length: 3 }, () => submitMoneyRequest(f.user.id, refund(f))));
+  expect(results.filter(r => r.status === "fulfilled")).toHaveLength(2);
+  const rows = await prisma.moneyReviewCase.findMany();
+  expect(rows.every(r => r.amount.toString() === "1000" && !r.paymentVerified)).toBe(true);
+  await expect(decideMoneyRequest(f.admin.id, decision(rows[0].id, "APPROVED"))).rejects.toThrow("Refund approval unavailable");
+  expect(await prisma.moneyReviewEvent.count()).toBe(2);
+});
+test("refund review blocks whole/item escrow release and seller withdrawal approval", async () => {
+  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  const wid = await submitMoneyRequest(f.seller.id, withdrawal());
+  const rid = await submitMoneyRequest(f.user.id, refund(f));
+  await expect(confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id })).rejects.toThrow("Refund review");
+  await expect(confirmDelivery(f.order.id, undefined, { kind: "admin", userId: f.admin.id })).rejects.toThrow("Refund review");
+  await expect(decideMoneyRequest(f.admin.id, decision(wid, "APPROVED"))).rejects.toThrow();
+  await expect(submitMoneyRequest(f.seller.id, withdrawal("1"))).rejects.toThrow();
+  await decideMoneyRequest(f.user.id, decision(rid, "CANCELLED"));
+  await confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id });
+  expect(await prisma.supplierLedger.count({ where: { type: "ESCROW_RELEASE" } })).toBe(1);
+});
+test("delivered item refund remains a review case and never claws back wallet or invents payment", async () => {
+  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  await confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id });
+  const before = await prisma.supplier.findUnique({ where: { id: f.supplier.id } });
+  const id = await submitMoneyRequest(f.user.id, refund(f));
+  await decideMoneyRequest(f.admin.id, decision(id, "UNDER_REVIEW"));
+  const after = await prisma.supplier.findUnique({ where: { id: f.supplier.id } });
+  expect(after.walletBalance.equals(before.walletBalance)).toBe(true);
+  expect(await prisma.supplierLedger.count({ where: { type: "REFUND" } })).toBe(0);
+});
+test("refund/delivery race serializes parent; unresolved request never triggers subsequent release", async () => {
+  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  await Promise.allSettled([submitMoneyRequest(f.user.id, refund(f)), confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id })]);
+  expect(await prisma.moneyReviewCase.count()).toBe(1);
+  expect(await prisma.supplierLedger.count({ where: { type: "ESCROW_RELEASE" } })).toBeLessThanOrEqual(1);
+  const item = await prisma.orderItem.findUnique({ where: { orderId_productId: { orderId: f.order.id, productId: f.product.id } } });
+  if (!item.isDelivered) await expect(confirmDelivery(f.order.id, undefined, { kind: "admin", userId: f.admin.id })).rejects.toThrow();
+});
+test("audit insert failure rolls back case and reservation", async () => {
+  const f = await moneyFixture();
+  await prisma.$executeRawUnsafe('ALTER TABLE "MoneyReviewEvent" ADD CONSTRAINT "fixture_reject_event" CHECK ("state" != \'REQUESTED\')');
+  try { await expect(submitMoneyRequest(f.seller.id, withdrawal())).rejects.toThrow(); expect(await prisma.moneyReviewCase.count()).toBe(0); }
+  finally { await prisma.$executeRawUnsafe('ALTER TABLE "MoneyReviewEvent" DROP CONSTRAINT "fixture_reject_event"'); }
+});
+test("refund idempotency and rejected quantity recovery preserve immutable history", async () => {
+  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  const input = { ...refund(f), quantity: 2 };
+  const ids = await Promise.all([submitMoneyRequest(f.user.id, input), submitMoneyRequest(f.user.id, input)]);
+  expect(ids[0]).toBe(ids[1]);
+  await decideMoneyRequest(f.admin.id, decision(ids[0], "REJECTED"));
+  await decideMoneyRequest(f.admin.id, decision(ids[0], "REJECTED"));
+  await submitMoneyRequest(f.user.id, { ...input, requestKey: moneyKey() });
+  expect(await prisma.moneyReviewEvent.count()).toBe(3);
+});
+
+test("admin-only seller identity and owner role views minimize disclosure", async () => {
+ const f = await moneyFixture(); const id = await submitMoneyRequest(f.seller.id, withdrawal());
+ auth.mockResolvedValue({user:{id:f.admin.id}}); const adminView = await moneyReviewView("admin",{id});
+ expect(adminView.cases[0].adminContext.supplierId).toBe(f.supplier.id); expect(adminView.cases[0].adminContext.actorId).toBe(f.seller.id);
+ expect(JSON.stringify(adminView)).not.toContain("money-seller@example.test");
+ auth.mockResolvedValue({user:{id:f.seller.id}}); const own = await moneyReviewView("supplier",{id});
+ expect(own.cases[0].adminContext).toBeNull(); expect(own.cases[0].supplierId).toBeUndefined();
+ auth.mockResolvedValue({user:{id:f.user.id}}); await expect(moneyReviewView("admin")).rejects.toThrow("Unauthorized");
+ expect((await moneyReviewView("buyer",{id})).cases).toHaveLength(0);
+});
 if(process.env.PROSTORE_BACKUP_FIXTURE==="1") test("prepare synthetic recovery fixture for independent pg_dump/restore",async()=>{
  const data=await fixture();getZenopayStatus.mockResolvedValue(confirmed(data.order));await reconcileZenopay(data.order.id,attempt(data.order));await confirmDelivery(data.order.id,data.product.id,buyer(data),{rating:5,comment:"Synthetic restore check"});
  const adminProfile=await prisma.admin.create({data:{userId:data.user.id}});await prisma.auditLog.create({data:{adminId:adminProfile.id,action:"SYNTHETIC_BACKUP_CHECK",entityId:data.order.id,entityType:"Order"}});
+ await submitMoneyRequest(data.user.id, { kind: "REFUND", requestKey: moneyKey(), orderId: data.order.id, productId: data.product.id, quantity: 1, reason: "Synthetic restored review" });
  expect(await prisma.orderNotification.count()).toBe(3);expect(await prisma.paymentAttempt.count()).toBe(1);expect(await prisma.auditLog.count()).toBe(1);
 });

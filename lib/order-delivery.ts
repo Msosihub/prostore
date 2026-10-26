@@ -53,6 +53,8 @@ export async function confirmDelivery(
           item.payoutStatus !== "ESCROW"
         )
           throw new Error("Item cannot release escrow");
+        const refund = await tx.moneyReviewCase.findFirst({ where: { kind: "REFUND", orderId, productId: item.productId, state: { in: ["REQUESTED", "UNDER_REVIEW", "APPROVED"] } }, select: { id: true } });
+        if (refund) throw new Error("Refund review blocks escrow release");
         const dispute = await tx.returnRequest.findUnique({
           where: { orderId_productId: { orderId, productId: item.productId } },
         });

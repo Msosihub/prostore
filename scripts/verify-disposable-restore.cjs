@@ -80,6 +80,8 @@ function verifyRestore(container) {
     "OrderNotificationEvent",
     "AuditLog",
     "OrderDeliveryFeedback",
+    "MoneyReviewCase",
+    "MoneyReviewEvent",
   ];
   const counts = {};
   for (const table of tables) {

@@ -36,6 +36,7 @@ const models = [
   "Order",
   "OrderItem",
   "SupplierLedger",
+  "PayoutRequest",
   "ReturnRequest",
   "OrderItemEvent",
   "OrderDeliveryFeedback",
@@ -200,6 +201,8 @@ async function prepare() {
   );
   for (const statement of recoveryMigration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const moneyMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261027000000_manual_money_review/migration.sql"), "utf8");
+  for (const statement of moneyMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const otpMigration = fs.readFileSync(
     path.join(
       __dirname,
@@ -212,7 +215,7 @@ async function prepare() {
 }
 async function reset() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "OrderNotificationEvent", "OrderNotification", "PaymentAttemptEvent", "PaymentAttempt", "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
+    `TRUNCATE "MoneyReviewEvent", "MoneyReviewCase", "OrderNotificationEvent", "OrderNotification", "PaymentAttemptEvent", "PaymentAttempt", "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
   );
 }
 async function fixture({ stock = 5, qty = 2, paymentResult } = {}) {

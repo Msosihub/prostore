@@ -39,6 +39,7 @@ export async function GET(req: Request) {
 
     if (q) {
       where.OR = [
+        ...(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q) ? [{ id: q }] : []),
         { name: { contains: q, mode: "insensitive" } },
         { username: { contains: q, mode: "insensitive" } },
         { email: { contains: q, mode: "insensitive" } },
