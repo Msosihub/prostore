@@ -172,3 +172,19 @@ test.each([
     expect(prisma.inquiry.create).not.toHaveBeenCalled();
   },
 );
+
+test.each(["unit", "variant", "shippingTerm", "notes", "details", "subject"])(
+  "owned legacy inquiry route blocks contact sharing in %s",
+  async (field) => {
+    const result = await inquiry(
+      request({
+        conversationId: id,
+        productId,
+        [field]: "name [at] example [dot] com",
+      }),
+    );
+    expect(result.status).toBe(400);
+    expect(JSON.stringify(await result.json())).not.toContain("name [at]");
+    expect(prisma.inquiry.create).not.toHaveBeenCalled();
+  },
+);

@@ -15,7 +15,7 @@ const links = [
   },
   {
     title: "Messages",
-    href: "/user/chat",
+    href: "/buyer/messages",
   },
 ];
 
@@ -35,7 +35,7 @@ const MainNav = ({
           href={item.href}
           className={cn(
             "text-sm font-medium transition-colors hover:text-primary",
-            pathname.includes(item.href) ? "" : "text-muted-foreground"
+            pathname.includes(item.href) ? "" : "text-muted-foreground",
           )}
         >
           {item.title}

@@ -94,7 +94,10 @@ export default function UserButton() {
             asChild
             className="text-xs font-medium text-slate-600 p-2 rounded-lg cursor-pointer focus:bg-slate-50 focus:text-slate-900"
           >
-            <Link href="/buyer/chat" className="flex items-center gap-2 w-full">
+            <Link
+              href="/buyer/messages"
+              className="flex items-center gap-2 w-full"
+            >
               <MessageSquare className="w-3.5 h-3.5 text-slate-400" /> Ujumbe
               (Messages)
             </Link>

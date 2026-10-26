@@ -60,6 +60,7 @@ interface LocalOrder {
   taxPrice: string;
   totalPrice: string;
   paymentMethod: string;
+  paymentResult?: unknown;
 
   shippingAddress: ShippingAddress;
   user: {
@@ -558,7 +559,10 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                       onClick={handleReinitializePayment}
                       className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
                     >
-                      <RefreshCw className="w-3.5 h-3.5" /> Jaribu Tena Kulipa
+                      <RefreshCw className="w-3.5 h-3.5" />{" "}
+                      {order.paymentResult
+                        ? "Angalia / endelea na malipo"
+                        : "Endelea kulipa"}
                     </Button>
                   )}
                 </div>
@@ -584,7 +588,10 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
               onClick={handleReinitializePayment}
               className="w-full h-11 bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Jaribu Tena Kulipa
+              <RefreshCw className="w-3.5 h-3.5" />{" "}
+              {order.paymentResult
+                ? "Angalia / endelea na malipo"
+                : "Endelea kulipa"}
             </Button>
           </div>
         </div>

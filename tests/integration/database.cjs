@@ -174,6 +174,15 @@ async function prepare() {
       }
     }
   }
+  const migration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../prisma/migrations/20261026150000_marketplace_chat/migration.sql",
+    ),
+    "utf8",
+  );
+  for (const statement of migration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
 }
 async function reset() {
   await prisma.$executeRawUnsafe(

@@ -7,14 +7,21 @@ import { round2 } from "@/lib/utils";
 export const calcPriceWithTiers = async (
   items: CartItem[],
   { forRemoval = false }: { forRemoval?: boolean } = {},
+  db?: Pick<
+    Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+    "product"
+  >,
 ) => {
   let itemsPrice = 0;
 
   for (const item of [...items]) {
-    const product = await prisma.product.findUnique({
+    const args = {
       where: { id: item.productId },
-      include: { pricingTiers: true },
-    });
+      include: { pricingTiers: true as const },
+    };
+    const product = db
+      ? await db.product.findUnique(args)
+      : await prisma.product.findUnique(args);
 
     if (!product) {
       if (!forRemoval) throw new Error("Product not found");
@@ -51,7 +58,9 @@ export const calcPriceWithTiers = async (
   }
 
   const roundedItemsPrice = round2(itemsPrice);
-  const shippingPrice = round2(!items.length || roundedItemsPrice > 150000 ? 0 : 3000);
+  const shippingPrice = round2(
+    !items.length || roundedItemsPrice > 150000 ? 0 : 3000,
+  );
   const taxPrice = round2(0.0 * roundedItemsPrice);
   const totalPrice = round2(roundedItemsPrice + taxPrice + shippingPrice);
 

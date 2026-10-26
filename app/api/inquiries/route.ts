@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/db/prisma";
 import { z } from "zod";
+import {
+  containsContact,
+  contactPolicyMessage,
+} from "@/lib/chat-content-policy";
 
 const inputSchema = z
   .object({
@@ -40,6 +44,20 @@ export async function POST(req: Request) {
   if (!input.success)
     return NextResponse.json({ error: "Invalid inquiry" }, { status: 400 });
   const { conversationId, productId, ...fields } = input.data;
+  const textFields = [
+    fields.unit,
+    fields.variant,
+    fields.shippingTerm,
+    fields.notes,
+    fields.details,
+    fields.subject,
+  ];
+  if (
+    textFields.some(
+      (value) => typeof value === "string" && containsContact(value),
+    )
+  )
+    return NextResponse.json({ error: contactPolicyMessage }, { status: 400 });
   const inquiry = await prisma.$transaction(async (tx) => {
     // Inquiries are buyer requests. Neither a role claim nor a supplier participant
     // may impersonate the buyer or attach another vendor's product.

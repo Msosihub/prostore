@@ -1,4 +1,5 @@
 "use client";
+import { startMarketThread } from "@/lib/actions/market-chat.actions";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -34,7 +35,7 @@ export default function ProductClientActions({
   buyerId,
   // supplierId,
   productId,
-  supplierUserId,
+  // supplierUserId,
   item,
   cartData,
   pricingTiers = [],
@@ -70,72 +71,27 @@ export default function ProductClientActions({
     setQty((prev) => Math.max(1, prev - 1));
   };
 
-  console.log("Buyer ID:", buyerId);
-  console.log("Supplier User ID:", supplierUserId);
-  console.log("Product ID:", productId);
-
   async function handleStartChat() {
-    // 1. Verify User Authentication Session
     if (!buyerId) {
-      const safeCallbackUrl = encodeURIComponent(`/product/${productId}`);
       router.push(
-        `/sign-in?callbackUrl=/${safeCallbackUrl}&showToastFlag=true`
+        `/sign-in?callbackUrl=${encodeURIComponent(`/product/${productId}`)}`,
       );
       return;
     }
-
-    // 2. Prevent suppliers from starting chats with themselves
-    if (buyerId === supplierUserId) {
-      toast({
-        title: "Hairuhusiwi!",
-        description: "Wewe ndio muuzaji wa bidhaa hii. 😀",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       setIsChatPending(true);
-
-      // 💡 Point directly to your high-performance NestJS engine running on api.bmsounds.online (2)
-      const targetUrl = `${process.env.NEXT_PUBLIC_BACKEND_API_URL || "https://api.bmsounds.online"}/chatwoot/initialize`;
-
-      const res = await fetch(targetUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          buyerId,
-          supplierUserId,
-          productId,
-        }),
-      });
-
-      const text = await res.text();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let data: any = {};
-
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        data = { raw: text };
-      }
-
-      console.log("Initialize response:", res.status, data);
-
-      if (res.ok) {
-        router.push(`/buyer/chat?selectProduct=${productId}`);
-      } else {
+      const result = await startMarketThread(item.productId);
+      if (result.ok) router.push(`/buyer/messages?thread=${result.data.id}`);
+      else
         toast({
-          title: "Inasikitisha!",
-          description: data?.message || "Imefeli kuanzisha chati kwa sasa.",
+          title: "Mazungumzo",
+          description: result.error,
           variant: "destructive",
         });
-      }
-    } catch (err) {
-      console.error("Kosa la muunganiko wa seva ya chati:", err);
+    } catch {
       toast({
-        title: "Hitilafu ya Mtandao!",
-        description: "Angalia muunganiko wako wa mtandao kisha jaribu tena.",
+        title: "Hitilafu ya Mtandao",
+        description: "Jaribu tena kufungua mazungumzo.",
         variant: "destructive",
       });
     } finally {
