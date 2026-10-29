@@ -15,9 +15,9 @@ function redact(s) {
   for (const value of secrets) s = s.split(value).join("[REDACTED]");
   return s;
 }
-function run(label, args, env = process.env) {
+function run(label, args, env = process.env, executable = process.execPath) {
   console.log("START " + label);
-  const result = cp.spawnSync(process.execPath, args, {
+  const result = cp.spawnSync(executable, args, {
     env,
     encoding: "utf8",
     maxBuffer: 30 * 1024 * 1024,
@@ -70,10 +70,25 @@ function run(label, args, env = process.env) {
       ],
       env,
     );
+    run(
+      "hosted browser dependencies",
+      ["ci", "--prefix", "tests/hosted", "--include=dev", "--ignore-scripts"],
+      process.env,
+      "npm",
+    );
+    const route = path.join("app", "qa-loading");
+    fs.mkdirSync(route, { recursive: true });
+    fs.writeFileSync(
+      path.join(route, "page.tsx"),
+      `import {Suspense} from 'react';import ShoppingLoading from '@/components/storefront/shopping-loading';export const dynamic='force-dynamic';async function Slow(){await new Promise(r=>setTimeout(r,45000));return <p>DEMO loading complete</p>;}export default function Page(){return <Suspense fallback={<ShoppingLoading/>}><Slow/></Suspense>}`,
+    );
+    run("native full Next build", ["node_modules/next/dist/bin/next", "build"]);
+    run("native browser workflow rehearsal", [
+      "scripts/hosted-staging-browser.cjs",
+    ]);
   } finally {
     fs.writeFileSync(file, original);
   }
-  run("native full Next build", ["node_modules/next/dist/bin/next", "build"]);
 })().catch(() => {
   console.error(
     "Hosted staging rehearsal stopped. No production target was used. See the redacted phase result above.",

@@ -87,3 +87,6 @@ for (const mod of ["http", "https"]) {
     return request;
   };
 }
+
+// Marker used only by the hosted build loopback browser rehearsal.
+global[Symbol.for("prostore.synthetic.transport")]=true;

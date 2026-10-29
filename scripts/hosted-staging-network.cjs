@@ -12,6 +12,12 @@ function install() {
     const url = new URL(
       typeof input === "string" ? input : input.url || String(input),
     );
+    if (
+      process.env.PROSTORE_STAGING_BROWSER_REHEARSAL === "1" &&
+      global[Symbol.for("prostore.synthetic.transport")] === true &&
+      ["zenoapi.com", "api.africastalking.com"].includes(url.hostname)
+    )
+      return original(input, init);
     if (!allowed.has(url.hostname))
       throw Error("External HTTP disabled in hosted synthetic staging");
     return original(input, init);
