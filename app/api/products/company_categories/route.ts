@@ -1,3 +1,4 @@
+import { visibleCatalogProduct } from "@/lib/catalog-visibility";
 // API A: /api/products/company_categories/route.ts
 // Goal: Just get the list of categories this supplier uses.
 
@@ -12,13 +13,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No supplierId" }, { status: 400 });
 
   const categories = await prisma.category.findMany({
-    where: { products: { some: { supplierId } } },
+    where: { products: { some: { ...visibleCatalogProduct, supplierId } } },
     select: {
       id: true,
       name_en: true,
       name_sw: true,
       _count: {
-        select: { products: { where: { supplierId } } },
+        select: {
+          products: { where: { ...visibleCatalogProduct, supplierId } },
+        },
       },
     },
   });

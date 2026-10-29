@@ -364,6 +364,7 @@ model Attachment {
 }
 
 model Supplier {
+  registration SellerRegistration?
   moneyCases MoneyReviewCase[]
   marketThreads MarketThread[]
 
@@ -1962,4 +1963,50 @@ model MoneyReviewEvent {
   actor User @relation("MoneyEventActor", fields: [actorId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   reviewCase MoneyReviewCase @relation(fields: [caseId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   @@index([caseId, createdAt])
+}
+
+model SellerRegistration {
+ id String @id @default(uuid()) @db.Uuid
+ supplierId String @unique @db.Uuid
+ state String @default("PENDING")
+ version Int @default(1)
+ smsConsent Boolean @default(false)
+ phoneDigest String
+ reviewReason String?
+ reviewedBy String? @db.Uuid
+ reviewedAt DateTime? @db.Timestamp(6)
+ createdAt DateTime @default(now()) @db.Timestamp(6)
+ supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+ notices SellerNotice[]
+ @@index([state, createdAt])
+}
+model SellerNotice {
+ id String @id @default(uuid()) @db.Uuid
+ eventKey String @unique
+ registrationId String @db.Uuid
+ kind String
+ version Int
+ state String @default("QUEUED")
+ attempts Int @default(0)
+ nextAttemptAt DateTime @default(now()) @db.Timestamp(6)
+ leaseToken String?
+ leaseUntil DateTime? @db.Timestamp(6)
+ reason String?
+ providerMessageId String?
+ acceptedAt DateTime? @db.Timestamp(6)
+ completedAt DateTime? @db.Timestamp(6)
+ createdAt DateTime @default(now()) @db.Timestamp(6)
+ updatedAt DateTime @default(now()) @updatedAt @db.Timestamp(6)
+ registration SellerRegistration @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+ events SellerNoticeEvent[]
+ @@index([state, nextAttemptAt])
+}
+model SellerNoticeEvent {
+ id String @id @default(uuid()) @db.Uuid
+ notificationId String @db.Uuid
+ state String
+ reason String
+ createdAt DateTime @default(now()) @db.Timestamp(6)
+ notification SellerNotice @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+ @@index([notificationId, createdAt])
 }

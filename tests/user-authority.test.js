@@ -41,23 +41,38 @@ test("onboarding cannot grant ADMIN in the database", async () => {
   ).toBe(400);
   expect(prisma.$transaction).not.toHaveBeenCalled();
 });
-test.each(["BUYER", "SUPPLIER"])(
-  "onboarding retains legitimate %s selection",
-  async (role) => {
-    const tx = {
-      user: { update: jest.fn() },
-      supplier: { findUnique: jest.fn(async () => ({})) },
-    };
-    prisma.$transaction.mockImplementation((fn) => fn(tx));
-    expect((await onboard(request({ name: "Buyer", role }))).status).toBe(200);
-    expect(tx.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "buyer" },
-        data: expect.objectContaining({ role }),
-      }),
-    );
-  },
-);
+test("buyer onboarding preserves DB authority and marks onboarding complete", async () => {
+  const tx = {
+    $queryRaw: jest.fn(),
+    user: {
+      findUnique: jest.fn(async () => ({ role: "BUYER" })),
+      update: jest.fn(),
+    },
+  };
+  prisma.$transaction.mockImplementation((fn) => fn(tx));
+  expect(
+    (await onboard(request({ name: "Buyer", role: "BUYER" }))).status,
+  ).toBe(200);
+  expect(tx.user.update).toHaveBeenCalledWith({
+    where: { id: "buyer" },
+    data: {
+      name: "Buyer",
+      onboarded: true,
+      country: undefined,
+      location: undefined,
+    },
+  });
+  tx.user.findUnique.mockResolvedValue({ role: "ADMIN" });
+  expect(
+    (await onboard(request({ name: "Buyer", role: "BUYER" }))).status,
+  ).toBe(403);
+});
+test("legacy supplier choice directs to verified application rather than creating an unreviewed profile", async () => {
+  const response = await onboard(request({ name: "Seller", role: "SUPPLIER" }));
+  expect(response.status).toBe(409);
+  expect((await response.json()).redirectTo).toBe("/sell");
+  expect(prisma.$transaction).not.toHaveBeenCalled();
+});
 test("anonymous onboarding never reaches the database", async () => {
   auth.mockResolvedValue(null);
   expect(

@@ -67,12 +67,15 @@ async function prepare() {
     const client = new (require("pg").Client)({ connectionString: url });
     await client.connect();
     try {
-      const dir=path.join(__dirname,"../../prisma/migrations");
-      for(const name of fs.readdirSync(dir).sort()) {
-        const file=path.join(dir,name,"migration.sql");
-        if(fs.existsSync(file)) await client.query(fs.readFileSync(file,"utf8"));
+      const dir = path.join(__dirname, "../../prisma/migrations");
+      for (const name of fs.readdirSync(dir).sort()) {
+        const file = path.join(dir, name, "migration.sql");
+        if (fs.existsSync(file))
+          await client.query(fs.readFileSync(file, "utf8"));
       }
-    } finally { await client.end(); }
+    } finally {
+      await client.end();
+    }
     return;
   }
   for (const match of schema.matchAll(/enum (\w+) \{([\s\S]*?)\n\}/g)) {
@@ -192,6 +195,15 @@ async function prepare() {
       }
     }
   }
+  const sellerMigration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../prisma/migrations/20261027030000_seller_registration/migration.sql",
+    ),
+    "utf8",
+  );
+  for (const statement of sellerMigration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const migration = fs.readFileSync(
     path.join(
       __dirname,
@@ -202,9 +214,18 @@ async function prepare() {
   for (const statement of migration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   // Fixture User already reflects the latest schema; exercise ALTER against its prior shape.
-  await prisma.$executeRawUnsafe('ALTER TABLE "User" DROP COLUMN "orderSmsEnabled"');
-  const outboxMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261026203000_order_notification_outbox/migration.sql"), "utf8");
-  for (const statement of outboxMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "User" DROP COLUMN "orderSmsEnabled"',
+  );
+  const outboxMigration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../prisma/migrations/20261026203000_order_notification_outbox/migration.sql",
+    ),
+    "utf8",
+  );
+  for (const statement of outboxMigration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const recoveryMigration = fs.readFileSync(
     path.join(
       __dirname,
@@ -214,10 +235,24 @@ async function prepare() {
   );
   for (const statement of recoveryMigration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
-  const moneyMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261027000000_manual_money_review/migration.sql"), "utf8");
-  for (const statement of moneyMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
-  const quantityMigration = fs.readFileSync(path.join(__dirname, "../../prisma/migrations/20261027010000_refund_quantity_guard/migration.sql"), "utf8");
-  for (const statement of quantityMigration.split(";")) if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const moneyMigration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../prisma/migrations/20261027000000_manual_money_review/migration.sql",
+    ),
+    "utf8",
+  );
+  for (const statement of moneyMigration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const quantityMigration = fs.readFileSync(
+    path.join(
+      __dirname,
+      "../../prisma/migrations/20261027010000_refund_quantity_guard/migration.sql",
+    ),
+    "utf8",
+  );
+  for (const statement of quantityMigration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const otpMigration = fs.readFileSync(
     path.join(
       __dirname,

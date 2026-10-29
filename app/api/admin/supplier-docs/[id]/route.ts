@@ -58,7 +58,13 @@ export async function PUT(
         },
       });
       // Preserve the existing opt-in policy, but never treat a missing required type as approved.
-      if (process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS === "true") {
+      if (
+        process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS === "true" &&
+        !(await tx.sellerRegistration.findUnique({
+          where: { supplierId: doc.supplierId },
+          select: { id: true },
+        }))
+      ) {
         const required = [
           ...new Set(
             (process.env.REQUIRED_DOC_TYPES || "License,Certificate")

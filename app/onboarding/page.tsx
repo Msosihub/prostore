@@ -25,6 +25,10 @@ export default function OnboardingPage() {
   const { update } = useSession();
 
   const handleSubmit = async () => {
+    if (role === "SUPPLIER") {
+      router.push("/sell");
+      return;
+    }
     setLoading(true);
 
     const res = await fetch("/api/onboarding", {

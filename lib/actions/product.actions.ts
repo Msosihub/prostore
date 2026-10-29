@@ -5,6 +5,10 @@ import {
   catalogPriceRange,
   catalogRating,
 } from "@/lib/catalog-search";
+import {
+  visibleCatalogProduct,
+  publicSupplierSelect,
+} from "@/lib/catalog-visibility";
 import { prisma } from "@/db/prisma";
 import { convertToPlainObject } from "../utils";
 import { LATEST_PRODUCTS_LIMIT, PAGE_SIZE } from "../constants";
@@ -35,6 +39,7 @@ export async function getProductsByCategoryID(
   try {
     const products = await prisma.product.findMany({
       where: {
+        ...visibleCatalogProduct,
         categoryId,
       },
       skip: (page - 1) * limit,
@@ -44,12 +49,12 @@ export async function getProductsByCategoryID(
         category: true, // optional if you want category details
         brand: true, // optional if you want brand details
         subcategory: true,
-        supplier: true,
+        supplier: { select: publicSupplierSelect },
       },
     });
 
     const totalCount = await prisma.product.count({
-      where: { categoryId },
+      where: { ...visibleCatalogProduct, categoryId },
     });
 
     return {
@@ -71,6 +76,7 @@ export const getProductsByCategory = async (
   try {
     const products = await prisma.product.findMany({
       where: {
+        ...visibleCatalogProduct,
         categoryId,
         slug: excludeSlug ? { not: excludeSlug } : undefined,
         //status: "PUBLISHED", // optional: filter only active products
@@ -96,7 +102,7 @@ export const getProductsByCategory = async (
         brand: true,
         category: true,
         subcategory: true,
-        supplier: true,
+        supplier: { select: publicSupplierSelect },
       },
     });
 
@@ -111,6 +117,7 @@ export const getProductsByCategory = async (
 export async function getLatestProducts() {
   try {
     const data = await prisma.product.findMany({
+      where: visibleCatalogProduct,
       take: LATEST_PRODUCTS_LIMIT,
       orderBy: { createdAt: "desc" },
       include: {
@@ -136,7 +143,15 @@ export async function getLatestProducts() {
 export async function getProductBySlug(slug: string) {
   try {
     const data = await prisma.product.findFirst({
-      where: { slug: slug },
+      where: {
+        slug: slug,
+        supplier: {
+          OR: [
+            { registration: null },
+            { registration: { state: "APPROVED" }, isVerified: true },
+          ],
+        },
+      },
       include: {
         category: {
           select: {
@@ -152,11 +167,7 @@ export async function getProductBySlug(slug: string) {
         pricingTiers: {
           orderBy: { minQty: "asc" },
         },
-        supplier: {
-          include: {
-            certifications: true,
-          },
-        },
+        supplier: { select: publicSupplierSelect },
         // videoUrl,
       },
     });
@@ -222,7 +233,7 @@ export async function getAllCategories() {
 export async function getFeaturedProducts() {
   try {
     const data = await prisma.product.findMany({
-      where: { isFeatured: true },
+      where: { ...visibleCatalogProduct, isFeatured: true },
       orderBy: { createdAt: "desc" },
       take: 4,
       include: {
@@ -246,25 +257,28 @@ export async function getFeaturedProducts() {
 }
 
 // Get all products
-export async function getAllProducts({
-  query,
-  limit = PAGE_SIZE,
-  page,
-  category,
-  price,
-  rating,
-  sort,
-  supplierId,
-}: {
-  query: string;
-  limit?: number;
-  page: number;
-  category?: string;
-  price?: string;
-  rating?: string;
-  sort?: string;
-  supplierId?: string;
-}) {
+async function readProducts(
+  {
+    query,
+    limit = PAGE_SIZE,
+    page,
+    category,
+    price,
+    rating,
+    sort,
+    supplierId,
+  }: {
+    query: string;
+    limit?: number;
+    page: number;
+    category?: string;
+    price?: string;
+    rating?: string;
+    sort?: string;
+    supplierId?: string;
+  },
+  management = false,
+) {
   const priceRange = catalogPriceRange(price);
   const minimumRating = catalogRating(rating);
   const safeLimit =
@@ -273,6 +287,7 @@ export async function getAllProducts({
       : PAGE_SIZE;
   // Build unified filter
   const where: Prisma.ProductWhereInput = {
+    ...(management ? {} : visibleCatalogProduct),
     ...(query && query !== "all"
       ? {
           name: {
@@ -402,7 +417,7 @@ export async function createBrandAction(name: string) {
 }
 export async function companyLatestProducts(supplierId: string) {
   const latestProducts = await prisma.product.findMany({
-    where: { supplierId: supplierId },
+    where: { ...visibleCatalogProduct, supplierId: supplierId },
     orderBy: { createdAt: "desc" },
     take: 6,
   });
@@ -425,4 +440,29 @@ export async function createCategoryAction(name_en: string) {
       message: "Failed to create category",
     };
   }
+}
+
+export async function getAllProducts(
+  input: Parameters<typeof readProducts>[0],
+) {
+  return readProducts(input);
+}
+export async function getManagedProducts(
+  input: Parameters<typeof readProducts>[0],
+) {
+  const session = await (await import("@/auth")).auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (user?.role === "ADMIN") return readProducts(input, true);
+  if (user?.role !== "SUPPLIER") throw new Error("Unauthorized");
+  const supplier = await prisma.supplier.findUnique({
+    where: { userId: session.user.id },
+    select: { id: true },
+  });
+  if (!supplier || (input.supplierId && input.supplierId !== supplier.id))
+    throw new Error("Unauthorized");
+  return readProducts({ ...input, supplierId: supplier.id }, true);
 }

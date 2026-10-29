@@ -31,42 +31,33 @@ export async function POST(req: Request) {
   }
   const { name, role, country, location } = input.data;
 
-  await prisma.$transaction(async (tx) => {
-    // Update user
+  if (role === "SUPPLIER")
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Complete your seller application at /sell.",
+        redirectTo: "/sell",
+      },
+      { status: 409 },
+    );
+  const saved = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id"=${session.user.id}::uuid FOR UPDATE`;
+    const user = await tx.user.findUnique({
+      where: { id: session.user.id },
+      select: { role: true },
+    });
+    if (user?.role !== "BUYER") return false;
     await tx.user.update({
       where: { id: session.user.id },
-      data: {
-        name,
-        role,
-        country,
-        location,
-      },
+      data: { name, country, location, onboarded: true },
     });
-
-    // If supplier → create supplier profile
-    if (role === "SUPPLIER") {
-      const existingSupplier = await tx.supplier.findUnique({
-        where: { userId: session.user.id },
-      });
-
-      if (!existingSupplier) {
-        await tx.supplier.create({
-          data: {
-            userId: session.user.id,
-            name,
-            email: session.user.email || `${session.user.id}@noemail.com`,
-            country,
-            location,
-            companyName: name,
-            yearsActive: 1,
-            isVerified: false,
-            rating: 0,
-            deliveryRate: 0,
-          },
-        });
-      }
-    }
+    return true;
   });
+  if (!saved)
+    return NextResponse.json(
+      { success: false, message: "Use your existing account workspace." },
+      { status: 403 },
+    );
 
   return NextResponse.json({ success: true });
 }

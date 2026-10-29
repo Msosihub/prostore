@@ -1,4 +1,6 @@
 "use server";
+import { lockPurchasableSellers } from "@/lib/seller-purchase-guard";
+import { visibleSeller } from "@/lib/catalog-visibility";
 
 import { convertToPlainObject, formatError, isRedirectError } from "../utils";
 import { settleOrder } from "@/lib/order-fulfillment";
@@ -70,12 +72,16 @@ export async function createOrder() {
 
     // Create a transaction to create order and order items in database
     const insertedOrderId = await prisma.$transaction(async (tx) => {
+      await lockPurchasableSellers(
+        tx,
+        (cart.items as CartItem[]).map((item) => item.supplierId),
+      );
       // Create order
       const insertedOrder = await tx.order.create({ data: order });
       // Create order items from the cart items
       for (const item of cart.items as CartItem[]) {
         const seller = await tx.supplier.findUnique({
-          where: { id: item.supplierId },
+          where: { id: item.supplierId, ...visibleSeller },
           select: { name: true, companyName: true },
         });
         if (!seller) throw new Error("Supplier unavailable");
@@ -163,10 +169,14 @@ export async function createBuyNowOrder({
     });
 
     const insertedOrderId = await prisma.$transaction(async (tx) => {
+      await lockPurchasableSellers(
+        tx,
+        (cartLike.items as CartItem[]).map((item) => item.supplierId),
+      );
       const insertedOrder = await tx.order.create({ data: order });
       for (const it of cartLike.items as CartItem[]) {
         const seller = await tx.supplier.findUnique({
-          where: { id: it.supplierId },
+          where: { id: it.supplierId, ...visibleSeller },
           select: { name: true, companyName: true },
         });
         if (!seller) throw new Error("Supplier unavailable");

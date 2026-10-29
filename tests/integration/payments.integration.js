@@ -1,3 +1,7 @@
+jest.mock("react", () => ({
+  ...jest.requireActual("react"),
+  cache: (fn) => fn,
+}));
 jest.mock("query-string", () => ({ __esModule: true, default: {} }));
 jest.mock("next/cache", () => ({ revalidatePath: jest.fn() }));
 // Keep Prisma null sentinels and the injected client on the same generated runtime.
@@ -67,7 +71,11 @@ test("concurrent callbacks commit inventory, wallet, ledger and notifications on
   ).toBe(2000);
   expect(await prisma.supplierLedger.count()).toBe(1);
   expect(sendSms).not.toHaveBeenCalled();
-  expect(await prisma.orderNotification.count({where:{kind:{in:["BUYER_PAYMENT","SELLER_PAYMENT"]}}})).toBe(2);
+  expect(
+    await prisma.orderNotification.count({
+      where: { kind: { in: ["BUYER_PAYMENT", "SELLER_PAYMENT"] } },
+    }),
+  ).toBe(2);
 });
 test("two orders competing for stock cannot oversell; loser rolls back", async () => {
   const first = await fixture({ stock: 3 });
@@ -406,7 +414,11 @@ test("whole-order and single-item delivery race release each escrow credit once"
   expect(Number(supplier.walletBalance)).toBe(2500);
   expect(await releases()).toBe(2);
   expect(sendSms).not.toHaveBeenCalled();
-  expect(await prisma.orderNotification.count({where:{kind:"SELLER_DELIVERY"}})).toBe(2);
+  expect(
+    await prisma.orderNotification.count({
+      where: { kind: "SELLER_DELIVERY" },
+    }),
+  ).toBe(2);
   expect(
     (await prisma.order.findUnique({ where: { id: data.order.id } }))
       .isDelivered,
@@ -934,7 +946,9 @@ test("concurrent seller dispatch retries preserve one event/time and one notific
     }),
   ).toBe(1);
   expect(sendSms).not.toHaveBeenCalled();
-  expect(await prisma.orderNotification.count({where:{kind:"BUYER_DISPATCH"}})).toBe(1);
+  expect(
+    await prisma.orderNotification.count({ where: { kind: "BUYER_DISPATCH" } }),
+  ).toBe(1);
   const first = await prisma.orderItem.findUnique({
     where: {
       orderId_productId: { orderId: f.order.id, productId: f.product.id },
@@ -1580,15 +1594,32 @@ test("seller inbox cursor pages all own buyers and never another seller", async 
 });
 
 // Admin operations use canonical records and fresh authorization, without financial mutations.
-import { getAdminOverview, getAdminOrders, getAdminDisputes } from "@/lib/admin-operations";
+import {
+  getAdminOverview,
+  getAdminOrders,
+  getAdminDisputes,
+} from "@/lib/admin-operations";
 test("admin overview distinguishes unpaid totals and held/available balances", async () => {
   const { user, order, supplier } = await fixture();
   await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
   auth.mockResolvedValue({ user: { id: user.id, role: "BUYER" } });
-  await prisma.supplier.update({ where: { id: supplier.id }, data: { pendingBalance: 1200, walletBalance: 300 } });
+  await prisma.supplier.update({
+    where: { id: supplier.id },
+    data: { pendingBalance: 1200, walletBalance: 300 },
+  });
   let overview = await getAdminOverview();
-  expect(overview).toMatchObject({ orders: 1, unpaid: 1, paidOrders: 0, paidTotal: "0", pendingBalance: "1200", walletBalance: "300" });
-  await prisma.order.update({ where: { id: order.id }, data: { isPaid: true } });
+  expect(overview).toMatchObject({
+    orders: 1,
+    unpaid: 1,
+    paidOrders: 0,
+    paidTotal: "0",
+    pendingBalance: "1200",
+    walletBalance: "300",
+  });
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { isPaid: true },
+  });
   overview = await getAdminOverview();
   expect(overview.paidTotal).toBe(String(order.totalPrice));
   expect(overview.unpaid).toBe(0);
@@ -1598,19 +1629,34 @@ test("admin order paging preserves paid filter and product search without privat
   await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
   auth.mockResolvedValue({ user: { id: user.id } });
   for (let i = 0; i < 21; i++) await newOrder({ user, product });
-  await prisma.order.update({ where: { id: order.id }, data: { isPaid: true } });
-  const result = await getAdminOrders({ status: "unpaid", q: "Test Item", page: "999" });
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { isPaid: true },
+  });
+  const result = await getAdminOrders({
+    status: "unpaid",
+    q: "Test Item",
+    page: "999",
+  });
   expect(result).toMatchObject({ total: 21, page: 2, pages: 2 });
   expect(result.items).toHaveLength(1);
   expect(result.items[0]).not.toHaveProperty("shippingAddress");
   const exact = await getAdminOrders({ q: order.id, status: "paid" });
-  expect(exact.items.map(o => o.id)).toEqual([order.id]);
+  expect(exact.items.map((o) => o.id)).toEqual([order.id]);
 });
 test("admin dispute queue excludes terminal requests by default and never changes money", async () => {
   const { user, product, supplier, order } = await fixture();
   await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
   auth.mockResolvedValue({ user: { id: user.id } });
-  await prisma.returnRequest.create({ data: { orderId: order.id, productId: product.id, supplierId: supplier.id, buyerId: user.id, reason: "Synthetic private reason" } });
+  await prisma.returnRequest.create({
+    data: {
+      orderId: order.id,
+      productId: product.id,
+      supplierId: supplier.id,
+      buyerId: user.id,
+      reason: "Synthetic private reason",
+    },
+  });
   expect((await getAdminDisputes({})).total).toBe(1);
   await prisma.returnRequest.updateMany({ data: { status: "REJECTED" } });
   expect((await getAdminDisputes({})).total).toBe(0);
@@ -1622,7 +1668,8 @@ test("admin dispute queue excludes terminal requests by default and never change
 test("database revocation blocks admin operational queries despite stale session", async () => {
   const { user } = await fixture();
   auth.mockResolvedValue({ user: { id: user.id, role: "ADMIN" } });
-  for (const fn of [getAdminOverview, getAdminOrders, getAdminDisputes]) await expect(fn({})).rejects.toThrow("Unauthorized");
+  for (const fn of [getAdminOverview, getAdminOrders, getAdminDisputes])
+    await expect(fn({})).rejects.toThrow("Unauthorized");
 });
 import { getAdminDocuments } from "@/lib/admin-operations";
 import { PUT as reviewAdminDocument } from "@/app/api/admin/supplier-docs/[id]/route";
@@ -1630,208 +1677,471 @@ test("admin documents pending queue excludes rejected records and honors seller 
   const { user, supplier } = await fixture();
   await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
   auth.mockResolvedValue({ user: { id: user.id } });
-  for (const [label, verified, rejectionReason] of [["Pending", false, null], ["Rejected", false, "Unreadable"], ["Approved", true, null]]) await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label, name: label, fileUrl: "", verified, rejectionReason } });
+  for (const [label, verified, rejectionReason] of [
+    ["Pending", false, null],
+    ["Rejected", false, "Unreadable"],
+    ["Approved", true, null],
+  ])
+    await prisma.supplierDocument.create({
+      data: {
+        supplierId: supplier.id,
+        label,
+        name: label,
+        fileUrl: "",
+        verified,
+        rejectionReason,
+      },
+    });
   const pending = await getAdminDocuments({ supplierId: supplier.id });
-  expect(pending.items.map(d => d.label)).toEqual(["Pending"]);
-  expect((await getAdminDocuments({ status: "rejected" })).items.map(d => d.label)).toEqual(["Rejected"]);
+  expect(pending.items.map((d) => d.label)).toEqual(["Pending"]);
+  expect(
+    (await getAdminDocuments({ status: "rejected" })).items.map((d) => d.label),
+  ).toEqual(["Rejected"]);
   expect((await getAdminOverview()).pendingDocuments).toBe(pending.total);
 });
 test("document review saves audit atomically and requires every configured document type", async () => {
   const { user, supplier } = await fixture();
   await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
   auth.mockResolvedValue({ user: { id: user.id } });
-  const doc = await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label: "Synthetic license", name: "License", type: "License", fileUrl: "" } });
+  const doc = await prisma.supplierDocument.create({
+    data: {
+      supplierId: supplier.id,
+      label: "Synthetic license",
+      name: "License",
+      type: "License",
+      fileUrl: "",
+    },
+  });
   const old = process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS;
   process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = "true";
   try {
-    const invoke = (id, body) => reviewAdminDocument(new Request("http://localhost", { method: "PUT", body: JSON.stringify(body) }), { params: Promise.resolve({ id }) });
-    expect((await invoke(doc.id, { verified: false, rejectionReason: " " })).status).toBe(400);
+    const invoke = (id, body) =>
+      reviewAdminDocument(
+        new Request("http://localhost", {
+          method: "PUT",
+          body: JSON.stringify(body),
+        }),
+        { params: Promise.resolve({ id }) },
+      );
+    expect(
+      (await invoke(doc.id, { verified: false, rejectionReason: " " })).status,
+    ).toBe(400);
     expect((await invoke(doc.id, { verified: true })).status).toBe(200);
-    expect(await prisma.auditLog.count({ where: { action: "DOCUMENT_APPROVED" } })).toBe(1);
-    expect((await prisma.supplier.findUnique({ where: { id: supplier.id } })).isVerified).toBe(false);
-    const certificate = await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label: "Synthetic certificate", name: "Certificate", type: "Certificate", fileUrl: "" } });
+    expect(
+      await prisma.auditLog.count({ where: { action: "DOCUMENT_APPROVED" } }),
+    ).toBe(1);
+    expect(
+      (await prisma.supplier.findUnique({ where: { id: supplier.id } }))
+        .isVerified,
+    ).toBe(false);
+    const certificate = await prisma.supplierDocument.create({
+      data: {
+        supplierId: supplier.id,
+        label: "Synthetic certificate",
+        name: "Certificate",
+        type: "Certificate",
+        fileUrl: "",
+      },
+    });
     expect((await invoke(certificate.id, { verified: true })).status).toBe(200);
-    expect((await prisma.supplier.findUnique({ where: { id: supplier.id } })).isVerified).toBe(true);
-    expect(await prisma.auditLog.count({ where: { action: "SUPPLIER_AUTO_VERIFIED" } })).toBe(1);
-  } finally { if (old === undefined) delete process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS; else process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = old; }
+    expect(
+      (await prisma.supplier.findUnique({ where: { id: supplier.id } }))
+        .isVerified,
+    ).toBe(true);
+    expect(
+      await prisma.auditLog.count({
+        where: { action: "SUPPLIER_AUTO_VERIFIED" },
+      }),
+    ).toBe(1);
+  } finally {
+    if (old === undefined) delete process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS;
+    else process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = old;
+  }
 });
 test("concurrent final document approvals verify seller once and retain every attachment", async () => {
   const { user, supplier } = await fixture();
   await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
   auth.mockResolvedValue({ user: { id: user.id } });
   const docs = [];
-  for (const type of ["License", "Certificate"]) docs.push(await prisma.supplierDocument.create({ data: { supplierId: supplier.id, label: type, name: type, type, fileUrl: "https://example.test/one", files: ["https://example.test/one", "https://example.test/two"], description: "Review both pages" } }));
+  for (const type of ["License", "Certificate"])
+    docs.push(
+      await prisma.supplierDocument.create({
+        data: {
+          supplierId: supplier.id,
+          label: type,
+          name: type,
+          type,
+          fileUrl: "https://example.test/one",
+          files: ["https://example.test/one", "https://example.test/two"],
+          description: "Review both pages",
+        },
+      }),
+    );
   expect((await getAdminDocuments({})).items[0].files).toHaveLength(2);
   const old = process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS;
   process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = "true";
   try {
-    const results = await Promise.all(docs.map(doc => reviewAdminDocument(new Request("http://localhost", { method: "PUT", body: JSON.stringify({ verified: true }) }), { params: Promise.resolve({ id: doc.id }) })));
-    expect(results.map(r => r.status)).toEqual([200, 200]);
-    expect((await prisma.supplier.findUnique({ where: { id: supplier.id } })).isVerified).toBe(true);
-    expect(await prisma.auditLog.count({ where: { action: "SUPPLIER_AUTO_VERIFIED" } })).toBe(1);
-  } finally { if (old === undefined) delete process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS; else process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = old; }
+    const results = await Promise.all(
+      docs.map((doc) =>
+        reviewAdminDocument(
+          new Request("http://localhost", {
+            method: "PUT",
+            body: JSON.stringify({ verified: true }),
+          }),
+          { params: Promise.resolve({ id: doc.id }) },
+        ),
+      ),
+    );
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+    expect(
+      (await prisma.supplier.findUnique({ where: { id: supplier.id } }))
+        .isVerified,
+    ).toBe(true);
+    expect(
+      await prisma.auditLog.count({
+        where: { action: "SUPPLIER_AUTO_VERIFIED" },
+      }),
+    ).toBe(1);
+  } finally {
+    if (old === undefined) delete process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS;
+    else process.env.AUTO_VERIFY_SUPPLIER_ON_ALL_DOCS = old;
+  }
 });
 
-import { createProduct, updateProduct, deleteProduct, getProductById, createBrandAction, createCategoryAction } from "@/lib/actions/product.actions";
+import {
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getProductById,
+  createBrandAction,
+  createCategoryAction,
+} from "@/lib/actions/product.actions";
 import { requestOtp, consumeOtp } from "@/lib/otp";
 async function catalogFixture() {
   const f = await fixture();
-  await prisma.user.update({ where: { id: f.user.id }, data: { role: "SUPPLIER" } });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: { role: "SUPPLIER" },
+  });
   auth.mockResolvedValue({ user: { id: f.user.id, role: "SUPPLIER" } });
-  const input = { name: "Secure test product", slug: "secure-test", description: "Synthetic product", images: ["https://example.test/item.png"], price: "1000.00", stock: 5, brandId: f.product.brandId, categoryId: f.product.categoryId, subcategoryId: f.product.subcategoryId, supplierId: f.supplier.id, pricingTiers: [{ minQty: 5, price: 800 }] };
+  const input = {
+    name: "Secure test product",
+    slug: "secure-test",
+    description: "Synthetic product",
+    images: ["https://example.test/item.png"],
+    price: "1000.00",
+    stock: 5,
+    brandId: f.product.brandId,
+    categoryId: f.product.categoryId,
+    subcategoryId: f.product.subcategoryId,
+    supplierId: f.supplier.id,
+    pricingTiers: [{ minQty: 5, price: 800 }],
+  };
   return { ...f, input };
 }
 test("catalog actions reject anonymous, buyer, revoked supplier and forged owner", async () => {
   const f = await catalogFixture();
   for (const session of [null, { user: { id: f.user.id, role: "ADMIN" } }]) {
-    await prisma.user.update({ where: { id: f.user.id }, data: { role: "BUYER" } });
+    await prisma.user.update({
+      where: { id: f.user.id },
+      data: { role: "BUYER" },
+    });
     auth.mockResolvedValue(session);
     expect((await createProduct(f.input)).success).toBe(false);
-    expect((await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5 })).success).toBe(false);
+    expect(
+      (await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5 }))
+        .success,
+    ).toBe(false);
     expect((await deleteProduct(f.product.id)).success).toBe(false);
   }
-  await prisma.user.update({ where: { id: f.user.id }, data: { role: "SUPPLIER" } });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: { role: "SUPPLIER" },
+  });
   auth.mockResolvedValue({ user: { id: f.user.id } });
-  expect((await createProduct({ ...f.input, supplierId: crypto.randomUUID() })).success).toBe(false);
+  expect(
+    (await createProduct({ ...f.input, supplierId: crypto.randomUUID() }))
+      .success,
+  ).toBe(false);
   expect(await prisma.product.count()).toBe(1);
 });
 test("seller catalog isolation, admin targeting and reassignment rejection", async () => {
   const f = await catalogFixture();
-  const stranger = await prisma.user.create({ data: { role: "SUPPLIER", name: "Other seller" } });
-  const shop = await prisma.supplier.create({ data: { userId: stranger.id, name: "Other shop", email: "other@example.test", phone: "+255700000009" } });
+  const stranger = await prisma.user.create({
+    data: { role: "SUPPLIER", name: "Other seller" },
+  });
+  const shop = await prisma.supplier.create({
+    data: {
+      userId: stranger.id,
+      name: "Other shop",
+      email: "other@example.test",
+      phone: "+255700000009",
+    },
+  });
   auth.mockResolvedValue({ user: { id: stranger.id } });
-  expect((await updateProduct({ ...f.input, supplierId: shop.id, id: f.product.id, expectedStock: 5 })).success).toBe(false);
+  expect(
+    (
+      await updateProduct({
+        ...f.input,
+        supplierId: shop.id,
+        id: f.product.id,
+        expectedStock: 5,
+      })
+    ).success,
+  ).toBe(false);
   expect((await deleteProduct(f.product.id)).success).toBe(false);
   expect(await getProductById(f.product.slug)).toBeNull();
   expect((await createBrandAction("Forged")).success).toBe(false);
   expect((await createCategoryAction("Forged")).success).toBe(false);
-  const admin = await prisma.user.create({ data: { role: "ADMIN", name: "Admin" } });
+  const admin = await prisma.user.create({
+    data: { role: "ADMIN", name: "Admin" },
+  });
   auth.mockResolvedValue({ user: { id: admin.id } });
   expect((await createProduct(f.input)).success).toBe(true);
-  expect((await updateProduct({ ...f.input, supplierId: shop.id, id: f.product.id, expectedStock: 5 })).success).toBe(false);
+  expect(
+    (
+      await updateProduct({
+        ...f.input,
+        supplierId: shop.id,
+        id: f.product.id,
+        expectedStock: 5,
+      })
+    ).success,
+  ).toBe(false);
 });
-test.each([{ stock: 1.5 }, { stock: -1 }, { price: "-1" }, { price: "1.001" }, { pricingTiers: [{ minQty: 1.5, price: 5 }] }, { pricingTiers: [{ minQty: 5, price: 800 }, { minQty: 5, price: 700 }] }])("invalid catalog quantities/prices cannot write %#", async override => {
+test.each([
+  { stock: 1.5 },
+  { stock: -1 },
+  { price: "-1" },
+  { price: "1.001" },
+  { pricingTiers: [{ minQty: 1.5, price: 5 }] },
+  {
+    pricingTiers: [
+      { minQty: 5, price: 800 },
+      { minQty: 5, price: 700 },
+    ],
+  },
+])("invalid catalog quantities/prices cannot write %#", async (override) => {
   const f = await catalogFixture();
-  expect((await createProduct({ ...f.input, ...override })).success).toBe(false);
+  expect((await createProduct({ ...f.input, ...override })).success).toBe(
+    false,
+  );
   expect(await prisma.product.count()).toBe(1);
 });
 test("concurrent stale-stock edits produce one winner and atomic tiers", async () => {
   const f = await catalogFixture();
-  const result = await Promise.all([6, 7].map(stock => updateProduct({ ...f.input, id: f.product.id, stock, expectedStock: 5 })));
-  expect(result.filter(r => r.success)).toHaveLength(1);
-  const product = await prisma.product.findUnique({ where: { id: f.product.id }, include: { pricingTiers: true } });
+  const result = await Promise.all(
+    [6, 7].map((stock) =>
+      updateProduct({ ...f.input, id: f.product.id, stock, expectedStock: 5 }),
+    ),
+  );
+  expect(result.filter((r) => r.success)).toHaveLength(1);
+  const product = await prisma.product.findUnique({
+    where: { id: f.product.id },
+    include: { pricingTiers: true },
+  });
   expect([6, 7]).toContain(product.stock);
-  expect(product.pricingTiers.map(t => Number(t.price))).toEqual([800]);
+  expect(product.pricingTiers.map((t) => Number(t.price))).toEqual([800]);
   expect((await getProductById(f.product.id)).id).toBe(f.product.id);
   expect((await getProductById(f.input.slug)).id).toBe(f.product.id);
 });
 test("catalog edit after stock deduction cannot overwrite new stock", async () => {
   const f = await catalogFixture();
-  await prisma.product.update({ where: { id: f.product.id }, data: { stock: { decrement: 1 } } });
-  expect((await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5 })).success).toBe(false);
-  expect((await prisma.product.findUnique({ where: { id: f.product.id } })).stock).toBe(4);
+  await prisma.product.update({
+    where: { id: f.product.id },
+    data: { stock: { decrement: 1 } },
+  });
+  expect(
+    (await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5 }))
+      .success,
+  ).toBe(false);
+  expect(
+    (await prisma.product.findUnique({ where: { id: f.product.id } })).stock,
+  ).toBe(4);
 });
 test("referenced product delete rolls back tier deletion", async () => {
   const f = await catalogFixture();
-  await prisma.productPricing.create({ data: { productId: f.product.id, minQty: 5, price: 800 } });
+  await prisma.productPricing.create({
+    data: { productId: f.product.id, minQty: 5, price: 800 },
+  });
   expect((await deleteProduct(f.product.id)).success).toBe(false);
-  expect(await prisma.productPricing.count({ where: { productId: f.product.id } })).toBe(1);
+  expect(
+    await prisma.productPricing.count({ where: { productId: f.product.id } }),
+  ).toBe(1);
 });
 test("unreferenced product can be deleted without removing order history", async () => {
-  const f=await catalogFixture();await prisma.orderItem.deleteMany({where:{orderId:f.order.id}});
+  const f = await catalogFixture();
+  await prisma.orderItem.deleteMany({ where: { orderId: f.order.id } });
   expect((await deleteProduct(f.product.id)).success).toBe(true);
-  expect(await prisma.order.count({where:{id:f.order.id}})).toBe(1);
+  expect(await prisma.order.count({ where: { id: f.order.id } })).toBe(1);
 });
 test("product deletion racing a new order cannot erase committed purchase items", async () => {
-  const f=await catalogFixture();await prisma.orderItem.deleteMany({where:{orderId:f.order.id}});
-  const [deletion,creation]=await Promise.allSettled([deleteProduct(f.product.id),newOrder({user:f.user,product:f.product,qty:1})]);
-  if(creation.status==='fulfilled') {
-    expect(await prisma.orderItem.count({where:{orderId:creation.value.id}})).toBe(1);
-    expect(await prisma.product.count({where:{id:f.product.id}})).toBe(1);
-    expect(deletion.status==='rejected'||!deletion.value.success).toBe(true);
+  const f = await catalogFixture();
+  await prisma.orderItem.deleteMany({ where: { orderId: f.order.id } });
+  const [deletion, creation] = await Promise.allSettled([
+    deleteProduct(f.product.id),
+    newOrder({ user: f.user, product: f.product, qty: 1 }),
+  ]);
+  if (creation.status === "fulfilled") {
+    expect(
+      await prisma.orderItem.count({ where: { orderId: creation.value.id } }),
+    ).toBe(1);
+    expect(await prisma.product.count({ where: { id: f.product.id } })).toBe(1);
+    expect(deletion.status === "rejected" || !deletion.value.success).toBe(
+      true,
+    );
   } else {
-    expect(deletion.status==='fulfilled'&&deletion.value.success).toBe(true);
-    expect(await prisma.orderItem.count({where:{productId:f.product.id}})).toBe(0);
+    expect(deletion.status === "fulfilled" && deletion.value.success).toBe(
+      true,
+    );
+    expect(
+      await prisma.orderItem.count({ where: { productId: f.product.id } }),
+    ).toBe(0);
   }
 });
 test("OTP parallel send is bounded and token is cryptographic six-digit server content", async () => {
   const phone = "+255700000011";
-  const result = await Promise.allSettled(Array.from({ length: 6 }, () => requestOtp(phone)));
-  expect(result.filter(r => r.status === "fulfilled")).toHaveLength(1);
+  const result = await Promise.allSettled(
+    Array.from({ length: 6 }, () => requestOtp(phone)),
+  );
+  expect(result.filter((r) => r.status === "fulfilled")).toHaveLength(1);
   expect(sendSms).toHaveBeenCalledTimes(1);
-  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  const record = await prisma.verificationToken.findFirst({
+    where: { identifier: phone },
+  });
   expect(record.token).toMatch(/^\d{6}$/);
-  expect(sendSms).toHaveBeenCalledWith(phone, expect.stringContaining(record.token));
+  expect(sendSms).toHaveBeenCalledWith(
+    phone,
+    expect.stringContaining(record.token),
+  );
 });
 test("concurrent failed guesses commit cap and valid token cannot bypass lockout", async () => {
   const phone = "+255700000012";
   await requestOtp(phone);
-  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  const record = await prisma.verificationToken.findFirst({
+    where: { identifier: phone },
+  });
   const wrong = record.token === "111111" ? "222222" : "111111";
   await Promise.all(Array.from({ length: 8 }, () => consumeOtp(phone, wrong)));
-  expect((await prisma.otpThrottle.findUnique({ where: { identifier: phone } })).failedAttempts).toBe(5);
+  expect(
+    (await prisma.otpThrottle.findUnique({ where: { identifier: phone } }))
+      .failedAttempts,
+  ).toBe(5);
   expect(await consumeOtp(phone, record.token)).toBeNull();
   await expect(requestOtp(phone)).rejects.toMatchObject({ status: 429 });
 });
 test("OTP expires, replays fail and resend limit survives successful consumption", async () => {
   const phone = "+255700000013";
   for (let i = 0; i < 3; i++) {
-    if (i) await prisma.otpThrottle.update({ where: { identifier: phone }, data: { lastSentAt: new Date(0) } });
+    if (i)
+      await prisma.otpThrottle.update({
+        where: { identifier: phone },
+        data: { lastSentAt: new Date(0) },
+      });
     await requestOtp(phone);
-    const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+    const record = await prisma.verificationToken.findFirst({
+      where: { identifier: phone },
+    });
     if (!i) {
-      const results = await Promise.all([consumeOtp(phone, record.token), consumeOtp(phone, record.token)]);
+      const results = await Promise.all([
+        consumeOtp(phone, record.token),
+        consumeOtp(phone, record.token),
+      ]);
       expect(results.filter(Boolean)).toHaveLength(1);
     } else expect(await consumeOtp(phone, record.token)).not.toBeNull();
   }
   await expect(requestOtp(phone)).rejects.toMatchObject({ status: 429 });
-  await prisma.otpThrottle.update({ where: { identifier: phone }, data: { windowStartedAt: new Date(0) } });
+  await prisma.otpThrottle.update({
+    where: { identifier: phone },
+    data: { windowStartedAt: new Date(0) },
+  });
   await requestOtp(phone);
-  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
-  await prisma.verificationToken.updateMany({ where: { identifier: phone }, data: { expires: new Date(0) } });
+  const record = await prisma.verificationToken.findFirst({
+    where: { identifier: phone },
+  });
+  await prisma.verificationToken.updateMany({
+    where: { identifier: phone },
+    data: { expires: new Date(0) },
+  });
   expect(await consumeOtp(phone, record.token)).toBeNull();
 });
 test("undelivered SMS invalidates credential and email never reports fake success", async () => {
   sendSms.mockRejectedValueOnce(new Error("private provider payload"));
-  await expect(requestOtp("+255700000014")).rejects.toMatchObject({ status: 503 });
+  await expect(requestOtp("+255700000014")).rejects.toMatchObject({
+    status: 503,
+  });
   expect(await prisma.verificationToken.count()).toBe(0);
-  await expect(requestOtp("buyer@example.test")).rejects.toMatchObject({ status: 400 });
+  await expect(requestOtp("buyer@example.test")).rejects.toMatchObject({
+    status: 400,
+  });
   expect(sendSms).toHaveBeenCalledTimes(1);
 });
 test("pre-migration unexpired phone OTP remains usable once with new throttling", async () => {
   const phone = "+255700000015";
-  await prisma.verificationToken.create({ data: { identifier: phone, token: "654321", expires: new Date(Date.now() + 60000), attempts: 2 } });
+  await prisma.verificationToken.create({
+    data: {
+      identifier: phone,
+      token: "654321",
+      expires: new Date(Date.now() + 60000),
+      attempts: 2,
+    },
+  });
   expect(await consumeOtp(phone, "654321")).not.toBeNull();
   expect(await consumeOtp(phone, "654321")).toBeNull();
-  expect(await prisma.otpThrottle.count({ where: { identifier: phone } })).toBe(1);
+  expect(await prisma.otpThrottle.count({ where: { identifier: phone } })).toBe(
+    1,
+  );
 });
 test("OTP expiry is checked after a blocked verifier acquires its lock", async () => {
   const phone = "+255700000016";
   await requestOtp(phone);
-  const record = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  const record = await prisma.verificationToken.findFirst({
+    where: { identifier: phone },
+  });
   let unlock, acquired;
-  const ready = new Promise(resolve => { acquired = resolve; });
-  const release = new Promise(resolve => { unlock = resolve; });
-  const holder = prisma.$transaction(async tx => {
+  const ready = new Promise((resolve) => {
+    acquired = resolve;
+  });
+  const release = new Promise((resolve) => {
+    unlock = resolve;
+  });
+  const holder = prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${phone}, 0))`;
-    acquired(); await release;
-    await tx.verificationToken.updateMany({ where: { identifier: phone }, data: { expires: new Date(0) } });
+    acquired();
+    await release;
+    await tx.verificationToken.updateMany({
+      where: { identifier: phone },
+      data: { expires: new Date(0) },
+    });
   });
   await ready;
   const verifying = consumeOtp(phone, record.token);
-  unlock(); await holder;
+  unlock();
+  await holder;
   expect(await verifying).toBeNull();
 });
 test("failed older SMS delivery cannot delete a newer resend", async () => {
   const phone = "+255700000017";
   let fail, reached;
-  const ready = new Promise(resolve => { reached = resolve; });
-  sendSms.mockImplementationOnce(() => { reached(); return new Promise((_, reject) => { fail = reject; }); });
-  const first = requestOtp(phone).catch(error => error.status);
+  const ready = new Promise((resolve) => {
+    reached = resolve;
+  });
+  sendSms.mockImplementationOnce(() => {
+    reached();
+    return new Promise((_, reject) => {
+      fail = reject;
+    });
+  });
+  const first = requestOtp(phone).catch((error) => error.status);
   await ready;
-  await prisma.otpThrottle.update({ where: { identifier: phone }, data: { lastSentAt: new Date(0) } });
+  await prisma.otpThrottle.update({
+    where: { identifier: phone },
+    data: { lastSentAt: new Date(0) },
+  });
   await requestOtp(phone);
-  const latest = await prisma.verificationToken.findFirst({ where: { identifier: phone } });
+  const latest = await prisma.verificationToken.findFirst({
+    where: { identifier: phone },
+  });
   fail(new Error("Synthetic delivery failure"));
   expect(await first).toBe(503);
   expect(await consumeOtp(phone, latest.token)).not.toBeNull();
@@ -1841,30 +2151,68 @@ test("seller creates and deletes own unreferenced product with tiers", async () 
   const created = await createProduct(f.input);
   expect(created.success).toBe(true);
   expect((await deleteProduct(created.product.id)).success).toBe(true);
-  expect(await prisma.productPricing.count({ where: { productId: created.product.id } })).toBe(0);
+  expect(
+    await prisma.productPricing.count({
+      where: { productId: created.product.id },
+    }),
+  ).toBe(0);
 });
 test("product and original tiers roll back when replacement tier persistence fails", async () => {
   const f = await catalogFixture();
-  await prisma.productPricing.create({ data: { productId: f.product.id, minQty: 2, price: 900 } });
-  await prisma.$executeRawUnsafe(`CREATE FUNCTION reject_test_tier() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic tier failure'; END $$`);
-  await prisma.$executeRawUnsafe(`CREATE TRIGGER reject_test_tier BEFORE INSERT ON "ProductPricing" FOR EACH ROW EXECUTE FUNCTION reject_test_tier()`);
+  await prisma.productPricing.create({
+    data: { productId: f.product.id, minQty: 2, price: 900 },
+  });
+  await prisma.$executeRawUnsafe(
+    `CREATE FUNCTION reject_test_tier() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'Synthetic tier failure'; END $$`,
+  );
+  await prisma.$executeRawUnsafe(
+    `CREATE TRIGGER reject_test_tier BEFORE INSERT ON "ProductPricing" FOR EACH ROW EXECUTE FUNCTION reject_test_tier()`,
+  );
   try {
-    expect((await updateProduct({ ...f.input, id: f.product.id, expectedStock: 5, stock: 7, price: "1200.00" })).success).toBe(false);
-    const unchanged = await prisma.product.findUnique({ where: { id: f.product.id }, include: { pricingTiers: true } });
+    expect(
+      (
+        await updateProduct({
+          ...f.input,
+          id: f.product.id,
+          expectedStock: 5,
+          stock: 7,
+          price: "1200.00",
+        })
+      ).success,
+    ).toBe(false);
+    const unchanged = await prisma.product.findUnique({
+      where: { id: f.product.id },
+      include: { pricingTiers: true },
+    });
     expect(unchanged.stock).toBe(5);
     expect(Number(unchanged.price)).toBe(1000);
-    expect(unchanged.pricingTiers.map(t => Number(t.price))).toEqual([900]);
-  } finally { await prisma.$executeRawUnsafe(`DROP TRIGGER reject_test_tier ON "ProductPricing"`); await prisma.$executeRawUnsafe(`DROP FUNCTION reject_test_tier()`); }
+    expect(unchanged.pricingTiers.map((t) => Number(t.price))).toEqual([900]);
+  } finally {
+    await prisma.$executeRawUnsafe(
+      `DROP TRIGGER reject_test_tier ON "ProductPricing"`,
+    );
+    await prisma.$executeRawUnsafe(`DROP FUNCTION reject_test_tier()`);
+  }
 });
 import { POST as uploadSellerDocument } from "@/app/api/suppliers/documents/route";
 import { PUT as updateSellerProfile } from "@/app/api/suppliers/me/route";
 test("revoked seller profile/document writes fail before mutation; malformed files rejected", async () => {
   const f = await catalogFixture();
-  await prisma.user.update({ where: { id: f.user.id }, data: { role: "BUYER" } });
-  const request = () => new Request("http://localhost", { method: "POST", body: JSON.stringify({ label: "Demo", files: null }) });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: { role: "BUYER" },
+  });
+  const request = () =>
+    new Request("http://localhost", {
+      method: "POST",
+      body: JSON.stringify({ label: "Demo", files: null }),
+    });
   expect((await uploadSellerDocument(request())).status).toBe(401);
   expect((await updateSellerProfile(request())).status).toBe(401);
-  await prisma.user.update({ where: { id: f.user.id }, data: { role: "SUPPLIER" } });
+  await prisma.user.update({
+    where: { id: f.user.id },
+    data: { role: "SUPPLIER" },
+  });
   expect((await uploadSellerDocument(request())).status).toBe(400);
   expect(await prisma.supplierDocument.count()).toBe(0);
 });
@@ -2081,263 +2429,882 @@ test("expired lease worker cannot overwrite newer settled proof", async () => {
 });
 
 import { paymentQueue, paymentDetail } from "@/lib/admin-payment-recovery";
-test("recovery admin queries enforce fresh roles, validate UUID and clamp pages", async()=>{
- const {order,user}=await fixture();auth.mockResolvedValue({user:{id:user.id,role:"ADMIN"}});
- await expect(paymentQueue({})).rejects.toThrow("Unauthorized");
- await prisma.user.update({where:{id:user.id},data:{role:"ADMIN"}});
- getZenopayStatus.mockResolvedValue({...confirmed(order),payment_status:"PENDING"});await reconcileZenopay(order.id,attempt(order));
- const result=await paymentQueue({page:"99",q:"-".repeat(36)});expect(result.filters.page).toBe(1);expect(result.items).toHaveLength(1);
- expect(await paymentDetail("-".repeat(36))).toBeNull();
- expect((await paymentDetail(result.items[0].id)).events.length).toBeGreaterThan(0);
- await prisma.user.update({where:{id:user.id},data:{role:"BUYER"}});await expect(paymentDetail(result.items[0].id)).rejects.toThrow("Unauthorized");
+test("recovery admin queries enforce fresh roles, validate UUID and clamp pages", async () => {
+  const { order, user } = await fixture();
+  auth.mockResolvedValue({ user: { id: user.id, role: "ADMIN" } });
+  await expect(paymentQueue({})).rejects.toThrow("Unauthorized");
+  await prisma.user.update({ where: { id: user.id }, data: { role: "ADMIN" } });
+  getZenopayStatus.mockResolvedValue({
+    ...confirmed(order),
+    payment_status: "PENDING",
+  });
+  await reconcileZenopay(order.id, attempt(order));
+  const result = await paymentQueue({ page: "99", q: "-".repeat(36) });
+  expect(result.filters.page).toBe(1);
+  expect(result.items).toHaveLength(1);
+  expect(await paymentDetail("-".repeat(36))).toBeNull();
+  expect(
+    (await paymentDetail(result.items[0].id)).events.length,
+  ).toBeGreaterThan(0);
+  await prisma.user.update({ where: { id: user.id }, data: { role: "BUYER" } });
+  await expect(paymentDetail(result.items[0].id)).rejects.toThrow(
+    "Unauthorized",
+  );
 });
-test("provider transaction reference cannot settle a second order",async()=>{
- const first=await fixture();getZenopayStatus.mockResolvedValue(confirmed(first.order));await reconcileZenopay(first.order.id,attempt(first.order));
- const second=await newOrder(first);getZenopayStatus.mockResolvedValue({...confirmed(second),reference:confirmed(first.order).reference});
- await expect(reconcileZenopay(second.id,attempt(second))).rejects.toThrow("verification");
- expect((await prisma.order.findUnique({where:{id:second.id}})).isPaid).toBe(false);expect(await prisma.supplierLedger.count()).toBe(1);
+test("provider transaction reference cannot settle a second order", async () => {
+  const first = await fixture();
+  getZenopayStatus.mockResolvedValue(confirmed(first.order));
+  await reconcileZenopay(first.order.id, attempt(first.order));
+  const second = await newOrder(first);
+  getZenopayStatus.mockResolvedValue({
+    ...confirmed(second),
+    reference: confirmed(first.order).reference,
+  });
+  await expect(reconcileZenopay(second.id, attempt(second))).rejects.toThrow(
+    "verification",
+  );
+  expect(
+    (await prisma.order.findUnique({ where: { id: second.id } })).isPaid,
+  ).toBe(false);
+  expect(await prisma.supplierLedger.count()).toBe(1);
 });
-test("read-only recovery operator report executes without mutations",async()=>{
- const {order}=await fixture();getZenopayStatus.mockResolvedValue({...confirmed(order),payment_status:"PENDING"});await reconcileZenopay(order.id,attempt(order));
- const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts/payment-recovery-dry-run.sql"),"utf8");
- const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(Boolean);
- await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY"); for(const stmt of statements.filter(s=>!s.startsWith("BEGIN")&&s!=="ROLLBACK")) expect(await tx.$queryRawUnsafe(stmt)).toBeDefined();});
- expect(await prisma.paymentAttempt.count()).toBe(1);expect(await prisma.supplierLedger.count()).toBe(0);
+test("read-only recovery operator report executes without mutations", async () => {
+  const { order } = await fixture();
+  getZenopayStatus.mockResolvedValue({
+    ...confirmed(order),
+    payment_status: "PENDING",
+  });
+  await reconcileZenopay(order.id, attempt(order));
+  const sql = require("fs").readFileSync(
+    require("path").join(
+      __dirname,
+      "../../scripts/payment-recovery-dry-run.sql",
+    ),
+    "utf8",
+  );
+  const statements = sql
+    .replace(/--[^\n]*/g, "")
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
+    for (const stmt of statements.filter(
+      (s) => !s.startsWith("BEGIN") && s !== "ROLLBACK",
+    ))
+      expect(await tx.$queryRawUnsafe(stmt)).toBeDefined();
+  });
+  expect(await prisma.paymentAttempt.count()).toBe(1);
+  expect(await prisma.supplierLedger.count()).toBe(0);
 });
-test("callback during cooldown requests retry instead of acknowledging unverified hint",async()=>{
- const {order}=await fixture();getZenopayStatus.mockResolvedValue({...confirmed(order),payment_status:"PENDING"});
- await reconcileZenopay(order.id,attempt(order));
- await expect(reconcileZenopay(order.id,attempt(order),true)).rejects.toThrow("busy");
- expect(getZenopayStatus).toHaveBeenCalledTimes(1);expect(await prisma.supplierLedger.count()).toBe(0);
+test("callback during cooldown requests retry instead of acknowledging unverified hint", async () => {
+  const { order } = await fixture();
+  getZenopayStatus.mockResolvedValue({
+    ...confirmed(order),
+    payment_status: "PENDING",
+  });
+  await reconcileZenopay(order.id, attempt(order));
+  await expect(
+    reconcileZenopay(order.id, attempt(order), true),
+  ).rejects.toThrow("busy");
+  expect(getZenopayStatus).toHaveBeenCalledTimes(1);
+  expect(await prisma.supplierLedger.count()).toBe(0);
 });
 
-import {notificationBatch, notificationRetention} from "@/lib/order-notification-outbox";
-import {queueOrderNotification} from "@/lib/order-notification-events";
-import {retryOrderNotification, setOrderSmsPreference} from "@/lib/actions/order-notification.actions";
-import {notificationQueue} from "@/lib/admin-notifications";
-const acceptedSms = (to) => Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:101,messageId:"synthetic-provider-id"}]}});
+import {
+  notificationBatch,
+  notificationRetention,
+} from "@/lib/order-notification-outbox";
+import { queueOrderNotification } from "@/lib/order-notification-events";
+import {
+  retryOrderNotification,
+  setOrderSmsPreference,
+} from "@/lib/actions/order-notification.actions";
+import { notificationQueue } from "@/lib/admin-notifications";
+const acceptedSms = (to) =>
+  Response.json({
+    SMSMessageData: {
+      Recipients: [
+        { number: to, statusCode: 101, messageId: "synthetic-provider-id" },
+      ],
+    },
+  });
 async function queuedNotification() {
- const data=await fixture();await fulfillOrder(data.order.id,attempt(data.order),"verified");
- await prisma.orderNotification.updateMany({where:{kind:"SELLER_PAYMENT"},data:{state:"SUPPRESSED",reason:"TEST_FIXTURE_ONLY"}});
- return {...data,notification:await prisma.orderNotification.findFirst({where:{kind:"BUYER_PAYMENT"}})};
+  const data = await fixture();
+  await fulfillOrder(data.order.id, attempt(data.order), "verified");
+  await prisma.orderNotification.updateMany({
+    where: { kind: "SELLER_PAYMENT" },
+    data: { state: "SUPPRESSED", reason: "TEST_FIXTURE_ONLY" },
+  });
+  return {
+    ...data,
+    notification: await prisma.orderNotification.findFirst({
+      where: { kind: "BUYER_PAYMENT" },
+    }),
+  };
 }
-test("outbox persistence failure rolls back payment, stock and escrow",async()=>{
- const {order,product}=await fixture();
- await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" ADD CONSTRAINT reject_seller_notification CHECK (kind <> \'SELLER_PAYMENT\')');
- try {await expect(fulfillOrder(order.id,attempt(order),"verified")).rejects.toThrow();expect(await prisma.orderNotification.count()).toBe(0);expect(await prisma.supplierLedger.count()).toBe(0);expect((await prisma.product.findUnique({where:{id:product.id}})).stock).toBe(5);}
- finally {await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" DROP CONSTRAINT reject_seller_notification');}
+test("outbox persistence failure rolls back payment, stock and escrow", async () => {
+  const { order, product } = await fixture();
+  await prisma.$executeRawUnsafe(
+    "ALTER TABLE \"OrderNotification\" ADD CONSTRAINT reject_seller_notification CHECK (kind <> 'SELLER_PAYMENT')",
+  );
+  try {
+    await expect(
+      fulfillOrder(order.id, attempt(order), "verified"),
+    ).rejects.toThrow();
+    expect(await prisma.orderNotification.count()).toBe(0);
+    expect(await prisma.supplierLedger.count()).toBe(0);
+    expect(
+      (await prisma.product.findUnique({ where: { id: product.id } })).stock,
+    ).toBe(5);
+  } finally {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "OrderNotification" DROP CONSTRAINT reject_seller_notification',
+    );
+  }
 });
-test("delivery outbox and escrow release roll back together",async()=>{
- const data=await paidFixture();await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" ADD CONSTRAINT reject_delivery_notification CHECK (kind <> \'SELLER_DELIVERY\')');
- try {await expect(confirmDelivery(data.order.id,data.product.id,buyer(data))).rejects.toThrow();expect(await releases()).toBe(0);expect((await prisma.supplier.findUnique({where:{id:data.supplier.id}})).walletBalance.toString()).toBe("0");}
- finally {await prisma.$executeRawUnsafe('ALTER TABLE "OrderNotification" DROP CONSTRAINT reject_delivery_notification');}
+test("delivery outbox and escrow release roll back together", async () => {
+  const data = await paidFixture();
+  await prisma.$executeRawUnsafe(
+    "ALTER TABLE \"OrderNotification\" ADD CONSTRAINT reject_delivery_notification CHECK (kind <> 'SELLER_DELIVERY')",
+  );
+  try {
+    await expect(
+      confirmDelivery(data.order.id, data.product.id, buyer(data)),
+    ).rejects.toThrow();
+    expect(await releases()).toBe(0);
+    expect(
+      (
+        await prisma.supplier.findUnique({ where: { id: data.supplier.id } })
+      ).walletBalance.toString(),
+    ).toBe("0");
+  } finally {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "OrderNotification" DROP CONSTRAINT reject_delivery_notification',
+    );
+  }
 });
-test("worker dry-run sends nothing; concurrent workers claim each event once",async()=>{
- const data=await queuedNotification();sendSms.mockImplementation(async to=>acceptedSms(to));
- expect(await notificationBatch()).toHaveLength(1);expect(sendSms).not.toHaveBeenCalled();
- await Promise.all(Array.from({length:6},()=>notificationBatch({dryRun:false})));
- expect(sendSms).toHaveBeenCalledTimes(1);
- expect(await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).toMatchObject({state:"ACCEPTED",attempts:1,providerMessageId:"synthetic-provider-id"});
- await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);
+test("worker dry-run sends nothing; concurrent workers claim each event once", async () => {
+  const data = await queuedNotification();
+  sendSms.mockImplementation(async (to) => acceptedSms(to));
+  expect(await notificationBatch()).toHaveLength(1);
+  expect(sendSms).not.toHaveBeenCalled();
+  await Promise.all(
+    Array.from({ length: 6 }, () => notificationBatch({ dryRun: false })),
+  );
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  expect(
+    await prisma.orderNotification.findUnique({
+      where: { id: data.notification.id },
+    }),
+  ).toMatchObject({
+    state: "ACCEPTED",
+    attempts: 1,
+    providerMessageId: "synthetic-provider-id",
+  });
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).toHaveBeenCalledTimes(1);
 });
-test("repeated event enqueue does not recreate accepted notification",async()=>{
- const data=await queuedNotification();sendSms.mockImplementation(async to=>acceptedSms(to));await notificationBatch({dryRun:false});
- await prisma.$transaction(tx=>queueOrderNotification(tx,{orderId:data.order.id,kind:"BUYER_PAYMENT",targetId:data.user.id}));await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);
+test("repeated event enqueue does not recreate accepted notification", async () => {
+  const data = await queuedNotification();
+  sendSms.mockImplementation(async (to) => acceptedSms(to));
+  await notificationBatch({ dryRun: false });
+  await prisma.$transaction((tx) =>
+    queueOrderNotification(tx, {
+      orderId: data.order.id,
+      kind: "BUYER_PAYMENT",
+      targetId: data.user.id,
+    }),
+  );
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).toHaveBeenCalledTimes(1);
 });
-test("expired worker lease becomes unknown without automatic duplicate send",async()=>{
- const data=await queuedNotification();await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"SENDING",attempts:1,leaseToken:"crashed",leaseUntil:new Date(0)}});
- await notificationBatch({dryRun:false});await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("UNKNOWN");
+test("expired worker lease becomes unknown without automatic duplicate send", async () => {
+  const data = await queuedNotification();
+  await prisma.orderNotification.update({
+    where: { id: data.notification.id },
+    data: {
+      state: "SENDING",
+      attempts: 1,
+      leaseToken: "crashed",
+      leaseUntil: new Date(0),
+    },
+  });
+  await notificationBatch({ dryRun: false });
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(
+    (
+      await prisma.orderNotification.findUnique({
+        where: { id: data.notification.id },
+      })
+    ).state,
+  ).toBe("UNKNOWN");
 });
-test("stale worker completion cannot overwrite expired-lease review state",async()=>{
- const data=await queuedNotification();let release,started;const ready=new Promise(r=>started=r);
- sendSms.mockImplementationOnce(to=>{started();return new Promise(resolve=>release=()=>resolve(acceptedSms(to)));});
- const old=notificationBatch({dryRun:false});await ready;await prisma.orderNotification.update({where:{id:data.notification.id},data:{leaseUntil:new Date(0)}});await notificationBatch({dryRun:false});release();await old;
- expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("UNKNOWN");expect(sendSms).toHaveBeenCalledTimes(1);
+test("stale worker completion cannot overwrite expired-lease review state", async () => {
+  const data = await queuedNotification();
+  let release, started;
+  const ready = new Promise((r) => (started = r));
+  sendSms.mockImplementationOnce((to) => {
+    started();
+    return new Promise((resolve) => (release = () => resolve(acceptedSms(to))));
+  });
+  const old = notificationBatch({ dryRun: false });
+  await ready;
+  await prisma.orderNotification.update({
+    where: { id: data.notification.id },
+    data: { leaseUntil: new Date(0) },
+  });
+  await notificationBatch({ dryRun: false });
+  release();
+  await old;
+  expect(
+    (
+      await prisma.orderNotification.findUnique({
+        where: { id: data.notification.id },
+      })
+    ).state,
+  ).toBe("UNKNOWN");
+  expect(sendSms).toHaveBeenCalledTimes(1);
 });
-test("ambiguous network outcomes remain unknown and provider errors are redacted",async()=>{
- const data=await queuedNotification();sendSms.mockRejectedValue(new Error("secret-contact-body"));await notificationBatch({dryRun:false});await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("UNKNOWN");expect(JSON.stringify(await prisma.orderNotificationEvent.findMany())).not.toContain("secret-contact-body");
+test("ambiguous network outcomes remain unknown and provider errors are redacted", async () => {
+  const data = await queuedNotification();
+  sendSms.mockRejectedValue(new Error("secret-contact-body"));
+  await notificationBatch({ dryRun: false });
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  expect(
+    (
+      await prisma.orderNotification.findUnique({
+        where: { id: data.notification.id },
+      })
+    ).state,
+  ).toBe("UNKNOWN");
+  expect(
+    JSON.stringify(await prisma.orderNotificationEvent.findMany()),
+  ).not.toContain("secret-contact-body");
 });
-test("explicit provider transient rejection backs off and caps attempts at five",async()=>{
- const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:500}]}}));
- for(let i=0;i<5;i++){await notificationBatch({dryRun:false});await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(i+1);await prisma.orderNotification.update({where:{id:data.notification.id},data:{nextAttemptAt:new Date(0)}});}
- expect(await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).toMatchObject({state:"FAILED",attempts:5});await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(5);
+test("explicit provider transient rejection backs off and caps attempts at five", async () => {
+  const data = await queuedNotification();
+  sendSms.mockImplementation(async (to) =>
+    Response.json({
+      SMSMessageData: { Recipients: [{ number: to, statusCode: 500 }] },
+    }),
+  );
+  for (let i = 0; i < 5; i++) {
+    await notificationBatch({ dryRun: false });
+    await notificationBatch({ dryRun: false });
+    expect(sendSms).toHaveBeenCalledTimes(i + 1);
+    await prisma.orderNotification.update({
+      where: { id: data.notification.id },
+      data: { nextAttemptAt: new Date(0) },
+    });
+  }
+  expect(
+    await prisma.orderNotification.findUnique({
+      where: { id: data.notification.id },
+    }),
+  ).toMatchObject({ state: "FAILED", attempts: 5 });
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).toHaveBeenCalledTimes(5);
 });
-test("permanent invalid route fails without provider call",async()=>{
- const data=await queuedNotification();await prisma.user.update({where:{id:data.user.id},data:{phone:"invalid",paymentPhone:null}});await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("FAILED");
+test("permanent invalid route fails without provider call", async () => {
+  const data = await queuedNotification();
+  await prisma.user.update({
+    where: { id: data.user.id },
+    data: { phone: "invalid", paymentPhone: null },
+  });
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(
+    (
+      await prisma.orderNotification.findUnique({
+        where: { id: data.notification.id },
+      })
+    ).state,
+  ).toBe("FAILED");
 });
-test("account opt-out suppresses queued SMS, preserves OTP preference and cannot replay",async()=>{
- const data=await queuedNotification();auth.mockResolvedValue({user:{id:data.user.id}});expect((await setOrderSmsPreference(false)).success).toBe(true);await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findUnique({where:{id:data.notification.id}})).state).toBe("SUPPRESSED");await setOrderSmsPreference(true);await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();
+test("account opt-out suppresses queued SMS, preserves OTP preference and cannot replay", async () => {
+  const data = await queuedNotification();
+  auth.mockResolvedValue({ user: { id: data.user.id } });
+  expect((await setOrderSmsPreference(false)).success).toBe(true);
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(
+    (
+      await prisma.orderNotification.findUnique({
+        where: { id: data.notification.id },
+      })
+    ).state,
+  ).toBe("SUPPRESSED");
+  await setOrderSmsPreference(true);
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
 });
-test("provider opt-out is suppressed and admin cannot override it",async()=>{
- const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:406}]}}));await notificationBatch({dryRun:false});await prisma.user.update({where:{id:data.user.id},data:{role:"ADMIN"}});auth.mockResolvedValue({user:{id:data.user.id}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);
+test("provider opt-out is suppressed and admin cannot override it", async () => {
+  const data = await queuedNotification();
+  sendSms.mockImplementation(async (to) =>
+    Response.json({
+      SMSMessageData: { Recipients: [{ number: to, statusCode: 406 }] },
+    }),
+  );
+  await notificationBatch({ dryRun: false });
+  await prisma.user.update({
+    where: { id: data.user.id },
+    data: { role: "ADMIN" },
+  });
+  auth.mockResolvedValue({ user: { id: data.user.id } });
+  expect(
+    (
+      await retryOrderNotification({
+        id: data.notification.id,
+        acknowledgeUnknown: true,
+      })
+    ).success,
+  ).toBe(false);
 });
-test("admin retry requires fresh role, unknown acknowledgement and remaining attempt budget",async()=>{
- const data=await queuedNotification();await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"UNKNOWN",attempts:1}});auth.mockResolvedValue(null);expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);
- auth.mockResolvedValue({user:{id:data.user.id,role:"ADMIN"}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);await expect(notificationQueue({})).rejects.toThrow("Unauthorized");
- await prisma.user.update({where:{id:data.user.id},data:{role:"ADMIN"}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:false})).success).toBe(false);expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(true);expect(sendSms).not.toHaveBeenCalled();
- await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"FAILED",attempts:5}});expect((await retryOrderNotification({id:data.notification.id,acknowledgeUnknown:true})).success).toBe(false);
- expect((await notificationQueue({page:"999"})).filters.page).toBe(1);
+test("admin retry requires fresh role, unknown acknowledgement and remaining attempt budget", async () => {
+  const data = await queuedNotification();
+  await prisma.orderNotification.update({
+    where: { id: data.notification.id },
+    data: { state: "UNKNOWN", attempts: 1 },
+  });
+  auth.mockResolvedValue(null);
+  expect(
+    (
+      await retryOrderNotification({
+        id: data.notification.id,
+        acknowledgeUnknown: true,
+      })
+    ).success,
+  ).toBe(false);
+  auth.mockResolvedValue({ user: { id: data.user.id, role: "ADMIN" } });
+  expect(
+    (
+      await retryOrderNotification({
+        id: data.notification.id,
+        acknowledgeUnknown: true,
+      })
+    ).success,
+  ).toBe(false);
+  await expect(notificationQueue({})).rejects.toThrow("Unauthorized");
+  await prisma.user.update({
+    where: { id: data.user.id },
+    data: { role: "ADMIN" },
+  });
+  expect(
+    (
+      await retryOrderNotification({
+        id: data.notification.id,
+        acknowledgeUnknown: false,
+      })
+    ).success,
+  ).toBe(false);
+  expect(
+    (
+      await retryOrderNotification({
+        id: data.notification.id,
+        acknowledgeUnknown: true,
+      })
+    ).success,
+  ).toBe(true);
+  expect(sendSms).not.toHaveBeenCalled();
+  await prisma.orderNotification.update({
+    where: { id: data.notification.id },
+    data: { state: "FAILED", attempts: 5 },
+  });
+  expect(
+    (
+      await retryOrderNotification({
+        id: data.notification.id,
+        acknowledgeUnknown: true,
+      })
+    ).success,
+  ).toBe(false);
+  expect((await notificationQueue({ page: "999" })).filters.page).toBe(1);
 });
-test("retention only removes old terminal event history and preserves replay tombstones",async()=>{
- const data=await queuedNotification();const old=new Date(Date.now()-120*86400000),cutoff=new Date(Date.now()-100*86400000);
- await prisma.orderNotification.update({where:{id:data.notification.id},data:{state:"ACCEPTED",completedAt:old}});await prisma.orderNotificationEvent.updateMany({data:{createdAt:old}});
- expect((await notificationRetention({olderThan:cutoff})).eligible).toBe(1);expect(await prisma.orderNotificationEvent.count()).toBe(2);
- await notificationRetention({olderThan:cutoff,dryRun:false});expect(await prisma.orderNotificationEvent.count()).toBe(1);expect(await prisma.orderNotification.count()).toBe(2);
- await expect(notificationRetention({olderThan:new Date()})).rejects.toThrow();
- await prisma.$transaction(tx=>queueOrderNotification(tx,{orderId:data.order.id,kind:"BUYER_PAYMENT",targetId:data.user.id}));expect(await prisma.orderNotification.count()).toBe(2);
+test("retention only removes old terminal event history and preserves replay tombstones", async () => {
+  const data = await queuedNotification();
+  const old = new Date(Date.now() - 120 * 86400000),
+    cutoff = new Date(Date.now() - 100 * 86400000);
+  await prisma.orderNotification.update({
+    where: { id: data.notification.id },
+    data: { state: "ACCEPTED", completedAt: old },
+  });
+  await prisma.orderNotificationEvent.updateMany({ data: { createdAt: old } });
+  expect((await notificationRetention({ olderThan: cutoff })).eligible).toBe(1);
+  expect(await prisma.orderNotificationEvent.count()).toBe(2);
+  await notificationRetention({ olderThan: cutoff, dryRun: false });
+  expect(await prisma.orderNotificationEvent.count()).toBe(1);
+  expect(await prisma.orderNotification.count()).toBe(2);
+  await expect(
+    notificationRetention({ olderThan: new Date() }),
+  ).rejects.toThrow();
+  await prisma.$transaction((tx) =>
+    queueOrderNotification(tx, {
+      orderId: data.order.id,
+      kind: "BUYER_PAYMENT",
+      targetId: data.user.id,
+    }),
+  );
+  expect(await prisma.orderNotification.count()).toBe(2);
 });
 
-test("delayed seller alert includes remaining escrow items after partial delivery",async()=>{
- const data=await paidFixture({twoItems:true});const seller=await prisma.user.create({data:{name:"Synthetic Seller",role:"SUPPLIER"}});await prisma.supplier.update({where:{id:data.supplier.id},data:{userId:seller.id}});
- await confirmDelivery(data.order.id,data.product.id,buyer(data));sendSms.mockImplementation(async to=>acceptedSms(to));await notificationBatch({dryRun:false});
- const sellerAlert=sendSms.mock.calls.find(([,body])=>body.includes("umepokea agizo jipya"));expect(sellerAlert).toBeDefined();expect(sellerAlert[1]).toContain("Second");expect(sellerAlert[1]).not.toContain(`2x ${data.product.name}`);
+test("delayed seller alert includes remaining escrow items after partial delivery", async () => {
+  const data = await paidFixture({ twoItems: true });
+  const seller = await prisma.user.create({
+    data: { name: "Synthetic Seller", role: "SUPPLIER" },
+  });
+  await prisma.supplier.update({
+    where: { id: data.supplier.id },
+    data: { userId: seller.id },
+  });
+  await confirmDelivery(data.order.id, data.product.id, buyer(data));
+  sendSms.mockImplementation(async (to) => acceptedSms(to));
+  await notificationBatch({ dryRun: false });
+  const sellerAlert = sendSms.mock.calls.find(([, body]) =>
+    body.includes("umepokea agizo jipya"),
+  );
+  expect(sellerAlert).toBeDefined();
+  expect(sellerAlert[1]).toContain("Second");
+  expect(sellerAlert[1]).not.toContain(`2x ${data.product.name}`);
 });
-test("revoked supplier is suppressed before queued financial SMS is sent",async()=>{
- const data=await fixture();await fulfillOrder(data.order.id,attempt(data.order),"verified");await prisma.user.update({where:{id:data.user.id},data:{role:"BUYER"}});sendSms.mockImplementation(async to=>acceptedSms(to));await notificationBatch({dryRun:false});expect(sendSms).toHaveBeenCalledTimes(1);expect((await prisma.orderNotification.findFirst({where:{kind:"SELLER_PAYMENT"}})).reason).toBe("SELLER_ACCESS_REVOKED");
+test("revoked supplier is suppressed before queued financial SMS is sent", async () => {
+  const data = await fixture();
+  await fulfillOrder(data.order.id, attempt(data.order), "verified");
+  await prisma.user.update({
+    where: { id: data.user.id },
+    data: { role: "BUYER" },
+  });
+  sendSms.mockImplementation(async (to) => acceptedSms(to));
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  expect(
+    (
+      await prisma.orderNotification.findFirst({
+        where: { kind: "SELLER_PAYMENT" },
+      })
+    ).reason,
+  ).toBe("SELLER_ACCESS_REVOKED");
 });
-test("provider optout persists account preference for later order notifications",async()=>{
- const data=await queuedNotification();sendSms.mockImplementation(async to=>Response.json({SMSMessageData:{Recipients:[{number:to,statusCode:406}]}}));await notificationBatch({dryRun:false});expect((await prisma.user.findUnique({where:{id:data.user.id}})).orderSmsEnabled).toBe(false);
+test("provider optout persists account preference for later order notifications", async () => {
+  const data = await queuedNotification();
+  sendSms.mockImplementation(async (to) =>
+    Response.json({
+      SMSMessageData: { Recipients: [{ number: to, statusCode: 406 }] },
+    }),
+  );
+  await notificationBatch({ dryRun: false });
+  expect(
+    (await prisma.user.findUnique({ where: { id: data.user.id } }))
+      .orderSmsEnabled,
+  ).toBe(false);
 });
-test("release preflight and notification report execute read-only",async()=>{
- for(const name of ["release-preflight.sql","notification-outbox-dry-run.sql","runtime-baseline-preflight.sql","worker-health-preflight.sql"]){const sql=require("fs").readFileSync(require("path").join(__dirname,"../../scripts",name),"utf8");const statements=sql.replace(/--[^\n]*/g,"").split(";").map(s=>s.trim()).filter(s=>s&&!s.startsWith("BEGIN")&&s!=="ROLLBACK");await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");for(const statement of statements){const rows=await tx.$queryRawUnsafe(statement);if(name==="release-preflight.sql")for(const row of rows)expect(Object.values(row).includes(false)).toBe(false);}});}
+test("release preflight and notification report execute read-only", async () => {
+  for (const name of [
+    "release-preflight.sql",
+    "notification-outbox-dry-run.sql",
+    "runtime-baseline-preflight.sql",
+    "worker-health-preflight.sql",
+  ]) {
+    const sql = require("fs").readFileSync(
+      require("path").join(__dirname, "../../scripts", name),
+      "utf8",
+    );
+    const statements = sql
+      .replace(/--[^\n]*/g, "")
+      .split(";")
+      .map((s) => s.trim())
+      .filter((s) => s && !s.startsWith("BEGIN") && s !== "ROLLBACK");
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
+      for (const statement of statements) {
+        const rows = await tx.$queryRawUnsafe(statement);
+        if (name === "release-preflight.sql")
+          for (const row of rows)
+            expect(Object.values(row).includes(false)).toBe(false);
+      }
+    });
+  }
 });
 
-test("SMS preference migration preserves existing accounts with transactional default",async()=>{
- const data=await fixture();const sql=require("fs").readFileSync(require("path").join(__dirname,"../../prisma/migrations/20261026203000_order_notification_outbox/migration.sql"),"utf8").split(";")[0];
- await prisma.$transaction(async tx=>{await tx.$executeRawUnsafe('ALTER TABLE "User" DROP COLUMN "orderSmsEnabled"');await tx.$executeRawUnsafe(sql);const user=await tx.user.findUnique({where:{id:data.user.id}});expect(user.orderSmsEnabled).toBe(true);expect(user.name).toBe(data.user.name);});
+test("SMS preference migration preserves existing accounts with transactional default", async () => {
+  const data = await fixture();
+  const sql = require("fs")
+    .readFileSync(
+      require("path").join(
+        __dirname,
+        "../../prisma/migrations/20261026203000_order_notification_outbox/migration.sql",
+      ),
+      "utf8",
+    )
+    .split(";")[0];
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(
+      'ALTER TABLE "User" DROP COLUMN "orderSmsEnabled"',
+    );
+    await tx.$executeRawUnsafe(sql);
+    const user = await tx.user.findUnique({ where: { id: data.user.id } });
+    expect(user.orderSmsEnabled).toBe(true);
+    expect(user.name).toBe(data.user.name);
+  });
 });
-import {remindBuyerToConfirmDelivery} from "@/lib/actions/supplier-order.actions";
-test("delivery reminder retries queue once and revoked/disputed paths cannot send",async()=>{
- const data=await paidFixture();await prisma.order.update({where:{id:data.order.id},data:{shippingAddress:{phone:"+255700000000"}}});const seller=await prisma.user.create({data:{name:"Synthetic Reminder Seller",role:"SUPPLIER"}});await prisma.supplier.update({where:{id:data.supplier.id},data:{userId:seller.id}});await prisma.orderItem.updateMany({where:{orderId:data.order.id},data:{status:"DISPATCHED"}});auth.mockResolvedValue({user:{id:seller.id,role:"SUPPLIER"}});
- const args={orderId:data.order.id,productId:data.product.id};const results=await Promise.all(Array.from({length:4},()=>remindBuyerToConfirmDelivery(args)));expect(results.every(r=>r.success)).toBe(true);expect(await prisma.orderNotification.count({where:{kind:"BUYER_REMINDER"}})).toBe(1);expect(sendSms).not.toHaveBeenCalled();
- await prisma.user.update({where:{id:seller.id},data:{role:"BUYER"}});expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);await prisma.user.update({where:{id:seller.id},data:{role:"SUPPLIER"}});await openOrderDispute(data.order.id,data.product.id,data.user.id,"Synthetic dispute");expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);
- await prisma.orderNotification.updateMany({where:{kind:{not:"BUYER_REMINDER"}},data:{state:"SUPPRESSED"}});await notificationBatch({dryRun:false});expect(sendSms).not.toHaveBeenCalled();expect((await prisma.orderNotification.findFirst({where:{kind:"BUYER_REMINDER"}})).state).toBe("SUPPRESSED");
+import { remindBuyerToConfirmDelivery } from "@/lib/actions/supplier-order.actions";
+test("delivery reminder retries queue once and revoked/disputed paths cannot send", async () => {
+  const data = await paidFixture();
+  await prisma.order.update({
+    where: { id: data.order.id },
+    data: { shippingAddress: { phone: "+255700000000" } },
+  });
+  const seller = await prisma.user.create({
+    data: { name: "Synthetic Reminder Seller", role: "SUPPLIER" },
+  });
+  await prisma.supplier.update({
+    where: { id: data.supplier.id },
+    data: { userId: seller.id },
+  });
+  await prisma.orderItem.updateMany({
+    where: { orderId: data.order.id },
+    data: { status: "DISPATCHED" },
+  });
+  auth.mockResolvedValue({ user: { id: seller.id, role: "SUPPLIER" } });
+  const args = { orderId: data.order.id, productId: data.product.id };
+  const results = await Promise.all(
+    Array.from({ length: 4 }, () => remindBuyerToConfirmDelivery(args)),
+  );
+  expect(results.every((r) => r.success)).toBe(true);
+  expect(
+    await prisma.orderNotification.count({ where: { kind: "BUYER_REMINDER" } }),
+  ).toBe(1);
+  expect(sendSms).not.toHaveBeenCalled();
+  await prisma.user.update({
+    where: { id: seller.id },
+    data: { role: "BUYER" },
+  });
+  expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);
+  await prisma.user.update({
+    where: { id: seller.id },
+    data: { role: "SUPPLIER" },
+  });
+  await openOrderDispute(
+    data.order.id,
+    data.product.id,
+    data.user.id,
+    "Synthetic dispute",
+  );
+  expect((await remindBuyerToConfirmDelivery(args)).success).toBe(false);
+  await prisma.orderNotification.updateMany({
+    where: { kind: { not: "BUYER_REMINDER" } },
+    data: { state: "SUPPRESSED" },
+  });
+  await notificationBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(
+    (
+      await prisma.orderNotification.findFirst({
+        where: { kind: "BUYER_REMINDER" },
+      })
+    ).state,
+  ).toBe("SUPPRESSED");
 });
 // Manual money reviews: real PostgreSQL locking, holds and audit boundaries.
-import { submitMoneyRequest, decideMoneyRequest, withdrawalBalance } from "@/lib/money-review";
-import { requestMoneyReview, reviewMoneyCase } from "@/lib/actions/money-review.actions";
+import {
+  submitMoneyRequest,
+  decideMoneyRequest,
+  withdrawalBalance,
+} from "@/lib/money-review";
+import {
+  requestMoneyReview,
+  reviewMoneyCase,
+} from "@/lib/actions/money-review.actions";
 import { moneyReviewView } from "@/lib/money-review-views";
 const moneyKey = () => require("node:crypto").randomUUID();
 async function moneyFixture() {
   const f = await fixture();
-  const seller = await prisma.user.create({ data: { name: "Seller", role: "SUPPLIER", email: "money-seller@example.test" } });
-  const admin = await prisma.user.create({ data: { name: "Admin", role: "ADMIN", email: "money-admin@example.test" } });
-  const other = await prisma.user.create({ data: { name: "Other", role: "SUPPLIER", email: "money-other@example.test" } });
-  await prisma.supplier.update({ where: { id: f.supplier.id }, data: { userId: seller.id, walletBalance: 1000 } });
+  const seller = await prisma.user.create({
+    data: {
+      name: "Seller",
+      role: "SUPPLIER",
+      email: "money-seller@example.test",
+    },
+  });
+  const admin = await prisma.user.create({
+    data: { name: "Admin", role: "ADMIN", email: "money-admin@example.test" },
+  });
+  const other = await prisma.user.create({
+    data: {
+      name: "Other",
+      role: "SUPPLIER",
+      email: "money-other@example.test",
+    },
+  });
+  await prisma.supplier.update({
+    where: { id: f.supplier.id },
+    data: { userId: seller.id, walletBalance: 1000 },
+  });
   return { ...f, seller, admin, other };
 }
-const withdrawal = (amount = "600.00") => ({ kind: "WITHDRAWAL", requestKey: moneyKey(), amount, reason: "Synthetic withdrawal request" });
-const refund = f => ({ kind: "REFUND", requestKey: moneyKey(), orderId: f.order.id, productId: f.product.id, quantity: 1, reason: "Synthetic item issue" });
-const decision = (id, state) => ({ id, state, reason: "Synthetic reviewed decision" });
+const withdrawal = (amount = "600.00") => ({
+  kind: "WITHDRAWAL",
+  requestKey: moneyKey(),
+  amount,
+  reason: "Synthetic withdrawal request",
+});
+const refund = (f) => ({
+  kind: "REFUND",
+  requestKey: moneyKey(),
+  orderId: f.order.id,
+  productId: f.product.id,
+  quantity: 1,
+  reason: "Synthetic item issue",
+});
+const decision = (id, state) => ({
+  id,
+  state,
+  reason: "Synthetic reviewed decision",
+});
 test("money actions deny anonymous, buyer withdrawal and revoked seller; no holds created", async () => {
   const f = await moneyFixture();
   auth.mockResolvedValue(null);
   expect((await requestMoneyReview(withdrawal())).success).toBe(false);
   auth.mockResolvedValue({ user: { id: f.user.id, role: "SUPPLIER" } });
   expect((await requestMoneyReview(withdrawal())).success).toBe(false);
-  await prisma.user.update({ where: { id: f.seller.id }, data: { role: "BUYER" } });
+  await prisma.user.update({
+    where: { id: f.seller.id },
+    data: { role: "BUYER" },
+  });
   auth.mockResolvedValue({ user: { id: f.seller.id, role: "SUPPLIER" } });
   expect((await requestMoneyReview(withdrawal())).success).toBe(false);
   expect(await prisma.moneyReviewCase.count()).toBe(0);
 });
 test("concurrent same-key requests create one hold and one audit event", async () => {
-  const f = await moneyFixture(), input = withdrawal();
-  const ids = await Promise.all(Array.from({ length: 5 }, () => submitMoneyRequest(f.seller.id, input)));
+  const f = await moneyFixture(),
+    input = withdrawal();
+  const ids = await Promise.all(
+    Array.from({ length: 5 }, () => submitMoneyRequest(f.seller.id, input)),
+  );
   expect(new Set(ids).size).toBe(1);
   expect(await prisma.moneyReviewEvent.count()).toBe(1);
-  expect((await prisma.supplier.findUnique({ where: { id: f.supplier.id } })).walletBalance.toString()).toBe("1000");
-  await expect(submitMoneyRequest(f.seller.id, { ...input, amount: "700" })).rejects.toThrow();
+  expect(
+    (
+      await prisma.supplier.findUnique({ where: { id: f.supplier.id } })
+    ).walletBalance.toString(),
+  ).toBe("1000");
+  await expect(
+    submitMoneyRequest(f.seller.id, { ...input, amount: "700" }),
+  ).rejects.toThrow();
 });
 test("concurrent independent holds cannot oversubscribe wallet", async () => {
   const f = await moneyFixture();
-  const results = await Promise.allSettled([submitMoneyRequest(f.seller.id, withdrawal()), submitMoneyRequest(f.seller.id, withdrawal())]);
-  expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
-  const b = await prisma.$transaction(tx => withdrawalBalance(tx, f.supplier.id));
-  expect(b.reserved.toString()).toBe("600"); expect(b.available.toString()).toBe("400");
+  const results = await Promise.allSettled([
+    submitMoneyRequest(f.seller.id, withdrawal()),
+    submitMoneyRequest(f.seller.id, withdrawal()),
+  ]);
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  const b = await prisma.$transaction((tx) =>
+    withdrawalBalance(tx, f.supplier.id),
+  );
+  expect(b.reserved.toString()).toBe("600");
+  expect(b.available.toString()).toBe("400");
   expect(await prisma.supplierLedger.count()).toBe(0);
 });
 test("approval retains hold, cancel/reject races release exactly once with no wallet debit", async () => {
-  const f = await moneyFixture(), id = await submitMoneyRequest(f.seller.id, withdrawal());
+  const f = await moneyFixture(),
+    id = await submitMoneyRequest(f.seller.id, withdrawal());
   await decideMoneyRequest(f.admin.id, decision(id, "APPROVED"));
-  expect((await prisma.$transaction(tx => withdrawalBalance(tx, f.supplier.id))).reserved.toString()).toBe("600");
-  const results = await Promise.allSettled([decideMoneyRequest(f.seller.id, decision(id, "CANCELLED")), decideMoneyRequest(f.admin.id, decision(id, "REJECTED"))]);
-  expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
-  const b = await prisma.$transaction(tx => withdrawalBalance(tx, f.supplier.id));
-  expect(b.available.toString()).toBe("1000"); expect(b.reserved.toString()).toBe("0");
+  expect(
+    (
+      await prisma.$transaction((tx) => withdrawalBalance(tx, f.supplier.id))
+    ).reserved.toString(),
+  ).toBe("600");
+  const results = await Promise.allSettled([
+    decideMoneyRequest(f.seller.id, decision(id, "CANCELLED")),
+    decideMoneyRequest(f.admin.id, decision(id, "REJECTED")),
+  ]);
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  const b = await prisma.$transaction((tx) =>
+    withdrawalBalance(tx, f.supplier.id),
+  );
+  expect(b.available.toString()).toBe("1000");
+  expect(b.reserved.toString()).toBe("0");
   expect(await prisma.moneyReviewEvent.count()).toBe(3);
 });
 test("wrong seller cannot read/cancel and revoked admin cannot review direct action", async () => {
-  const f = await moneyFixture(), id = await submitMoneyRequest(f.seller.id, withdrawal());
-  await expect(decideMoneyRequest(f.other.id, decision(id, "CANCELLED"))).rejects.toThrow("Unauthorized");
-  await prisma.supplier.create({ data: { userId: f.other.id, name: "Other", email: "other-supplier@example.test" } });
+  const f = await moneyFixture(),
+    id = await submitMoneyRequest(f.seller.id, withdrawal());
+  await expect(
+    decideMoneyRequest(f.other.id, decision(id, "CANCELLED")),
+  ).rejects.toThrow("Unauthorized");
+  await prisma.supplier.create({
+    data: {
+      userId: f.other.id,
+      name: "Other",
+      email: "other-supplier@example.test",
+    },
+  });
   auth.mockResolvedValue({ user: { id: f.other.id } });
   expect((await moneyReviewView("supplier", { id })).cases).toHaveLength(0);
-  await prisma.user.update({ where: { id: f.admin.id }, data: { role: "BUYER" } });
+  await prisma.user.update({
+    where: { id: f.admin.id },
+    data: { role: "BUYER" },
+  });
   auth.mockResolvedValue({ user: { id: f.admin.id, role: "ADMIN" } });
   expect((await reviewMoneyCase(decision(id, "APPROVED"))).success).toBe(false);
 });
 test("legacy transferred payouts pause new holds rather than guessing prior wallet accounting", async () => {
   const f = await moneyFixture();
-  await prisma.payoutRequest.create({ data: { supplierId: f.supplier.id, userId: f.seller.id, amount: 1, status: "TRANSFERRED", paymentMethod: "fixture", accountNumber: "synthetic" } });
+  await prisma.payoutRequest.create({
+    data: {
+      supplierId: f.supplier.id,
+      userId: f.seller.id,
+      amount: 1,
+      status: "TRANSFERRED",
+      paymentMethod: "fixture",
+      accountNumber: "synthetic",
+    },
+  });
   await expect(submitMoneyRequest(f.seller.id, withdrawal())).rejects.toThrow();
 });
 test("refund ownership, unpaid and legacy refunded boundaries", async () => {
   const f = await moneyFixture();
-  await expect(submitMoneyRequest(f.other.id, refund(f))).rejects.toThrow("Unauthorized");
+  await expect(submitMoneyRequest(f.other.id, refund(f))).rejects.toThrow(
+    "Unauthorized",
+  );
   await expect(submitMoneyRequest(f.user.id, refund(f))).rejects.toThrow();
   await fulfillOrder(f.order.id, attempt(f.order), "verified");
-  await prisma.returnRequest.create({ data: { orderId: f.order.id, productId: f.product.id, buyerId: f.user.id, supplierId: f.supplier.id, reason: "legacy", status: "REFUNDED" } });
-  await expect(submitMoneyRequest(f.user.id, refund(f))).rejects.toThrow("Existing refund");
+  await prisma.returnRequest.create({
+    data: {
+      orderId: f.order.id,
+      productId: f.product.id,
+      buyerId: f.user.id,
+      supplierId: f.supplier.id,
+      reason: "legacy",
+      status: "REFUNDED",
+    },
+  });
+  await expect(submitMoneyRequest(f.user.id, refund(f))).rejects.toThrow(
+    "Existing refund",
+  );
 });
 test("partial refund requests snapshot item prices and cannot over-allocate under concurrency", async () => {
-  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
-  const results = await Promise.allSettled(Array.from({ length: 3 }, () => submitMoneyRequest(f.user.id, refund(f))));
-  expect(results.filter(r => r.status === "fulfilled")).toHaveLength(2);
+  const f = await moneyFixture();
+  await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  const results = await Promise.allSettled(
+    Array.from({ length: 3 }, () => submitMoneyRequest(f.user.id, refund(f))),
+  );
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(2);
   const rows = await prisma.moneyReviewCase.findMany();
-  expect(rows.every(r => r.amount.toString() === "1000" && !r.paymentVerified)).toBe(true);
-  await expect(decideMoneyRequest(f.admin.id, decision(rows[0].id, "APPROVED"))).rejects.toThrow("Refund approval unavailable");
+  expect(
+    rows.every((r) => r.amount.toString() === "1000" && !r.paymentVerified),
+  ).toBe(true);
+  await expect(
+    decideMoneyRequest(f.admin.id, decision(rows[0].id, "APPROVED")),
+  ).rejects.toThrow("Refund approval unavailable");
   expect(await prisma.moneyReviewEvent.count()).toBe(2);
 });
 test("refund review blocks whole/item escrow release and seller withdrawal approval", async () => {
-  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  const f = await moneyFixture();
+  await fulfillOrder(f.order.id, attempt(f.order), "verified");
   const wid = await submitMoneyRequest(f.seller.id, withdrawal());
   const rid = await submitMoneyRequest(f.user.id, refund(f));
-  await expect(confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id })).rejects.toThrow("Refund review");
-  await expect(confirmDelivery(f.order.id, undefined, { kind: "admin", userId: f.admin.id })).rejects.toThrow("Refund review");
-  await expect(decideMoneyRequest(f.admin.id, decision(wid, "APPROVED"))).rejects.toThrow();
-  await expect(submitMoneyRequest(f.seller.id, withdrawal("1"))).rejects.toThrow();
+  await expect(
+    confirmDelivery(f.order.id, f.product.id, {
+      kind: "buyer",
+      userId: f.user.id,
+    }),
+  ).rejects.toThrow("Refund review");
+  await expect(
+    confirmDelivery(f.order.id, undefined, {
+      kind: "admin",
+      userId: f.admin.id,
+    }),
+  ).rejects.toThrow("Refund review");
+  await expect(
+    decideMoneyRequest(f.admin.id, decision(wid, "APPROVED")),
+  ).rejects.toThrow();
+  await expect(
+    submitMoneyRequest(f.seller.id, withdrawal("1")),
+  ).rejects.toThrow();
   await decideMoneyRequest(f.user.id, decision(rid, "CANCELLED"));
-  await confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id });
-  expect(await prisma.supplierLedger.count({ where: { type: "ESCROW_RELEASE" } })).toBe(1);
+  await confirmDelivery(f.order.id, f.product.id, {
+    kind: "buyer",
+    userId: f.user.id,
+  });
+  expect(
+    await prisma.supplierLedger.count({ where: { type: "ESCROW_RELEASE" } }),
+  ).toBe(1);
 });
 test("delivered item refund remains a review case and never claws back wallet or invents payment", async () => {
-  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
-  await confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id });
-  const before = await prisma.supplier.findUnique({ where: { id: f.supplier.id } });
+  const f = await moneyFixture();
+  await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  await confirmDelivery(f.order.id, f.product.id, {
+    kind: "buyer",
+    userId: f.user.id,
+  });
+  const before = await prisma.supplier.findUnique({
+    where: { id: f.supplier.id },
+  });
   const id = await submitMoneyRequest(f.user.id, refund(f));
   await decideMoneyRequest(f.admin.id, decision(id, "UNDER_REVIEW"));
-  const after = await prisma.supplier.findUnique({ where: { id: f.supplier.id } });
+  const after = await prisma.supplier.findUnique({
+    where: { id: f.supplier.id },
+  });
   expect(after.walletBalance.equals(before.walletBalance)).toBe(true);
-  expect(await prisma.supplierLedger.count({ where: { type: "REFUND" } })).toBe(0);
+  expect(await prisma.supplierLedger.count({ where: { type: "REFUND" } })).toBe(
+    0,
+  );
 });
 test("refund/delivery race serializes parent; unresolved request never triggers subsequent release", async () => {
-  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
-  await Promise.allSettled([submitMoneyRequest(f.user.id, refund(f)), confirmDelivery(f.order.id, f.product.id, { kind: "buyer", userId: f.user.id })]);
+  const f = await moneyFixture();
+  await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  await Promise.allSettled([
+    submitMoneyRequest(f.user.id, refund(f)),
+    confirmDelivery(f.order.id, f.product.id, {
+      kind: "buyer",
+      userId: f.user.id,
+    }),
+  ]);
   expect(await prisma.moneyReviewCase.count()).toBe(1);
-  expect(await prisma.supplierLedger.count({ where: { type: "ESCROW_RELEASE" } })).toBeLessThanOrEqual(1);
-  const item = await prisma.orderItem.findUnique({ where: { orderId_productId: { orderId: f.order.id, productId: f.product.id } } });
-  if (!item.isDelivered) await expect(confirmDelivery(f.order.id, undefined, { kind: "admin", userId: f.admin.id })).rejects.toThrow();
+  expect(
+    await prisma.supplierLedger.count({ where: { type: "ESCROW_RELEASE" } }),
+  ).toBeLessThanOrEqual(1);
+  const item = await prisma.orderItem.findUnique({
+    where: {
+      orderId_productId: { orderId: f.order.id, productId: f.product.id },
+    },
+  });
+  if (!item.isDelivered)
+    await expect(
+      confirmDelivery(f.order.id, undefined, {
+        kind: "admin",
+        userId: f.admin.id,
+      }),
+    ).rejects.toThrow();
 });
 test("audit insert failure rolls back case and reservation", async () => {
   const f = await moneyFixture();
-  await prisma.$executeRawUnsafe('ALTER TABLE "MoneyReviewEvent" ADD CONSTRAINT "fixture_reject_event" CHECK ("state" != \'REQUESTED\')');
-  try { await expect(submitMoneyRequest(f.seller.id, withdrawal())).rejects.toThrow(); expect(await prisma.moneyReviewCase.count()).toBe(0); }
-  finally { await prisma.$executeRawUnsafe('ALTER TABLE "MoneyReviewEvent" DROP CONSTRAINT "fixture_reject_event"'); }
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "MoneyReviewEvent" ADD CONSTRAINT "fixture_reject_event" CHECK ("state" != \'REQUESTED\')',
+  );
+  try {
+    await expect(
+      submitMoneyRequest(f.seller.id, withdrawal()),
+    ).rejects.toThrow();
+    expect(await prisma.moneyReviewCase.count()).toBe(0);
+  } finally {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "MoneyReviewEvent" DROP CONSTRAINT "fixture_reject_event"',
+    );
+  }
 });
 test("refund idempotency and rejected quantity recovery preserve immutable history", async () => {
-  const f = await moneyFixture(); await fulfillOrder(f.order.id, attempt(f.order), "verified");
+  const f = await moneyFixture();
+  await fulfillOrder(f.order.id, attempt(f.order), "verified");
   const input = { ...refund(f), quantity: 2 };
-  const ids = await Promise.all([submitMoneyRequest(f.user.id, input), submitMoneyRequest(f.user.id, input)]);
+  const ids = await Promise.all([
+    submitMoneyRequest(f.user.id, input),
+    submitMoneyRequest(f.user.id, input),
+  ]);
   expect(ids[0]).toBe(ids[1]);
   await decideMoneyRequest(f.admin.id, decision(ids[0], "REJECTED"));
   await decideMoneyRequest(f.admin.id, decision(ids[0], "REJECTED"));
@@ -2346,37 +3313,570 @@ test("refund idempotency and rejected quantity recovery preserve immutable histo
 });
 
 test("admin-only seller identity and owner role views minimize disclosure", async () => {
- const f = await moneyFixture(); const id = await submitMoneyRequest(f.seller.id, withdrawal());
- auth.mockResolvedValue({user:{id:f.admin.id}}); const adminView = await moneyReviewView("admin",{id});
- expect(adminView.cases[0].adminContext.supplierId).toBe(f.supplier.id); expect(adminView.cases[0].adminContext.actorId).toBe(f.seller.id);
- expect(JSON.stringify(adminView)).not.toContain("money-seller@example.test");
- auth.mockResolvedValue({user:{id:f.seller.id}}); const own = await moneyReviewView("supplier",{id});
- expect(own.cases[0].adminContext).toBeNull(); expect(own.cases[0].supplierId).toBeUndefined();
- auth.mockResolvedValue({user:{id:f.user.id}}); await expect(moneyReviewView("admin")).rejects.toThrow("Unauthorized");
- expect((await moneyReviewView("buyer",{id})).cases).toHaveLength(0);
+  const f = await moneyFixture();
+  const id = await submitMoneyRequest(f.seller.id, withdrawal());
+  auth.mockResolvedValue({ user: { id: f.admin.id } });
+  const adminView = await moneyReviewView("admin", { id });
+  expect(adminView.cases[0].adminContext.supplierId).toBe(f.supplier.id);
+  expect(adminView.cases[0].adminContext.actorId).toBe(f.seller.id);
+  expect(JSON.stringify(adminView)).not.toContain("money-seller@example.test");
+  auth.mockResolvedValue({ user: { id: f.seller.id } });
+  const own = await moneyReviewView("supplier", { id });
+  expect(own.cases[0].adminContext).toBeNull();
+  expect(own.cases[0].supplierId).toBeUndefined();
+  auth.mockResolvedValue({ user: { id: f.user.id } });
+  await expect(moneyReviewView("admin")).rejects.toThrow("Unauthorized");
+  expect((await moneyReviewView("buyer", { id })).cases).toHaveLength(0);
 });
 test("forward refund quantity guard rejects NULL independently of action validation", async () => {
- const f = await moneyFixture();
- await expect(prisma.moneyReviewCase.create({data:{actorId:f.user.id,supplierId:f.supplier.id,kind:"REFUND",requestKey:moneyKey(),amount:1,reason:"Synthetic constraint check",orderId:f.order.id,productId:f.product.id,quantity:null}})).rejects.toThrow();
- expect(await prisma.moneyReviewCase.count()).toBe(0);
+  const f = await moneyFixture();
+  await expect(
+    prisma.moneyReviewCase.create({
+      data: {
+        actorId: f.user.id,
+        supplierId: f.supplier.id,
+        kind: "REFUND",
+        requestKey: moneyKey(),
+        amount: 1,
+        reason: "Synthetic constraint check",
+        orderId: f.order.id,
+        productId: f.product.id,
+        quantity: null,
+      },
+    }),
+  ).rejects.toThrow();
+  expect(await prisma.moneyReviewCase.count()).toBe(0);
 });
 test("forward quantity guard refuses invalid existing cases without repairing or deleting them", async () => {
- const f = await moneyFixture();
- const guard = `ALTER TABLE "MoneyReviewCase" ADD CONSTRAINT "MoneyReviewCase_refund_quantity_required" CHECK ("kind" <> 'REFUND' OR "quantity" IS NOT NULL)`;
- await prisma.$executeRawUnsafe('ALTER TABLE "MoneyReviewCase" DROP CONSTRAINT "MoneyReviewCase_refund_quantity_required"');
- let bad;
- try {
-   bad = await prisma.moneyReviewCase.create({data:{actorId:f.user.id,supplierId:f.supplier.id,kind:"REFUND",requestKey:moneyKey(),amount:1,reason:"Synthetic pre-guard row",orderId:f.order.id,productId:f.product.id,quantity:null}});
-   await expect(prisma.$executeRawUnsafe(guard)).rejects.toThrow();
-   expect((await prisma.moneyReviewCase.findUnique({where:{id:bad.id}})).quantity).toBeNull();
- } finally {
-   if(bad) await prisma.moneyReviewCase.delete({where:{id:bad.id}});
-   await prisma.$executeRawUnsafe(guard);
- }
+  const f = await moneyFixture();
+  const guard = `ALTER TABLE "MoneyReviewCase" ADD CONSTRAINT "MoneyReviewCase_refund_quantity_required" CHECK ("kind" <> 'REFUND' OR "quantity" IS NOT NULL)`;
+  await prisma.$executeRawUnsafe(
+    'ALTER TABLE "MoneyReviewCase" DROP CONSTRAINT "MoneyReviewCase_refund_quantity_required"',
+  );
+  let bad;
+  try {
+    bad = await prisma.moneyReviewCase.create({
+      data: {
+        actorId: f.user.id,
+        supplierId: f.supplier.id,
+        kind: "REFUND",
+        requestKey: moneyKey(),
+        amount: 1,
+        reason: "Synthetic pre-guard row",
+        orderId: f.order.id,
+        productId: f.product.id,
+        quantity: null,
+      },
+    });
+    await expect(prisma.$executeRawUnsafe(guard)).rejects.toThrow();
+    expect(
+      (await prisma.moneyReviewCase.findUnique({ where: { id: bad.id } }))
+        .quantity,
+    ).toBeNull();
+  } finally {
+    if (bad) await prisma.moneyReviewCase.delete({ where: { id: bad.id } });
+    await prisma.$executeRawUnsafe(guard);
+  }
 });
-if(process.env.PROSTORE_BACKUP_FIXTURE==="1") test("prepare synthetic recovery fixture for independent pg_dump/restore",async()=>{
- const data=await fixture();getZenopayStatus.mockResolvedValue(confirmed(data.order));await reconcileZenopay(data.order.id,attempt(data.order));await confirmDelivery(data.order.id,data.product.id,buyer(data),{rating:5,comment:"Synthetic restore check"});
- const adminProfile=await prisma.admin.create({data:{userId:data.user.id}});await prisma.auditLog.create({data:{adminId:adminProfile.id,action:"SYNTHETIC_BACKUP_CHECK",entityId:data.order.id,entityType:"Order"}});
- await submitMoneyRequest(data.user.id, { kind: "REFUND", requestKey: moneyKey(), orderId: data.order.id, productId: data.product.id, quantity: 1, reason: "Synthetic restored review" });
- expect(await prisma.orderNotification.count()).toBe(3);expect(await prisma.paymentAttempt.count()).toBe(1);expect(await prisma.auditLog.count()).toBe(1);
+// Seller applications: same database and mocked transport as the payment suite.
+import {
+  submitSellerApplication,
+  reviewSellerApplication,
+  mySellerApplication,
+  phoneDigest,
+} from "@/lib/seller-registration";
+import { sellerNoticeBatch } from "@/lib/seller-notification-outbox";
+import { getPublicShop, shopCatalog } from "@/lib/public-shop";
+const applicationInput = {
+  name: "Synthetic Shop",
+  username: "synthetic-shop",
+  about: "Kitchen and household products",
+  smsConsent: true,
+};
+async function applicant() {
+  const user = await prisma.user.create({
+    data: {
+      name: "Synthetic applicant",
+      phone: "+255712345678",
+      phoneVerified: new Date(),
+      role: "BUYER",
+    },
+  });
+  auth.mockResolvedValue({ user: { id: user.id, role: "BUYER" } });
+  return user;
+}
+async function applicationAdmin() {
+  const user = await prisma.user.create({
+    data: { name: "Synthetic reviewer", role: "ADMIN" },
+  });
+  auth.mockResolvedValue({ user: { id: user.id, role: "ADMIN" } });
+  return user;
+}
+test("seller application rejects anonymous, unverified and admin role changes", async () => {
+  auth.mockResolvedValue(null);
+  await expect(submitSellerApplication(applicationInput)).rejects.toThrow(
+    "Sign in",
+  );
+  const user = await applicant();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { phoneVerified: null },
+  });
+  await expect(submitSellerApplication(applicationInput)).rejects.toThrow(
+    "Verify",
+  );
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { role: "ADMIN", phoneVerified: new Date() },
+  });
+  await expect(submitSellerApplication(applicationInput)).rejects.toThrow(
+    "workspace",
+  );
+  expect(await prisma.supplier.count()).toBe(0);
+  expect(sendSms).not.toHaveBeenCalled();
 });
+test("concurrent application retries create one profile and one durable receipt", async () => {
+  const user = await applicant();
+  const results = await Promise.all(
+    Array.from({ length: 6 }, () => submitSellerApplication(applicationInput)),
+  );
+  expect(new Set(results.map((r) => r.id)).size).toBe(1);
+  expect(await prisma.supplier.count()).toBe(1);
+  expect(await prisma.sellerNotice.count()).toBe(1);
+  expect((await prisma.user.findUnique({ where: { id: user.id } })).role).toBe(
+    "SUPPLIER",
+  );
+  expect((await mySellerApplication()).registration.state).toBe("PENDING");
+  expect(sendSms).not.toHaveBeenCalled();
+  expect(await getPublicShop("synthetic-shop")).toBeNull();
+});
+test("registration rejects caller role/supplier binding and contact content", async () => {
+  await applicant();
+  for (const extra of [
+    { role: "ADMIN" },
+    { supplierId: crypto.randomUUID() },
+    { about: "Call +255712345678" },
+    { name: "mail@example.com" },
+    { username: "../shop" },
+  ])
+    await expect(
+      submitSellerApplication({ ...applicationInput, ...extra }),
+    ).rejects.toThrow();
+  expect(await prisma.supplier.count()).toBe(0);
+});
+test("review requires current DB admin, commits audit and deduplicates repeated approval", async () => {
+  await applicant();
+  const app = await submitSellerApplication(applicationInput);
+  await expect(
+    reviewSellerApplication({
+      id: app.id,
+      version: 1,
+      decision: "APPROVED",
+      reason: "Reviewed documents",
+    }),
+  ).rejects.toThrow();
+  const admin = await applicationAdmin();
+  const input = {
+    id: app.id,
+    version: 1,
+    decision: "APPROVED",
+    reason: "Reviewed profile",
+  };
+  await Promise.all(
+    Array.from({ length: 4 }, () => reviewSellerApplication(input)),
+  );
+  expect(await prisma.sellerNotice.count()).toBe(2);
+  expect(
+    await prisma.auditLog.count({
+      where: { action: "SELLER_APPLICATION_APPROVED" },
+    }),
+  ).toBe(1);
+  const shop = await getPublicShop("synthetic-shop");
+  expect(shop.name).toBe(applicationInput.name);
+  for (const key of ["email", "phone", "user", "phoneDigest", "walletBalance"])
+    expect(shop).not.toHaveProperty(key);
+  await prisma.user.update({
+    where: { id: admin.id },
+    data: { role: "BUYER" },
+  });
+  await expect(
+    reviewSellerApplication({ ...input, version: 2, decision: "REJECTED" }),
+  ).rejects.toThrow();
+});
+test("competing review decisions cannot silently overwrite the winner", async () => {
+  await applicant();
+  const app = await submitSellerApplication(applicationInput);
+  await applicationAdmin();
+  const results = await Promise.allSettled(
+    ["APPROVED", "REJECTED"].map((decision) =>
+      reviewSellerApplication({
+        id: app.id,
+        version: 1,
+        decision,
+        reason: "Synthetic review",
+      }),
+    ),
+  );
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  expect(await prisma.sellerNotice.count()).toBe(2);
+  expect(await prisma.auditLog.count()).toBe(1);
+});
+test("application rollback on duplicate shop link leaves no role or notice", async () => {
+  const user = await applicant();
+  await prisma.supplier.create({
+    data: {
+      user: { create: { name: "Other", role: "SUPPLIER" } },
+      name: "Other",
+      email: "other@example.invalid",
+      username: applicationInput.username,
+    },
+  });
+  await expect(submitSellerApplication(applicationInput)).rejects.toThrow();
+  expect((await prisma.user.findUnique({ where: { id: user.id } })).role).toBe(
+    "BUYER",
+  );
+  expect(await prisma.sellerRegistration.count()).toBe(0);
+  expect(await prisma.sellerNotice.count()).toBe(0);
+});
+test("seller notice dry run has no claims and concurrent workers accept receipt once", async () => {
+  await applicant();
+  await submitSellerApplication(applicationInput);
+  sendSms.mockImplementation(async (recipient) => ({
+    json: async () => ({
+      SMSMessageData: {
+        Recipients: [
+          {
+            number: recipient,
+            statusCode: 101,
+            messageId: "synthetic-message",
+          },
+        ],
+      },
+    }),
+  }));
+  await sellerNoticeBatch();
+  expect(sendSms).not.toHaveBeenCalled();
+  expect((await prisma.sellerNotice.findFirst()).attempts).toBe(0);
+  await Promise.all([
+    sellerNoticeBatch({ dryRun: false }),
+    sellerNoticeBatch({ dryRun: false }),
+  ]);
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  expect((await prisma.sellerNotice.findFirst()).state).toBe("ACCEPTED");
+});
+test("seller notice consent and phone binding stop arbitrary or changed recipients", async () => {
+  const user = await applicant();
+  await submitSellerApplication({ ...applicationInput, smsConsent: false });
+  await sellerNoticeBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
+  await prisma.sellerRegistration.updateMany({ data: { smsConsent: true } });
+  await prisma.sellerNotice.updateMany({ data: { state: "QUEUED" } });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { phone: "+255712345679" },
+  });
+  await sellerNoticeBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
+  expect((await prisma.sellerNotice.findFirst()).reason).toBe(
+    "RECIPIENT_UNAVAILABLE",
+  );
+});
+test("seller worker crash lease and ambiguous timeout never blindly resend", async () => {
+  await applicant();
+  await submitSellerApplication(applicationInput);
+  sendSms.mockRejectedValue(new Error("private provider response"));
+  await sellerNoticeBatch({ dryRun: false });
+  expect((await prisma.sellerNotice.findFirst()).state).toBe("UNKNOWN");
+  await sellerNoticeBatch({ dryRun: false });
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  await prisma.sellerNotice.updateMany({
+    data: { state: "SENDING", leaseToken: "dead", leaseUntil: new Date(0) },
+  });
+  await sellerNoticeBatch({ dryRun: false });
+  expect((await prisma.sellerNotice.findFirst()).reason).toBe(
+    "LEASE_EXPIRED_REVIEW",
+  );
+  expect(sendSms).toHaveBeenCalledTimes(1);
+});
+test("stale approval notice is suppressed after revocation and shop becomes unavailable", async () => {
+  await applicant();
+  const app = await submitSellerApplication(applicationInput);
+  await applicationAdmin();
+  await reviewSellerApplication({
+    id: app.id,
+    version: 1,
+    decision: "APPROVED",
+    reason: "Reviewed profile",
+  });
+  await reviewSellerApplication({
+    id: app.id,
+    version: 2,
+    decision: "REJECTED",
+    reason: "Review needs correction",
+  });
+  sendSms.mockImplementation(async (recipient) => ({
+    json: async () => ({
+      SMSMessageData: {
+        Recipients: [
+          {
+            number: recipient,
+            statusCode: 101,
+            messageId: "synthetic-message",
+          },
+        ],
+      },
+    }),
+  }));
+  await sellerNoticeBatch({ dryRun: false });
+  expect(
+    (await prisma.sellerNotice.findFirst({ where: { kind: "APPROVED" } }))
+      .reason,
+  ).toBe("EVENT_NO_LONGER_APPLIES");
+  expect(await getPublicShop("synthetic-shop")).toBeNull();
+});
+test("shop catalog filters stay bound to seller and new unapproved products stay private", async () => {
+  const f = await fixture();
+  const other = await prisma.supplier.create({
+    data: {
+      user: { create: { name: "Other", role: "SUPPLIER" } },
+      name: "Other",
+      email: "other@example.invalid",
+      username: "other-shop",
+      isVerified: true,
+    },
+  });
+  expect((await shopCatalog(other.id, {})).count).toBe(0);
+  expect((await shopCatalog(f.supplier.id, {})).count).toBe(1);
+  await prisma.sellerRegistration.create({
+    data: {
+      supplierId: f.supplier.id,
+      phoneDigest: phoneDigest("+255712345678"),
+    },
+  });
+  expect((await shopCatalog(f.supplier.id, {})).count).toBe(0);
+});
+
+import {
+  getAllProducts,
+  getManagedProducts,
+} from "@/lib/actions/product.actions";
+import { calcPriceWithTiers } from "@/lib/cart-pricing";
+import { setSellerNoticeConsent } from "@/lib/seller-registration";
+import { PUT as saveShopProfile } from "@/app/api/suppliers/me/route";
+import {
+  applyToSell,
+  changeSellerNoticeConsent,
+} from "@/lib/actions/seller-registration.actions";
+test("pending owner catalog is manageable but cannot be purchased or start product chat", async () => {
+  const f = await fixture();
+  await prisma.sellerRegistration.create({
+    data: {
+      supplierId: f.supplier.id,
+      phoneDigest: phoneDigest("+255712345678"),
+    },
+  });
+  const owner = await prisma.supplier.findUnique({
+    where: { id: f.supplier.id },
+  });
+  await prisma.user.update({
+    where: { id: owner.userId },
+    data: { role: "SUPPLIER" },
+  });
+  auth.mockResolvedValue({ user: { id: owner.userId } });
+  const input = { query: "", page: 1, supplierId: f.supplier.id };
+  expect((await getManagedProducts(input)).data).toHaveLength(1);
+  expect((await getAllProducts(input)).data).toHaveLength(0);
+  await expect(
+    calcPriceWithTiers([{ productId: f.product.id, qty: 1 }]),
+  ).rejects.toThrow("Product not found");
+  const unrelated = await prisma.user.create({
+    data: { name: "Unrelated buyer", role: "BUYER" },
+  });
+  auth.mockResolvedValue({ user: { id: unrelated.id } });
+  await expect(getManagedProducts(input)).rejects.toThrow("Unauthorized");
+  await expect(market.startThread(f.product.id)).rejects.toThrow();
+  auth.mockResolvedValue(null);
+  await expect(getManagedProducts(input)).rejects.toThrow("Unauthorized");
+});
+test("managed catalog refuses a different seller scope and revoked role", async () => {
+  const f = await fixture();
+  const owner = await prisma.supplier.findUnique({
+    where: { id: f.supplier.id },
+  });
+  await prisma.user.update({
+    where: { id: owner.userId },
+    data: { role: "SUPPLIER" },
+  });
+  auth.mockResolvedValue({ user: { id: owner.userId, role: "SUPPLIER" } });
+  await expect(
+    getManagedProducts({ query: "", page: 1, supplierId: crypto.randomUUID() }),
+  ).rejects.toThrow("Unauthorized");
+  await prisma.user.update({
+    where: { id: owner.userId },
+    data: { role: "BUYER" },
+  });
+  await expect(getManagedProducts({ query: "", page: 1 })).rejects.toThrow(
+    "Unauthorized",
+  );
+});
+test("legacy owner profile preserves unchanged username and array business hours", async () => {
+  const f = await fixture();
+  const owner = await prisma.supplier.findUnique({
+    where: { id: f.supplier.id },
+  });
+  await prisma.user.update({
+    where: { id: owner.userId },
+    data: { role: "SUPPLIER" },
+  });
+  await prisma.supplier.update({
+    where: { id: owner.id },
+    data: { username: "Old_Shop" },
+  });
+  auth.mockResolvedValue({ user: { id: owner.userId } });
+  const response = await saveShopProfile(
+    new Request("http://local.test", {
+      method: "PUT",
+      body: JSON.stringify({
+        username: "Old_Shop",
+        about: "Household products",
+        businessHours: [{ day: "Monday", open: "09:00", close: "17:00" }],
+      }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(
+    (await prisma.supplier.findUnique({ where: { id: owner.id } })).username,
+  ).toBe("Old_Shop");
+});
+test("notice preference is owner scoped and opt-out suppresses queued receipt", async () => {
+  const user = await applicant();
+  const result = await applyToSell(applicationInput);
+  expect(result.ok).toBe(true);
+  expect((await changeSellerNoticeConsent(false)).ok).toBe(true);
+  await sellerNoticeBatch({ dryRun: false });
+  expect(sendSms).not.toHaveBeenCalled();
+  expect((await prisma.sellerNotice.findFirst()).state).toBe("SUPPRESSED");
+  expect((await changeSellerNoticeConsent(true)).ok).toBe(true);
+  expect(await prisma.sellerNotice.count()).toBe(1);
+  await prisma.user.update({ where: { id: user.id }, data: { role: "BUYER" } });
+  await expect(setSellerNoticeConsent(false)).rejects.toThrow();
+  auth.mockResolvedValue(null);
+  expect((await applyToSell(applicationInput)).ok).toBe(false);
+});
+test("delayed receipt is suppressed after approval and repeated search values remain bounded", async () => {
+  await applicant();
+  const app = await submitSellerApplication(applicationInput);
+  await applicationAdmin();
+  await reviewSellerApplication({
+    id: app.id,
+    version: 1,
+    decision: "APPROVED",
+    reason: "Synthetic review",
+  });
+  sendSms.mockImplementation(async (recipient) => ({
+    json: async () => ({
+      SMSMessageData: {
+        Recipients: [
+          {
+            number: recipient,
+            statusCode: 101,
+            messageId: "synthetic-message",
+          },
+        ],
+      },
+    }),
+  }));
+  await sellerNoticeBatch({ dryRun: false });
+  expect(
+    (await prisma.sellerNotice.findFirst({ where: { kind: "RECEIVED" } }))
+      .state,
+  ).toBe("SUPPRESSED");
+  expect(sendSms).toHaveBeenCalledTimes(1);
+  const shop = await getPublicShop("synthetic-shop");
+  expect(
+    (await shopCatalog(shop.id, { q: ["first", "second"], page: ["1", "2"] }))
+      .q,
+  ).toBe("first");
+});
+
+import { lockPurchasableSellers } from "@/lib/seller-purchase-guard";
+test("checkout seller guard waits for concurrent rejection and then refuses new purchase", async () => {
+  const f = await fixture();
+  await prisma.supplier.update({
+    where: { id: f.supplier.id },
+    data: { isVerified: true },
+  });
+  await prisma.sellerRegistration.create({
+    data: {
+      supplierId: f.supplier.id,
+      state: "APPROVED",
+      phoneDigest: phoneDigest("+255712345678"),
+    },
+  });
+  let locked, release;
+  const ready = new Promise((r) => (locked = r)),
+    gate = new Promise((r) => (release = r));
+  const rejection = prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Supplier" WHERE "id"=${f.supplier.id}::uuid FOR UPDATE`;
+    await tx.sellerRegistration.update({
+      where: { supplierId: f.supplier.id },
+      data: { state: "REJECTED" },
+    });
+    await tx.supplier.update({
+      where: { id: f.supplier.id },
+      data: { isVerified: false },
+    });
+    locked();
+    await gate;
+  });
+  await ready;
+  let completed = false;
+  const checkout = prisma.$transaction(async (tx) => {
+    await lockPurchasableSellers(tx, [f.supplier.id]);
+    completed = true;
+  });
+  const result = checkout.then(
+    () => "allowed",
+    () => "refused",
+  );
+  await new Promise((r) => setTimeout(r, 100));
+  expect(completed).toBe(false);
+  release();
+  await rejection;
+  expect(await result).toBe("refused");
+});
+if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
+  test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
+    const data = await fixture();
+    getZenopayStatus.mockResolvedValue(confirmed(data.order));
+    await reconcileZenopay(data.order.id, attempt(data.order));
+    await confirmDelivery(data.order.id, data.product.id, buyer(data), {
+      rating: 5,
+      comment: "Synthetic restore check",
+    });
+    const adminProfile = await prisma.admin.create({
+      data: { userId: data.user.id },
+    });
+    await prisma.auditLog.create({
+      data: {
+        adminId: adminProfile.id,
+        action: "SYNTHETIC_BACKUP_CHECK",
+        entityId: data.order.id,
+        entityType: "Order",
+      },
+    });
+    await submitMoneyRequest(data.user.id, {
+      kind: "REFUND",
+      requestKey: moneyKey(),
+      orderId: data.order.id,
+      productId: data.product.id,
+      quantity: 1,
+      reason: "Synthetic restored review",
+    });
+    await applicant();
+    await submitSellerApplication(applicationInput);
+    expect(await prisma.sellerNotice.count()).toBe(1);
+    expect(await prisma.orderNotification.count()).toBe(3);
+    expect(await prisma.paymentAttempt.count()).toBe(1);
+    expect(await prisma.auditLog.count()).toBe(1);
+  });

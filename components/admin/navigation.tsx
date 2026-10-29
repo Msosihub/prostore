@@ -9,6 +9,7 @@ const links = [
   ["/admin/money-review", "Money reviews"],
   ["/admin/disputes", "Disputes"],
   ["/admin/suppliers", "Sellers"],
+  ["/admin/seller-applications", "Seller applications"],
   ["/admin/documents", "Documents"],
   ["/admin/audit-logs", "Audit logs"],
   ["/admin/categories", "Categories"],

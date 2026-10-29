@@ -1,4 +1,6 @@
 import "server-only";
+import { lockPurchasableSellers } from "@/lib/seller-purchase-guard";
+import { visibleCatalogProduct } from "@/lib/catalog-visibility";
 import {
   containsContact,
   contactPolicyMessage,
@@ -127,7 +129,7 @@ export async function startThread(productId: string) {
   uuid.parse(productId);
   return transaction(async (tx) => {
     const product = await tx.product.findUnique({
-      where: { id: productId },
+      where: { id: productId, ...visibleCatalogProduct },
       select: {
         supplierId: true,
         supplier: {
@@ -464,6 +466,7 @@ export async function acceptProposal(input: {
       return fail(
         "Anwani au taarifa zimebadilika. Hakiki tena kabla ya kukubali.",
       );
+    await lockPurchasableSellers(tx, [checked.quote.item.supplierId]);
     const order = await tx.order.create({
       data: checked.order,
       select: { id: true },

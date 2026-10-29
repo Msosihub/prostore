@@ -16,7 +16,7 @@ export async function GET(
   const number = Number(page.slice(0, -4));
   if (kind === "pages")
     return number === 1
-      ? new Response(sitemapXml(["/", "/categories", "/search"]), {
+      ? new Response(sitemapXml(["/", "/categories", "/search", "/sell"]), {
           headers: sitemapHeaders,
         })
       : new Response("Not found", { status: 404 });

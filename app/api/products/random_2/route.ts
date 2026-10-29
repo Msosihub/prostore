@@ -1,3 +1,4 @@
+import { visibleCatalogProduct } from "@/lib/catalog-visibility";
 //random products from random categories
 
 import { NextResponse } from "next/server";
@@ -20,9 +21,12 @@ export async function GET(req: Request) {
     if (categories.length === 0) {
       return NextResponse.json({ sections: [] });
     }
-  } catch (error) {
+  } catch {
     console.log("Error fetching Categories in ...: ");
-    return NextResponse.json({ error });
+    return NextResponse.json(
+      { error: "Catalog temporarily unavailable" },
+      { status: 503 },
+    );
   }
 
   const randomCats = categories
@@ -35,7 +39,7 @@ export async function GET(req: Request) {
       let products;
       try {
         products = await prisma.product.findMany({
-          where: { categoryId: cat.id },
+          where: { ...visibleCatalogProduct, categoryId: cat.id },
           take: productsPerCat,
           orderBy: { createdAt: "desc" },
           include: {
@@ -48,15 +52,18 @@ export async function GET(req: Request) {
             },
           },
         });
-      } catch (error) {
-        return NextResponse.json({ error });
+      } catch {
+        return NextResponse.json(
+          { error: "Catalog temporarily unavailable" },
+          { status: 503 },
+        );
       }
 
       return {
         category: cat,
         products,
       };
-    })
+    }),
   );
 
   return NextResponse.json({ sections });

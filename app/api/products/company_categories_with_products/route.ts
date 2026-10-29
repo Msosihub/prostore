@@ -1,3 +1,7 @@
+import {
+  visibleCatalogProduct,
+  publicSupplierSelect,
+} from "@/lib/catalog-visibility";
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma"; // adjust if your prisma client is in a different path
 
@@ -21,17 +25,18 @@ export async function GET(req: Request) {
         where: {
           products: {
             some: {
+              ...visibleCatalogProduct,
               supplierId,
             },
           },
         },
         include: {
           products: {
-            where: { supplierId },
+            where: { ...visibleCatalogProduct, supplierId },
             // take: 6, // max 6 per category
             orderBy: { createdAt: "desc" }, // latest products
             include: {
-              supplier: true,
+              supplier: { select: publicSupplierSelect },
               brand: true,
               category: true,
               pricingTiers: true,
@@ -46,17 +51,18 @@ export async function GET(req: Request) {
         where: {
           products: {
             some: {
+              ...visibleCatalogProduct,
               supplierId,
             },
           },
         },
         include: {
           products: {
-            where: { supplierId },
+            where: { ...visibleCatalogProduct, supplierId },
             take: 6, // max 6 per category
             orderBy: { createdAt: "desc" }, // latest products
             include: {
-              supplier: true,
+              supplier: { select: publicSupplierSelect },
               brand: true,
               category: true,
               pricingTiers: true,
@@ -72,7 +78,7 @@ export async function GET(req: Request) {
     console.error("Error fetching categories with products:", error);
     return NextResponse.json(
       { error: "Failed to fetch categories with products" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
