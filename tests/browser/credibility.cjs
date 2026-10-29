@@ -29,7 +29,7 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   for(let i=0;i<3;i++) {
    if(i) await page.reload();
    await page.getByText('Test Item',{exact:true}).first().waitFor();
-   await page.getByText('Zipo 3 tu!',{exact:true}).waitFor();
+   await page.getByText('Zipo 3 dukani',{exact:true}).waitFor();
    const text=await page.locator('main').innerText();
    assert(!text.includes('zimeuzika')); assert(!text.includes('(12)'));
    assert.equal(await page.locator('main svg.text-yellow-500').count(),0);

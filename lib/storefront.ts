@@ -68,7 +68,7 @@ export const storefrontHome = cache(async () => {
         name: true,
         companyName: true,
         isVerified: true,
-        location: true,
+        username: true,
         _count: { select: { products: { where: publicProductWhere } } },
       },
     }),

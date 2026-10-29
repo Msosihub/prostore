@@ -11,7 +11,7 @@ test.each([0, -1, NaN, undefined, 6, 100, 1.5])("stock %s never invents a sales 
 });
 test.each([1,5])("low stock %s reflects actual inventory consistently", stock => {
  const first=render(StockBadge,{stock});
- expect(first).toContain(`Zipo ${stock} tu!`);
+ expect(first).toContain(`Zipo ${stock} dukani`);
  for(let i=0;i<10;i++) expect(render(StockBadge,{stock})).toBe(first);
  expect(first).not.toContain("zimeuzika");
 });

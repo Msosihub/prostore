@@ -1,4 +1,4 @@
-import Image from "next/image";
+import CatalogImage from "@/components/storefront/catalog-image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -13,9 +13,9 @@ import {
   jsonLd,
   publicUrl,
   productPath,
-  sellerPath,
   unitPrice,
 } from "@/lib/storefront-seo";
+import { shopPath, safeShopText } from "@/lib/seller-registration-policy";
 import ProductGrid from "@/components/storefront/product-grid";
 export const metadata = {
   title: { absolute: "Nimboya — Bidhaa, maduka na bei za jumla Tanzania" },
@@ -25,7 +25,11 @@ export const metadata = {
 };
 export default async function Home() {
   const { latest, featured, categories, sellers } = await storefrontHome();
-  const hero = featured[0] ?? latest[0];
+  const hero =
+    [...featured, ...latest].find((p) => p.stock > 0) ??
+    featured[0] ??
+    latest[0];
+  const stockedCategories = categories.filter((c) => c._count.products > 0);
   return (
     <div className="space-y-12 pb-12 pt-5 sm:space-y-16">
       <section className="relative overflow-hidden rounded-3xl bg-[#123d35] text-white">
@@ -35,13 +39,13 @@ export default async function Home() {
               Soko lako. Chaguo lako.
             </p>
             <h1 className="max-w-xl text-3xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-              Bidhaa unazohitaji.
+              Pata kinachokufaa.
               <br />
-              <span className="text-[#f8c579]">Maduka ya kugundua.</span>
+              <span className="text-[#f8c579]">Anza hapa Nimboya.</span>
             </h1>
             <p className="max-w-lg text-sm leading-relaxed text-emerald-50/90 sm:text-lg">
-              Linganisha bidhaa na bei. Uliza muuzaji, chagua kiasi, kisha
-              kamilisha agizo lako hapa Nimboya.
+              Bidhaa kutoka maduka tofauti, bei zinazoeleweka na nafasi ya
+              kuuliza kabla ya kuagiza. Kwa matumizi yako au biashara yako.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link
@@ -58,8 +62,21 @@ export default async function Home() {
               </Link>
             </div>
             <p className="text-sm text-emerald-100">
-              Bei kwa TSh · Ununuzi wa rejareja na jumla
+              Bei kwa TSh · Chagua bidhaa moja au kiasi unachohitaji
             </p>
+            {!!stockedCategories.length && (
+              <nav aria-label="Anza na kundi" className="flex flex-wrap gap-2">
+                {stockedCategories.slice(0, 3).map((c) => (
+                  <Link
+                    key={c.id}
+                    href={`/categories/${c.id}`}
+                    className="rounded-full border border-white/25 px-3 py-2 text-xs text-emerald-50 hover:bg-white/10"
+                  >
+                    {c.name_sw || c.name_en} ↗
+                  </Link>
+                ))}
+              </nav>
+            )}
           </div>
           {hero ? (
             <Link
@@ -73,21 +90,17 @@ export default async function Home() {
                 <span className="text-emerald-800">Gundua bidhaa ↗</span>
               </div>
               <div className="relative my-4 aspect-[2/1] sm:aspect-[4/3]">
-                {hero.images[0] ? (
-                  <Image
-                    src={hero.images[0]}
-                    alt={hero.name}
-                    fill
-                    priority
-                    sizes="(max-width: 768px) 85vw, 400px"
-                    className="object-contain transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-slate-400">
-                    <PackageCheck size={72} />
-                  </div>
-                )}
+                <CatalogImage
+                  src={hero.images[0]}
+                  alt={hero.name}
+                  priority
+                  sizes="(max-width: 768px) 85vw, 400px"
+                  className="object-contain transition-transform duration-300 motion-safe:group-hover:scale-105"
+                />
               </div>
+              {hero.stock <= 0 && (
+                <p className="mb-2 text-xs text-slate-600">Zimeisha kwa sasa</p>
+              )}
               <h2 className="line-clamp-2 text-xl font-semibold">
                 {hero.name}
               </h2>
@@ -116,6 +129,54 @@ export default async function Home() {
           )}
         </div>
       </section>
+      <nav
+        aria-label="Endelea na ununuzi"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+      >
+        {[
+          {
+            href: "/search",
+            Icon: Grid2X2,
+            title: "Linganisha bidhaa",
+            text: "Bei ya bidhaa moja na viwango vya jumla.",
+          },
+          {
+            href: "/buyer/messages",
+            Icon: MessageCircle,
+            title: "Mazungumzo yako",
+            text: "Rudia swali au pendekezo la muuzaji.",
+          },
+          {
+            href: "/user/orders",
+            Icon: PackageCheck,
+            title: "Fuatilia maagizo",
+            text: "Hali ya malipo na kila bidhaa uliyoagiza.",
+          },
+        ].map(({ href, Icon, title, text }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex items-start gap-3 rounded-2xl border bg-white p-4 transition hover:border-emerald-700"
+          >
+            <Icon
+              size={22}
+              className="mt-1 shrink-0 text-emerald-800"
+              aria-hidden="true"
+            />
+            <span>
+              <span className="block font-semibold">{title}</span>
+              <span className="mt-1 block text-xs leading-relaxed text-slate-600">
+                {text}
+              </span>
+            </span>
+            <ArrowRight
+              size={16}
+              aria-hidden="true"
+              className="ml-auto mt-1 shrink-0"
+            />
+          </Link>
+        ))}
+      </nav>
       <section aria-labelledby="categories-heading">
         <div className="mb-5 flex items-end justify-between gap-3">
           <div>
@@ -137,7 +198,7 @@ export default async function Home() {
           </Link>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {categories.slice(0, 12).map((c) => (
+          {stockedCategories.slice(0, 12).map((c) => (
             <Link
               key={c.id}
               href={`/categories/${c.id}`}
@@ -155,7 +216,7 @@ export default async function Home() {
             </Link>
           ))}
         </div>
-        {!categories.length && (
+        {!stockedCategories.length && (
           <p className="rounded-xl border bg-white p-6 text-slate-600">
             Makundi yanaandaliwa. Rudi tena kuona bidhaa mpya.
           </p>
@@ -204,34 +265,47 @@ export default async function Home() {
         )}
       </section>
       <section
-        className="grid gap-5 rounded-3xl bg-[#eeeade] p-6 sm:grid-cols-3 sm:p-8"
-        aria-label="Jinsi ya kununua"
+        aria-labelledby="shopping-guide"
+        className="rounded-3xl bg-[#eeeade] p-6 sm:p-8"
       >
-        {[
-          {
-            Icon: Grid2X2,
-            title: "Linganisha kabla ya kuagiza",
-            text: "Angalia bei ya bidhaa moja na viwango vya bei kwa kiasi vinapoonyeshwa.",
-          },
-          {
-            Icon: MessageCircle,
-            title: "Uliza kuhusu bidhaa",
-            text: "Fungua mazungumzo na muuzaji kutoka kwenye ukurasa wa bidhaa.",
-          },
-          {
-            Icon: PackageCheck,
-            title: "Fuatilia agizo lako",
-            text: "Tazama hali ya malipo na hatua za kila bidhaa katika akaunti yako.",
-          },
-        ].map(({ Icon, title, text }) => (
-          <div key={title}>
-            <Icon className="mb-4 text-emerald-900" size={28} />
-            <h2 className="font-bold">{title}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">
-              {text}
-            </p>
-          </div>
-        ))}
+        <div className="mb-7">
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
+            Nunua kwa kuelewa
+          </p>
+          <h2 id="shopping-guide" className="mt-2 text-2xl font-bold">
+            Kutoka kugundua hadi kupokea
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-slate-600">
+            Anza na taarifa za bidhaa. Hakiki muuzaji, kiasi na jumla kabla ya
+            kuendelea.
+          </p>
+        </div>
+        <ol className="grid gap-6 sm:grid-cols-3">
+          {[
+            {
+              title: "Chagua na uliza",
+              text: "Soma maelezo, angalia bei kwa kiasi na tumia mazungumzo ya bidhaa ukiwa na swali.",
+            },
+            {
+              title: "Hakiki agizo lako",
+              text: "Weka anwani ya kupokea na kagua gharama zinazoonyeshwa. Hali ya malipo inaonekana kwenye agizo.",
+            },
+            {
+              title: "Fuatilia kila bidhaa",
+              text: "Maduka tofauti yanaweza kutuma bidhaa kwa hatua tofauti. Thibitisha kupokea baada ya mzigo kufika.",
+            },
+          ].map((step, i) => (
+            <li key={step.title}>
+              <span className="mb-4 flex size-9 items-center justify-center rounded-full bg-emerald-950 text-sm font-bold text-white">
+                {i + 1}
+              </span>
+              <h3 className="font-bold">{step.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                {step.text}
+              </p>
+            </li>
+          ))}
+        </ol>
       </section>
       {!!sellers.length && (
         <section aria-labelledby="sellers-heading">
@@ -242,15 +316,17 @@ export default async function Home() {
             {sellers.map((s) => (
               <Link
                 key={s.id}
-                href={sellerPath(s.id)}
+                href={shopPath(s.username, s.id)}
                 className="rounded-2xl border bg-white p-5 hover:border-emerald-700"
               >
                 <Store size={30} className="mb-4 text-emerald-800" />
-                <h3 className="font-semibold">{s.companyName || s.name}</h3>
+                <h3 className="font-semibold">
+                  {safeShopText(s.companyName || s.name, "Duka la Nimboya")}
+                </h3>
                 {s.isVerified && (
                   <p className="mt-2 flex items-center gap-1 text-xs text-emerald-800">
                     <BadgeCheck size={14} />
-                    Muuzaji amethibitishwa
+                    Wasifu wa duka umeidhinishwa
                   </p>
                 )}
                 <p className="mt-3 text-sm text-slate-600">
@@ -264,18 +340,65 @@ export default async function Home() {
           </div>
         </section>
       )}
+      <section
+        aria-labelledby="buyer-questions"
+        className="grid gap-6 rounded-3xl border bg-white p-6 sm:p-8 lg:grid-cols-[.8fr_1.2fr]"
+      >
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
+            Kabla hujaagiza
+          </p>
+          <h2 id="buyer-questions" className="mt-2 text-2xl font-bold">
+            Majibu ya kukusaidia kuamua.
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            Una swali kuhusu bidhaa fulani? Fungua ukurasa wake na uzungumze na
+            muuzaji ndani ya Nimboya.
+          </p>
+        </div>
+        <div className="divide-y">
+          {[
+            {
+              q: "Bei ya jumla inafanyaje kazi?",
+              a: "Baadhi ya bidhaa zina bei tofauti kulingana na kiasi. Kadi inaonyesha bei ya bidhaa moja na kiasi kinachohitajika kwa bei ya jumla, ikiwa kipo. Hakiki jumla kwenye agizo.",
+            },
+            {
+              q: "Usafirishaji na gharama huonekana wapi?",
+              a: "Weka anwani ya kupokea na kagua gharama kwenye hatua za agizo. Hatua za kutumwa zinaonyeshwa kwa kila bidhaa; hakuna muda wa kufika unaohakikishwa hapa.",
+            },
+            {
+              q: "Malipo yakisubiri nifanye nini?",
+              a: "Angalia hali kwenye agizo lako na tumia kitufe cha kuangalia malipo kinapopatikana. Usianzishe malipo mapya kwa sababu tu jibu limechelewa.",
+            },
+            {
+              q: "Nikiwa na tatizo baada ya kuagiza?",
+              a: "Fungua agizo kwenye akaunti yako ili kuona hatua zinazopatikana za kuripoti tatizo au kuomba ukaguzi. Ombi la marejesho si uthibitisho kwamba fedha zimerudishwa.",
+            },
+          ].map((item) => (
+            <details key={item.q} className="group py-4 first:pt-0">
+              <summary className="cursor-pointer rounded text-sm font-semibold leading-relaxed focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-800">
+                {item.q}
+              </summary>
+              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                {item.a}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
       <section className="flex flex-col justify-between gap-5 rounded-2xl border border-emerald-900/15 bg-white p-6 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-xl font-bold">Una bidhaa za kuuza?</h2>
           <p className="mt-2 text-sm text-slate-600">
-            Simamia bidhaa, mazungumzo na maagizo kwenye ukurasa wa muuzaji.
+            Omba duka lako, simamia katalogi na ushiriki kiungo chake na wateja
+            wako baada ya kuidhinishwa.
           </p>
         </div>
         <Link
-          href="/supplier/overview"
+          href="/sell"
           className="shrink-0 rounded-xl bg-emerald-900 px-5 py-3 text-center font-semibold text-white"
         >
-          Nenda kwa wauzaji
+          Anza kuwa muuzaji
         </Link>
       </section>
       <script

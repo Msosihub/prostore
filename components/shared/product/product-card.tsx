@@ -1,6 +1,5 @@
-import Image from "next/image";
+import CatalogImage from "@/components/storefront/catalog-image";
 import Link from "next/link";
-import { Package } from "lucide-react";
 import ProductPrice from "./product-price";
 import StockBadge from "./stock-badge";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -40,19 +39,12 @@ export default function ProductCard({
         tabIndex={-1}
         aria-hidden="true"
       >
-        {images?.[0] ? (
-          <Image
-            src={images[0]}
-            alt=""
-            fill
-            sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 280px"
-            className="object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-slate-400">
-            <Package size={40} />
-          </div>
-        )}
+        <CatalogImage
+          src={images?.[0]}
+          alt=""
+          sizes="(max-width: 640px) 46vw, (max-width: 1024px) 30vw, 280px"
+          className="object-contain p-3 transition-transform duration-300 motion-safe:group-hover:scale-105"
+        />
       </Link>
       <div className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
         <div>
@@ -71,6 +63,7 @@ export default function ProductCard({
         </div>
         <div className="mt-auto space-y-2">
           <ProductPrice value={unitPrice({ price, pricingTiers })} />
+          <p className="text-[11px] text-slate-500">Bei ya bidhaa 1</p>
           {bulk && (
             <p className="text-xs text-slate-600">
               TSh{" "}
