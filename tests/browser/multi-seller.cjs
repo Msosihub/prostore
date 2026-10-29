@@ -397,7 +397,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.getByRole("heading",{name:"Order notification outbox",exact:true}).waitFor();
     assert(await admin.p.getByRole("button",{name:"Queue reviewed retry"}).isDisabled());
     await admin.p.getByRole("checkbox").check();
-    const refreshedNotificationPage = admin.p.waitForRequest(request => request.method() === "GET" && request.headers()["rsc"] === "1" && new URL(request.url()).pathname === "/admin/notifications" && new URL(request.url()).searchParams.get("status") === "UNKNOWN");
+    const refreshedNotificationPage = admin.p.waitForRequest(request => request.method() === "GET" && request.isNavigationRequest() && new URL(request.url()).pathname === "/admin/notifications" && new URL(request.url()).searchParams.get("status") === "UNKNOWN");
     await admin.p.getByRole("button",{name:"Queue reviewed retry"}).click();
     await refreshedNotificationPage;
     await admin.p.getByRole("status").getByText("No matching notifications.",{exact:true}).waitFor();

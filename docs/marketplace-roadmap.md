@@ -12,6 +12,8 @@ New ideas enter this queue; they do not interrupt an active validated tranche.
 
 Existing draft branches remain recoverable. No source milestone by itself authorizes production migrations, credential changes or financial operations. Unknown bot integration stays deferred. WhatsApp registration notices require a verified integration and consent/template contract; SMS is the existing supported transport.
 
-## Next authorized product tranche
+## Completed landing tranche
 
-After the seller commit/publication, review and improve the landing page and its connected navigation/product cards/loading states. Aim for a clear, professional, mobile-first shopping path and truthful trust cues, with no invented stars, scarcity or delivery guarantees. Validate accessibility, SEO, performance evidence and discovery-to-checkout continuity. This is queued after seller completion and does not authorize infrastructure or financial activation.
+Seller registration is preserved in draft PR15 at f7a51ed7fb2a5c993eeaeffa0215371d52d10e32. The follow-on feat/landing-shopping-experience improves catalog hierarchy, buying guidance, truthful stock/price labels, canonical shop navigation, image fallback and accessible honest loading/recovery. All 450 unit/action and 173 historical-chain PostgreSQL tests passed, with full optimized fixture build and complete browser workflows. It also fixes a reproduced admin notification filtered-refresh race. See docs/landing-shopping-experience.md for measurements and limitations.
+
+Next work is verified release/staging readiness in the dependency order above, not automatic promotion of this full-stack branch. The separate minimal storefront candidate remains parent-coordinated. No production migration, provider send, worker activation or financial execution was performed.

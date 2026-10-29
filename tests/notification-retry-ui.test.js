@@ -3,11 +3,9 @@ jest.mock("react", () => ({
   useState: jest.fn((value) => [value, jest.fn()]),
   useTransition: () => [false, (fn) => fn()],
 }));
-jest.mock("next/navigation", () => ({ useRouter: jest.fn() }));
 jest.mock("@/lib/actions/order-notification.actions", () => ({
   retryOrderNotification: jest.fn(),
 }));
-import { useRouter } from "next/navigation";
 import { retryOrderNotification } from "@/lib/actions/order-notification.actions";
 import NotificationRetry from "@/components/admin/notification-retry";
 function button(node) {
@@ -18,9 +16,9 @@ function button(node) {
   }
   return null;
 }
-test("confirmed retry explicitly refreshes authoritative router data", async () => {
+test("confirmed retry reloads the current filtered document after success", async () => {
   const refresh = jest.fn();
-  useRouter.mockReturnValue({ refresh });
+  global.window = { location: { reload: refresh } };
   retryOrderNotification.mockResolvedValue({
     success: true,
     message: "Queued",
@@ -36,7 +34,7 @@ test("confirmed retry explicitly refreshes authoritative router data", async () 
 });
 test("rejected retry does not claim or optimistically remove queued data", async () => {
   const refresh = jest.fn();
-  useRouter.mockReturnValue({ refresh });
+  global.window = { location: { reload: refresh } };
   retryOrderNotification.mockResolvedValue({
     success: false,
     message: "Rejected",
@@ -45,4 +43,8 @@ test("rejected retry does not claim or optimistically remove queued data", async
     NotificationRetry({ id: "fixture", unknown: false }),
   ).props.onClick();
   expect(refresh).not.toHaveBeenCalled();
+});
+
+afterEach(() => {
+  delete global.window;
 });

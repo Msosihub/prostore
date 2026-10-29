@@ -201,6 +201,15 @@ const freePort = () =>
       PROSTORE_CHROMIUM: process.env.PROSTORE_CHROMIUM || "/usr/bin/chromium",
     };
     await run(path.join(root, "tests/browser/seed.cjs"), driverEnv);
+    // This delayed route exists only inside the disposable QA copy, never in the app source.
+    const loadingRoute = path.join(stage, "app/qa-loading");
+    fs.mkdirSync(loadingRoute, { recursive: true });
+    fs.writeFileSync(path.join(loadingRoute, "page.tsx"), `import { Suspense } from "react";
+import ShoppingLoading from "@/components/storefront/shopping-loading";
+export const dynamic = "force-dynamic";
+async function Slow() { await new Promise(resolve => setTimeout(resolve, 45000)); return <p>DEMO loading complete</p>; }
+export default function Page() { return <Suspense fallback={<ShoppingLoading/>}><Slow/></Suspense>; }
+`);
     const buildLog = fs.openSync(path.join(stage, "build.log"), "w");
     const build = cp.spawnSync(
       process.execPath,
