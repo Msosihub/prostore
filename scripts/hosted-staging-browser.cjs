@@ -24,6 +24,7 @@ function run(file, extra = {}) {
     env: { ...env, ...extra },
     encoding: "utf8",
     maxBuffer: 10 * 1024 * 1024,
+    timeout: 300000,
   });
   process.stdout.write((result.stdout || "") + (result.stderr || ""));
   if (result.status !== 0)
@@ -80,6 +81,7 @@ function run(file, extra = {}) {
     if (i === 119) throw Error("Native app startup timed out");
     await new Promise((r) => setTimeout(r, 500));
   }
+  const failures = [];
   for (const name of [
     "storefront-seo",
     "credibility",
@@ -95,10 +97,14 @@ function run(file, extra = {}) {
     "market-chat",
     "catalog-otp",
     "seller-shops",
-  ])
-    run("tests/browser/" + name + ".cjs", {
-      NODE_OPTIONS: "--require=" + path.join(root, "tests/hosted/launch.cjs"),
-    });
+  ]) {
+    try {
+      run("tests/browser/" + name + ".cjs", {
+        NODE_OPTIONS: "--require=" + path.join(root, "tests/hosted/launch.cjs"),
+      });
+    } catch { failures.push(name); console.error("FAILED workflow: " + name); }
+  }
+  if(failures.length) throw Error("Failed hosted workflows: " + failures.join(", "));
   console.log(
     "PASS all hosted native browser workflows with synthetic data and mocked providers",
   );

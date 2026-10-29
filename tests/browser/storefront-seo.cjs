@@ -41,7 +41,7 @@ const {prisma}=require(state.stage+'/tests/integration/database.cjs');
  assert.equal(schema.offers.availability,'https://schema.org/InStock');assert.equal(schema.offers.price,'1000.00');
  assert.match(await page.locator('link[rel="canonical"]').getAttribute('href'),/\/product\/test-item$/);
  await prisma.product.update({where:{id:original.id},data:{price:0}});
- await page.goto(state.baseUrl+'/');await page.getByText('Hakuna bidhaa za kuonyesha kwa sasa.',{exact:true}).waitFor();
+ await page.goto(state.baseUrl+'/');await page.locator('#storefront-content').getByText('Hakuna bidhaa za kuonyesha kwa sasa.',{exact:true}).waitFor();
  await page.screenshot({path:state.stage+'/storefront-empty-mobile.png',fullPage:true});
  await prisma.product.update({where:{id:original.id},data:{price:original.price}});
  const sitemap=await context.request.get(state.baseUrl+'/sitemap.xml');assert.equal(sitemap.status(),200);assert.match(await sitemap.text(),/sitemapindex/);
