@@ -16,7 +16,6 @@ function checkConfig(input) {
   for (const name of [
     "DATABASE_URL",
     "NEXT_PUBLIC_SERVER_URL",
-    "AUTH_SECRET",
     "ZENOPAY_API_KEY",
     "AT_API_KEY",
   ])
@@ -74,7 +73,11 @@ function checkConfig(input) {
         "CALLBACK_PATH_IS_ROOT_RELATIVE",
       );
   }
-  if (present("AUTH_SECRET") && env.AUTH_SECRET.length < 32)
+  // Match installed next-auth/lib/env.js: AUTH_SECRET takes nullish precedence.
+  const authSecret = env.AUTH_SECRET ?? env.NEXTAUTH_SECRET;
+  if (typeof authSecret !== "string" || !authSecret.trim())
+    add("error", "AUTH_SECRET", "AUTH_SECRET_OR_LEGACY_REQUIRED");
+  else if (authSecret.length < 32)
     add("warning", "AUTH_SECRET", "VERIFY_SECRET_ENTROPY");
   if (present("GOOGLE_CLIENT_ID") !== present("GOOGLE_CLIENT_SECRET"))
     add("error", "GOOGLE_*", "INCOMPLETE_CREDENTIAL_PAIR");

@@ -3845,6 +3845,26 @@ test("checkout seller guard waits for concurrent rejection and then refuses new 
   await rejection;
   expect(await result).toBe("refused");
 });
+test("release preflight rejects partial seller dedupe index and missing latest table", async () => {
+  const sql = require("fs").readFileSync(require("path").join(__dirname, "../../scripts/release-preflight.sql"), "utf8");
+  const statements = sql.replace(/--[^\n]*/g, "").split(";").map(s=>s.trim()).filter(s=>s&&!s.startsWith("BEGIN")&&s!=="ROLLBACK");
+  const uniqueness = statements.find(s=>s.includes("pg_index"));
+  const tables = statements.find(s=>s.includes("table_present"));
+  const rollback = new Error("Synthetic rollback");
+  await expect(prisma.$transaction(async tx=>{
+    await tx.$executeRawUnsafe('DROP INDEX "SellerNotice_eventKey_key"');
+    await tx.$executeRawUnsafe('CREATE UNIQUE INDEX "SellerNotice_eventKey_key" ON "SellerNotice"("eventKey") WHERE "state"=\'QUEUED\'');
+    const rows=await tx.$queryRawUnsafe(uniqueness);
+    expect(rows.find(r=>r.name==="SellerNotice_eventKey_key").unique_index_present).toBe(false);
+    await tx.$executeRawUnsafe('ALTER TABLE "SellerNoticeEvent" RENAME TO "SyntheticHiddenSellerNoticeEvent"');
+    const missing=await tx.$queryRawUnsafe(tables);
+    expect(missing.find(r=>r.name==="SellerNoticeEvent").table_present).toBe(false);
+    throw rollback;
+  })).rejects.toThrow("Synthetic rollback");
+  const restored=await prisma.$queryRawUnsafe(uniqueness);
+  expect(restored.every(r=>r.unique_index_present)).toBe(true);
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();

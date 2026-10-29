@@ -85,3 +85,47 @@ test("CLI static checks succeed without database or provider access", () => {
   });
   expect(JSON.parse(out).scope).toBe("static_configuration_only");
 });
+
+test("installed Auth.js legacy secret alias is accepted without printing it", () => {
+  const input = configuration();
+  input.environment.NEXTAUTH_SECRET = input.environment.AUTH_SECRET;
+  delete input.environment.AUTH_SECRET;
+  const result = checkConfig(input);
+  expect(result.issues.filter((i) => i.severity === "error")).toEqual([]);
+  expect(JSON.stringify(result)).not.toContain(
+    input.environment.NEXTAUTH_SECRET,
+  );
+});
+test.each(["", "short", undefined])(
+  "auth secret precedence/absence stays explicit: %s",
+  (value) => {
+    const input = configuration();
+    input.environment.AUTH_SECRET = value;
+    input.environment.NEXTAUTH_SECRET =
+      "synthetic-legacy-secret-that-is-long-enough";
+    const result = checkConfig(input);
+    if (value === "")
+      expect(result.issues).toContainEqual({
+        severity: "error",
+        field: "AUTH_SECRET",
+        code: "AUTH_SECRET_OR_LEGACY_REQUIRED",
+      });
+    else if (value === "short")
+      expect(result.issues).toContainEqual({
+        severity: "warning",
+        field: "AUTH_SECRET",
+        code: "VERIFY_SECRET_ENTROPY",
+      });
+    else
+      expect(result.issues.filter((i) => i.severity === "error")).toEqual([]);
+  },
+);
+test("missing both auth secret names is a static error", () => {
+  const input = configuration();
+  delete input.environment.AUTH_SECRET;
+  expect(checkConfig(input).issues).toContainEqual({
+    severity: "error",
+    field: "AUTH_SECRET",
+    code: "AUTH_SECRET_OR_LEGACY_REQUIRED",
+  });
+});
