@@ -3,7 +3,7 @@ const fs = require("node:fs"),
   os = require("node:os"),
   cp = require("node:child_process");
 require("./hosted-staging-guard.cjs").assertStaging();
-const chromium = require("../tests/hosted/node_modules/@sparticuz/chromium");
+
 const root = process.cwd(),
   baseUrl = "http://127.0.0.1:3107";
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), "nimboya-native-browser-"));
@@ -30,6 +30,7 @@ function run(file, extra = {}) {
     throw Error("Hosted browser stage failed: " + path.basename(file));
 }
 (async () => {
+  const { default: chromium } = await import("../tests/hosted/node_modules/@sparticuz/chromium/build/index.js");
   env.PROSTORE_CHROMIUM = await chromium.executablePath();
   env.PROSTORE_CHROMIUM_ARGS = JSON.stringify(chromium.args);
   env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH;
