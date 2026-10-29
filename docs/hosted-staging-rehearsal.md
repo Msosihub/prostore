@@ -1,0 +1,13 @@
+# Temporary hosted staging rehearsal — NOT a production merge candidate
+
+This branch is purpose-built for the approved isolated test environment. Do not merge its instrumentation or build override into production. Parent application base: ab4705970afb68c164d5b7271c225e246b37bdd3.
+
+Approved resources: Neon project red-art-74389446 / branch br-holy-truth-b8luw8bi, PostgreSQL16 database nimboya_staging; Vercel project prj_MPVXg88eRPg4ggzn5pFl3NZbUHtM, Node22, Vercel authentication for all deployments, no assigned domains. The database was verified empty before setup. No existing Prostore or BM Contractors database, credentials or project configuration was changed. Neon free-plan custom suspend setting was rejected before creation; the successful creation used the account default without an upgrade.
+
+Only new staging database/auth credentials are configured, and only in this project's preview environment. No production providers or accounts are configured. SITE_NOINDEX is enabled. The network firewall blocks unmocked external HTTP/TCP; provider calls in the regression suite remain Jest mocks. Runtime provider interactions intentionally fail closed until a separately validated simulation is added; this is not provider acceptance or a customer-ready checkout.
+
+Build command `node scripts/hosted-staging-build.cjs` checks the exact project, database, role and endpoint identities before work. It refuses real provider-key settings. It runs native `prisma migrate deploy` and generation on the approved synthetic database, then adapts the isolated regression harness only in the throwaway build copy to use the native client and the migrated schema. The existing destructive test resets are allowed only in this new synthetic database, never an existing or production target. Tests must pass before Next build. There is no migration-history rewrite or ledger backfill from live data.
+
+Legacy root key artifacts are excluded from CLI uploads and removed from the throwaway build tree before function tracing; this does not remediate existing public repository history or revoke credentials. Build output redacts known staging credentials. Values are never committed here.
+
+Protection must remain enabled. No nimboya.com alias, production promotion, real money movement, provider message, paid upgrade or persistent production access is authorized by this rehearsal. Existing release gates remain: actual production schema adoption, providers, operational worker ownership, policies and rollback evidence. Resource lifecycle/cleanup should be coordinated explicitly; do not delete unrelated resources.

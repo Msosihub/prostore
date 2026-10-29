@@ -54,6 +54,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SessionProvider>
+            <p role="note" className="bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-950">DEMO · Synthetic staging — no real payments or messages.</p>
             {/* Unified full-bleed wrapper system layer handling layouts natively */}
             <div className="flex-1 flex flex-col w-full">{children}</div>
             <MarketplaceFooter />
