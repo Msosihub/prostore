@@ -466,7 +466,7 @@ module.exports = function ({ sql, docker, name, migrations, replay }) {
     cases: results,
     backupRestore: {
       passed: true,
-      scope: "full_53_file_chain_schema_with_synthetic_ledger_row",
+      scope: "strict_chain_schema_with_synthetic_ledger_row",
       dumpBytes: Buffer.byteLength(dump),
     },
     contracts:

@@ -108,3 +108,21 @@ export const xmlEscape = (value: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+
+// Next's App Router supplies URI-encoded dynamic segment values. Decode once at
+// the route boundary, never inside shared database lookup actions.
+export function productSlugFromParam(value: string): string | undefined {
+  try {
+    const slug = decodeURIComponent(value);
+    if (
+      !slug ||
+      slug === "." ||
+      slug === ".." ||
+      /[/\\\u0000-\u001f\u007f]/.test(slug)
+    )
+      return undefined;
+    return slug;
+  } catch {
+    return undefined;
+  }
+}

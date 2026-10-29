@@ -2,6 +2,12 @@ import "server-only";
 import { prisma } from "@/db/prisma";
 import { cache } from "react";
 export const publicProductWhere = {
+  supplier: {
+    OR: [
+      { registration: null },
+      { registration: { state: "APPROVED" }, isVerified: true },
+    ],
+  },
   name: { not: "" },
   slug: { not: "" },
   price: { gt: 0 },

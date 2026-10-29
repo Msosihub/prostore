@@ -14,7 +14,10 @@ function verifyRestore(container) {
   )[0];
   if (
     meta.Config.Labels?.["prostore.disposable-payment-test"] !== "true" ||
-    !Object.prototype.hasOwnProperty.call(meta.HostConfig.Tmpfs || {}, "/var/lib/postgresql/data")
+    !Object.prototype.hasOwnProperty.call(
+      meta.HostConfig.Tmpfs || {},
+      "/var/lib/postgresql/data",
+    )
   )
     throw Error("Disposable tmpfs database required");
   const source = "prostore_payment_test",
@@ -82,6 +85,9 @@ function verifyRestore(container) {
     "OrderDeliveryFeedback",
     "MoneyReviewCase",
     "MoneyReviewEvent",
+    "SellerRegistration",
+    "SellerNotice",
+    "SellerNoticeEvent",
   ];
   const counts = {};
   for (const table of tables) {
@@ -103,7 +109,8 @@ function verifyRestore(container) {
     counts.PaymentAttempt < 1 ||
     counts.OrderNotification < 3 ||
     counts.AuditLog < 1 ||
-    counts.SupplierLedger < 2 || counts.OrderDeliveryFeedback < 1
+    counts.SupplierLedger < 2 ||
+    counts.OrderDeliveryFeedback < 1
   )
     throw Error("Required synthetic audit fixture absent");
   // Verify constraints remain active after restore, without altering durable fixture data.

@@ -47,6 +47,12 @@ export default function MarketplaceFooter() {
             Kwa wauzaji
           </h2>
           <Link
+            href="/sell"
+            className="mb-4 block text-sm font-semibold underline"
+          >
+            Anza kuuza · Apply for a shop
+          </Link>
+          <Link
             href="/supplier/overview"
             className="inline-flex items-center gap-2 text-sm underline underline-offset-4"
           >

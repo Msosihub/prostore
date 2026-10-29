@@ -1,3 +1,4 @@
+import { visibleCatalogProduct } from "@/lib/catalog-visibility";
 // random products fron 2 categories
 
 import { prisma } from "@/db/prisma";
@@ -31,6 +32,7 @@ export async function GET() {
   try {
     products = await prisma.product.findMany({
       where: {
+        ...visibleCatalogProduct,
         categoryId: { in: randomCats.map((c) => c.id) },
       },
       take: 8,

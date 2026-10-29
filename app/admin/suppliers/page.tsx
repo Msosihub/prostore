@@ -173,12 +173,6 @@ export default function AdminSuppliersPage() {
       toast({
         description: `Supplier ${newState ? "verified" : "unverified"}`,
       });
-      //send notification email to supplier about verification status change
-      await fetch(`/api/admin/suppliers/${s.id}/notify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isVerified: newState }),
-      });
       await loadSuppliers();
     } catch (err: unknown) {
       toast({

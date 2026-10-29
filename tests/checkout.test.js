@@ -59,7 +59,9 @@ beforeEach(() => {
     pricingTiers: [],
   });
   tx = {
+    $queryRaw: jest.fn(),
     supplier: {
+      count: jest.fn(async () => 1),
       findUnique: jest.fn().mockResolvedValue({
         name: "Canonical Seller",
         companyName: "Canonical Store",

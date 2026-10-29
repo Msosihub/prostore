@@ -248,6 +248,7 @@ const freePort = () =>
       "buy-now",
       "market-chat",
       "catalog-otp",
+      "seller-shops",
     ])
       await run(path.join(root, "tests/browser", test + ".cjs"), driverEnv);
     console.log("PASS all disposable browser workflow assertions");

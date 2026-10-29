@@ -20,6 +20,7 @@ import { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
 import {
+  productSlugFromParam,
   publicUrl,
   productPath,
   plainDescription,
@@ -41,7 +42,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const product = await readProduct(slug);
+  const decoded = productSlugFromParam(slug);
+  const product = decoded ? await readProduct(decoded) : undefined;
   if (product === null) throw new Error("Catalog temporarily unavailable");
   if (!product)
     return {
@@ -79,7 +81,8 @@ const ProductDetailsPagez = async (props: {
   params: Promise<{ slug: string }>;
 }) => {
   const { slug } = await props.params;
-  const product = await readProduct(slug);
+  const decoded = productSlugFromParam(slug);
+  const product = decoded ? await readProduct(decoded) : undefined;
   const safeCartData = await getMyCart();
 
   if (product === null) throw new Error("Catalog temporarily unavailable");
@@ -211,22 +214,7 @@ const ProductDetailsPagez = async (props: {
       {product.supplier && (
         <section className="px-2 sm:px-4 lg:px-6">
           <div className="border-t border-slate-100 pt-6">
-            <SupplierProfileCard
-              supplier={{
-                ...product.supplier,
-                logo: product.supplier.logo ?? null,
-                rating: Number(product.supplier.rating),
-                location: product.supplier.location || "",
-                username: product.supplier.username || "",
-                certifications: product.supplier.certifications.map((c) => ({
-                  id: c.id,
-                  label: c.label,
-                  image: c.image ?? undefined,
-                  certNumber: c.certNumber ?? undefined,
-                  validUntil: c.validUntil ? new Date(c.validUntil) : undefined,
-                })),
-              }}
-            />
+            <SupplierProfileCard supplier={product.supplier} />
           </div>
         </section>
       )}

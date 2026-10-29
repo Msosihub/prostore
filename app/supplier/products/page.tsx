@@ -1,7 +1,10 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { getAllProducts, deleteProduct } from "@/lib/actions/product.actions";
+import {
+  getManagedProducts,
+  deleteProduct,
+} from "@/lib/actions/product.actions";
 import { cn, formatCurrency, formatId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,7 +57,7 @@ export default async function SupplierProductsPage(props: {
   const searchText = searchParams.query || "";
   const category = searchParams.category || "";
 
-  const products = await getAllProducts({
+  const products = await getManagedProducts({
     query: searchText,
     limit: 10,
     page,

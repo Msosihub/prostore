@@ -1,4 +1,5 @@
 import "server-only";
+import { visibleCatalogProduct } from "@/lib/catalog-visibility";
 import { prisma } from "@/db/prisma";
 import type { CartItem } from "@/types";
 import { round2 } from "@/lib/utils";
@@ -16,7 +17,7 @@ export const calcPriceWithTiers = async (
 
   for (const item of [...items]) {
     const args = {
-      where: { id: item.productId },
+      where: { id: item.productId, ...visibleCatalogProduct },
       include: { pricingTiers: true as const },
     };
     const product = db
