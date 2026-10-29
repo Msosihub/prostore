@@ -6,6 +6,11 @@ SELECT 'notifications' AS queue, "state", count(*) AS count,
  count(*) FILTER (WHERE "state"='SENDING' AND "leaseUntil" < CURRENT_TIMESTAMP) AS expired_leases,
  min("createdAt") AS oldest_created_at, max("acceptedAt") AS latest_provider_acceptance
 FROM "OrderNotification" GROUP BY "state" ORDER BY "state";
+SELECT 'seller_notices' AS queue, "state", count(*) AS count,
+ count(*) FILTER (WHERE "nextAttemptAt" <= CURRENT_TIMESTAMP) AS due,
+ count(*) FILTER (WHERE "state"='SENDING' AND "leaseUntil" < CURRENT_TIMESTAMP) AS expired_leases,
+ min("createdAt") AS oldest_created_at, max("acceptedAt") AS latest_provider_acceptance
+FROM "SellerNotice" GROUP BY "state" ORDER BY "state";
 SELECT 'payments' AS queue, "state", count(*) AS count,
  count(*) FILTER (WHERE "nextCheckAt" <= CURRENT_TIMESTAMP) AS due,
  count(*) FILTER (WHERE "leaseUntil" < CURRENT_TIMESTAMP) AS expired_leases,
