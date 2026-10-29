@@ -39,7 +39,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       await page
         .getByRole("alert")
         .getByText("Agizo halipatikani kwa sasa")
-        .waitFor();
+        .filter({ visible: true }).waitFor();
       assert.equal(
         await page.getByRole("button", { name: "Bonyeza kuagiza" }).count(),
         0,
@@ -51,8 +51,8 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await page.getByRole("button", { name: "Nunua Sasa", exact: true }).click();
     await page.waitForURL((url) => url.pathname === "/place-order2");
     assert.equal(new URL(page.url()).searchParams.get("qty"), "5");
-    await page.getByRole("heading", { name: "Agiza Mzigo" }).waitFor();
-    const review = await page.locator("main").innerText();
+    await page.getByRole("heading", { name: "Agiza Mzigo" }).filter({ visible: true }).waitFor();
+    const review = await page.locator("main:visible").innerText();
     assert(review.includes("4,000"));
     assert(review.includes("3,000"));
     assert(review.includes("7,000"));
@@ -150,7 +150,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       Number(beforeWallet.pendingBalance) + 4000,
     );
     await page.goto(state.baseUrl + "/order/" + order.id);
-    await page.getByText("Test Item", { exact: true }).waitFor();
+    await page.getByText("Test Item", { exact: true }).filter({ visible: true }).waitFor();
     const seller = await browser.newContext({
       storageState: state.stage + "/vendor-session.json",
       viewport: { width: 375, height: 812 },
@@ -162,18 +162,18 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     );
     const sp = await seller.newPage();
     await sp.goto(state.baseUrl + "/supplier/orders/" + order.id);
-    await sp.getByRole("heading", { name: "Test Item", exact: true }).waitFor();
-    assert((await sp.locator("main").innerText()).includes("4,000"));
+    await sp.getByRole("heading", { name: "Test Item", exact: true }).filter({ visible: true }).waitFor();
+    assert((await sp.locator("main:visible").innerText()).includes("4,000"));
     await sp.goto(state.baseUrl + "/supplier/overview");
     await sp
       .getByText("Thamani ya Bidhaa Zilizolipiwa", { exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     const ownPaid = await prisma.orderItem.findMany({
       where: { supplierId: state.fixture.supplier, order: { isPaid: true } },
     });
     const total = ownPaid.reduce((sum, i) => sum + Number(i.price) * i.qty, 0);
     assert(
-      (await sp.locator("main").innerText()).includes(
+      (await sp.locator("main:visible").innerText()).includes(
         total.toLocaleString("en-US"),
       ),
     );
