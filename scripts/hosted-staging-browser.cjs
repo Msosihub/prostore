@@ -33,7 +33,7 @@ function run(file, extra = {}) {
 (async () => {
   const { default: chromium } = await import("../tests/hosted/node_modules/@sparticuz/chromium/build/index.js");
   env.PROSTORE_CHROMIUM = await chromium.executablePath();
-  env.PROSTORE_CHROMIUM_ARGS = JSON.stringify(chromium.args);
+  env.PROSTORE_CHROMIUM_ARGS = JSON.stringify(chromium.args.filter(arg => arg !== "--single-process"));
   env.LD_LIBRARY_PATH = process.env.LD_LIBRARY_PATH;
   Object.assign(process.env, {
     PROSTORE_TEST_CLIENT: env.PROSTORE_TEST_CLIENT,

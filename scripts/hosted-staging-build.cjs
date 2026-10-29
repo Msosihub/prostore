@@ -88,7 +88,7 @@ function run(label, args, env = process.env, executable = process.execPath) {
     const marker = '  } catch {\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };';
     if (!actionSource.includes(marker)) throw Error("Delivery diagnostic anchor changed");
     fs.writeFileSync(actionFile, actionSource.replace(marker,
-      '  } catch (error) {\n    console.error("HOSTED_DIAG_DELIVERY", error instanceof Error ? error.name : "unknown", typeof error === "object" && error && "code" in error ? String(error.code) : "no-code");\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };'));
+      '  } catch (error) {\n    console.error("HOSTED_DIAG_DELIVERY", error instanceof Error ? error.name : "unknown", typeof error === "object" && error && "code" in error ? String(error.code) : "no-code", error instanceof Error && ["Unauthorized", "Invalid feedback", "Order not found", "Order is not paid or has no items", "Item not found", "Item cannot release escrow", "Refund review blocks escrow release", "Dispute blocks escrow release", "Escrow credit requires reconciliation", "Legacy release requires reconciliation", "Item changed during release", "Insufficient escrow balance"].includes(error.message) ? error.message : "unclassified");\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };'));
     run("native full Next build", ["node_modules/next/dist/bin/next", "build"]);
     run("native browser workflow rehearsal", [
       "scripts/hosted-staging-browser.cjs",

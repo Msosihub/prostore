@@ -65,6 +65,8 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     page.setDefaultTimeout(60000);
     page.on("dialog", async d => { console.log("Delivery action notice:", d.message()); await d.accept(); });
     await page.goto(state.baseUrl + "/order/" + state.orderId);
+    const session = await (await buyer.request.get(state.baseUrl + "/api/auth/session")).json();
+    assert.equal(session.user.id, state.fixture.buyer, "Delivery uses original buyer session");
     await page.getByRole("button", { name: "Nimepokea Bidhaa Hii" }).click();
     await page
       .getByRole("dialog")
