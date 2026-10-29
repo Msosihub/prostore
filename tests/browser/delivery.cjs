@@ -63,6 +63,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     );
     const page = await buyer.newPage();
     page.setDefaultTimeout(60000);
+    page.on("dialog", async d => { console.log("Delivery action notice:", d.message()); await d.accept(); });
     await page.goto(state.baseUrl + "/order/" + state.orderId);
     await page.getByRole("button", { name: "Nimepokea Bidhaa Hii" }).click();
     await page

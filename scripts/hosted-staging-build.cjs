@@ -82,6 +82,13 @@ function run(label, args, env = process.env, executable = process.execPath) {
       path.join(route, "page.tsx"),
       `import {Suspense} from 'react';import ShoppingLoading from '@/components/storefront/shopping-loading';export const dynamic='force-dynamic';async function Slow(){await new Promise(r=>setTimeout(r,45000));return <p>DEMO loading complete</p>;}export default function Page(){return <Suspense fallback={<ShoppingLoading/>}><Slow/></Suspense>}`,
     );
+    // Throwaway diagnostic: expose only error type/code, never arguments or contacts.
+    const actionFile = "lib/actions/order.actions.ts";
+    const actionSource = fs.readFileSync(actionFile, "utf8");
+    const marker = '  } catch {\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };';
+    if (!actionSource.includes(marker)) throw Error("Delivery diagnostic anchor changed");
+    fs.writeFileSync(actionFile, actionSource.replace(marker,
+      '  } catch (error) {\n    console.error("HOSTED_DIAG_DELIVERY", error instanceof Error ? error.name : "unknown", typeof error === "object" && error && "code" in error ? String(error.code) : "no-code");\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };'));
     run("native full Next build", ["node_modules/next/dist/bin/next", "build"]);
     run("native browser workflow rehearsal", [
       "scripts/hosted-staging-browser.cjs",

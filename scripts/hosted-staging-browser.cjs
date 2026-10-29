@@ -105,6 +105,8 @@ function run(file, extra = {}) {
 })()
   .catch((e) => {
     console.error(e.message);
+    const log = path.join(temp, "server.log");
+    if(fs.existsSync(log)) for(const line of fs.readFileSync(log,"utf8").split("\n")) if(line.startsWith("HOSTED_DIAG_")) console.error(line);
     process.exitCode = 1;
   })
   .finally(async () => {
