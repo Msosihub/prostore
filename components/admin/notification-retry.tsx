@@ -1,6 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { retryOrderNotification } from "@/lib/actions/order-notification.actions";
 export default function NotificationRetry({
   id,
@@ -9,8 +8,6 @@ export default function NotificationRetry({
   id: string;
   unknown: boolean;
 }) {
-  const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
   const [queued, setQueued] = useState(false);
   const [ack, setAck] = useState(false),
     [busy, setBusy] = useState(false),
@@ -28,7 +25,7 @@ export default function NotificationRetry({
         </label>
       )}
       <button
-        disabled={busy || refreshing || queued || (unknown && !ack)}
+        disabled={busy || queued || (unknown && !ack)}
         className="rounded border p-2 disabled:opacity-50"
         onClick={async () => {
           setBusy(true);
@@ -40,9 +37,9 @@ export default function NotificationRetry({
             setMessage(r.message);
             if (r.success) {
               setQueued(true);
-              // Re-read the current filtered server page; cache invalidation alone
-              // does not guarantee a mounted router snapshot is refreshed.
-              startRefresh(() => router.refresh());
+              // Server-action RSC patches can race a router refresh and restore stale
+              // rows. A document GET preserves filters and rechecks DB authority.
+              window.location.reload();
             }
           } catch {
             setMessage("Unable to queue retry.");
