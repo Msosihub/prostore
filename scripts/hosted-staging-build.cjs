@@ -40,7 +40,7 @@ function run(label, args, env = process.env) {
   // the real migration engine above supplies schema rather than fixture SQL generation.
   const file = "tests/integration/database.cjs",
     original = fs.readFileSync(file, "utf8");
-  const prefix = `const fs=require('node:fs'),path=require('node:path');\nrequire('../../scripts/hosted-staging-guard.cjs').assertStaging();\nconst url=process.env.DATABASE_URL;\nconst generated=require('@prisma/client');\nconst prisma=new generated.PrismaClient({datasourceUrl:url,errorFormat:'minimal'});\n`;
+  const prefix = `const fs=require('node:fs'),path=require('node:path');\nrequire('../../scripts/hosted-staging-guard.cjs').assertStaging();\nconst url=process.env.DATABASE_URL;\nconst generated=require(process.env.PROSTORE_TEST_CLIENT);\nconst prisma=new generated.PrismaClient({datasourceUrl:url,errorFormat:'minimal'});\n`;
   let adapted = prefix + original.slice(original.indexOf("const models ="));
   const start = adapted.indexOf("async function prepare()"),
     end = adapted.indexOf("async function reset()");
@@ -53,7 +53,7 @@ function run(label, args, env = process.env) {
     const env = {
       ...process.env,
       PROSTORE_TEST_DATABASE_URL: process.env.DATABASE_URL,
-      PROSTORE_TEST_CLIENT: path.resolve("node_modules/@prisma/client"),
+      PROSTORE_TEST_CLIENT: path.resolve("node_modules/.prisma/client"),
       PROSTORE_BACKUP_FIXTURE: "1",
       PROSTORE_TEST_HISTORICAL_CHAIN: "",
       PROSTORE_STAGING_NETWORK_PRELOAD: "1",
