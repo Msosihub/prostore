@@ -6,6 +6,7 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
 (async () => {
  const browser = await chromium.launch({executablePath:process.env.PROSTORE_CHROMIUM||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  const ids=[];
+ const hydrationErrors=[];
  let page;
  try {
   const original = await prisma.product.findUnique({where:{id:state.fixture.product}});
@@ -13,7 +14,7 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   const context = await browser.newContext({viewport:{width:375,height:812}});
   await context.route('**/*',r=>new URL(r.request().url()).hostname==='127.0.0.1'?r.continue():r.abort());
   page = await context.newPage();
-  page.on('pageerror', e=>console.log('Browser error',e.message));
+  page.on('pageerror', e=>{console.log('Browser error',page.url(),e.message);if(/hydration|hydrating|#418|#425/i.test(e.message))hydrationErrors.push({url:page.url(),message:e.message});});
   await page.goto(state.baseUrl+'/search?q=missing-synthetic');
   const input=page.getByRole('textbox',{name:'Tafuta bidhaa',exact:true});
   await input.waitFor();
@@ -61,6 +62,7 @@ const { prisma } = require(state.stage+'/tests/integration/database.cjs');
   await page.goto(state.baseUrl+'/search?q=Browse');
   await page.getByRole('navigation',{name:'Kurasa za bidhaa'}).waitFor();
   await page.screenshot({path:state.stage+'/search-desktop-after.png'});
+  assert.deepEqual(hydrationErrors,[], 'Discovery must hydrate without recoverable mismatches');
   console.log('PASS search empty recovery, URL/back synchronization, accessible submit, mobile pagination/filter preservation and malformed URL recovery');
  } catch(error) {
   if(page) { console.log("Failure URL",page.url()); await page.screenshot({path:state.stage+"/discovery-failure.png"}); }

@@ -37,7 +37,7 @@ try {
     "POSTGRES_PASSWORD=local-test-only",
     "-e",
     "POSTGRES_DB=prostore_payment_test",
-    "postgres:16-alpine",
+    require("./postgres-test-image.cjs")(),
   ]);
   started = true;
   const binding = docker(["port", name, "5432/tcp"]);
@@ -81,6 +81,7 @@ try {
   if (result.status === 0 && process.argv.includes("--backup-restore")) {
     const report = require("./verify-disposable-restore.cjs").verifyRestore(name);
     if (process.argv.includes("--historical-chain")) report.scope = "disposable_historical_migration_chain_with_synthetic_records";
+    report.postgresVersion = docker(["exec", name, "psql", "-U", "postgres", "-d", "prostore_payment_test", "-At", "-c", "SHOW server_version;"]);
     console.log("PASS disposable backup/restore:", JSON.stringify(report));
   }
 } finally {

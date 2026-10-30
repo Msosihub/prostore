@@ -57,7 +57,7 @@ const freePort = () =>
       "POSTGRES_PASSWORD=local-test-only",
       "-e",
       "POSTGRES_DB=prostore_payment_test",
-      "postgres:16-alpine",
+      require("./postgres-test-image.cjs")(),
     ]);
     started = true;
     const binding = docker(["port", name, "5432/tcp"]);
@@ -115,6 +115,7 @@ const freePort = () =>
       AUTH_TRUST_HOST: "true",
       AUTH_URL: baseUrl,
       NEXT_PUBLIC_SERVER_URL: baseUrl,
+      NEXT_PUBLIC_CATALOG_RELAUNCH: process.env.PROSTORE_BROWSER_NEW_BOOK_NOTICE === "1" ? "true" : "false",
       ZENOPAY_API_KEY: "fixture-only",
       AT_API_KEY: "fixture-only",
     };
@@ -243,7 +244,7 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       if (i === 119) throw Error("Staging server startup timed out");
       await new Promise((r) => setTimeout(r, 500));
     }
-    for (const test of [
+    const scenarios = [
       "storefront-seo",
       "credibility",
       "discovery",
@@ -258,9 +259,14 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       "market-chat",
       "catalog-otp",
       "seller-shops",
-    ])
+      "legacy-review",
+      "launch-notice",
+    ];
+    const selected = process.env.PROSTORE_BROWSER_SCENARIOS?.split(",") ?? scenarios;
+    if (selected.some(name => !scenarios.includes(name))) throw Error("Unknown browser scenario");
+    for (const test of selected)
       await run(path.join(root, "tests/browser", test + ".cjs"), driverEnv);
-    console.log("PASS all disposable browser workflow assertions");
+    console.log("PASS selected disposable browser workflows:", selected.join(", "));
   } finally {
     if (server) {
       try {

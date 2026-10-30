@@ -3906,6 +3906,57 @@ test('nonfinite legacy allocation stays visible and cannot release', async()=>{
  expect(await releases()).toBe(0);
 });
 
+import { catalogLaunchPlan } from '@/lib/catalog-launch';
+const {rehearseCatalogLaunch}=require('./catalog-launch.cjs');
+async function catalogLaunchFixture() {
+ const f=await fixture();
+ const pick=(row,keys)=>Object.fromEntries(keys.map(k=>[k,row[k]]));
+ const brand=await prisma.brand.findUnique({where:{id:f.product.brandId}}),cat=await prisma.category.findUnique({where:{id:f.product.categoryId}}),sub=await prisma.subcategory.findUnique({where:{id:f.product.subcategoryId}});
+ const manifest={version:1,historicalObligationsRetained:true,catalogCompletenessReviewed:true,legacyStockCommitmentsReviewed:true,
+ brands:[pick(brand,['id','name','description','image'])],categories:[pick(cat,['id','name_en','name_sw','image','description','parentId','sortOrder'])],subcategories:[pick(sub,['id','name_en','name_sw','categoryId','image','description','sortOrder'])],suppliers:[{sourceId:f.supplier.id,targetId:f.supplier.id,ownershipReviewed:true}],products:[{...pick(f.product,['id','name','slug','description','images','banner','color','size','supplierId','isFeatured','brandId','categoryId','subcategoryId','thumbnail','tags','videoUrl']),price:String(f.product.price),createdAt:f.product.createdAt.toISOString(),openingStock:3,stockReviewed:true}],tiers:[],variants:[]};
+ return {f,manifest};
+}
+async function emptySyntheticCatalog(f){
+ await prisma.orderItem.deleteMany();await prisma.order.deleteMany();await prisma.product.deleteMany();await prisma.subcategory.deleteMany();await prisma.category.deleteMany();await prisma.brand.deleteMany();
+ await prisma.user.update({where:{id:f.user.id},data:{role:'SUPPLIER',phoneVerified:new Date()}});await prisma.supplier.update({where:{id:f.supplier.id},data:{isVerified:true}});
+}
+test('catalog launch refuses historical target without changing original orders or balances',async()=>{
+ const {f,manifest}=await catalogLaunchFixture();const before=await prisma.order.findUnique({where:{id:f.order.id}});
+ await expect(rehearseCatalogLaunch(manifest)).rejects.toThrow('not an empty');
+ expect(await prisma.order.findUnique({where:{id:f.order.id}})).toEqual(before);expect(await prisma.product.count()).toBe(1);
+});
+test('catalog-only import preserves URLs; concurrent replay creates one catalog; new settlement isolated from late callback',async()=>{
+ const {f,manifest}=await catalogLaunchFixture();await emptySyntheticCatalog(f);
+ const sourceSeller=require('node:crypto').randomUUID();manifest.suppliers[0].sourceId=sourceSeller;manifest.products[0].supplierId=sourceSeller;
+ manifest.tiers=[{id:require('node:crypto').randomUUID(),productId:f.product.id,minQty:5,price:'800.00'}];manifest.variants=[{id:require('node:crypto').randomUUID(),productId:f.product.id,sku:'synthetic-variant',name:'Synthetic variant',price:'1100.00',openingStock:2,stockReviewed:true,image:null}];
+ const result=await Promise.allSettled([rehearseCatalogLaunch(manifest),rehearseCatalogLaunch(manifest)]);
+ expect(result.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(await prisma.product.count()).toBe(1);
+ const product=await prisma.product.findUnique({where:{id:f.product.id}});expect(product.slug).toBe(f.product.slug);expect(product.stock).toBe(3);expect(product.numReviews).toBe(0);expect(product.supplierId).toBe(f.supplier.id);expect(await prisma.productPricing.count()).toBe(1);expect(await prisma.productVariant.count()).toBe(1);expect(await prisma.order.count()).toBe(0);
+ const late=await require('@/app/api/zenopay/webhook/route').POST(new Request('https://example.test',{method:'POST',body:JSON.stringify({order_id:attempt(f.order)})}));expect(late.status).toBe(404);expect(getZenopayStatus).not.toHaveBeenCalled();expect(await prisma.supplierLedger.count()).toBe(0);
+ const order=await newOrder({user:f.user,product,qty:1});expect(order.id).not.toBe(f.order.id);
+ await Promise.all([fulfillOrder(order.id,attempt(order),'new-catalog-proof'),fulfillOrder(order.id,attempt(order),'new-catalog-proof')]);
+ expect((await prisma.product.findUnique({where:{id:product.id}})).stock).toBe(2);expect(await prisma.supplierLedger.count()).toBe(1);
+ await confirmDelivery(order.id,product.id,{kind:'buyer',userId:f.user.id});expect(await releases()).toBe(1);
+ expect(Number((await prisma.supplier.findUnique({where:{id:f.supplier.id}})).walletBalance)).toBe(1000);
+});
+test('catalog import rollback, existing balance and revoked seller protections',async()=>{
+ const {f,manifest}=await catalogLaunchFixture();await emptySyntheticCatalog(f);
+ await prisma.supplier.update({where:{id:f.supplier.id},data:{pendingBalance:1}});await expect(rehearseCatalogLaunch(manifest)).rejects.toThrow('balances');expect(await prisma.product.count()).toBe(0);
+ await prisma.supplier.update({where:{id:f.supplier.id},data:{pendingBalance:0,isVerified:false}});await expect(rehearseCatalogLaunch(manifest)).rejects.toThrow('verification');
+ await prisma.supplier.update({where:{id:f.supplier.id},data:{isVerified:true}});
+ await prisma.$executeRawUnsafe('ALTER TABLE "Product" ADD CONSTRAINT synthetic_import_failure CHECK (stock < 0)');
+ try{await expect(rehearseCatalogLaunch(manifest)).rejects.toThrow();expect(await prisma.brand.count()).toBe(0);expect(await prisma.category.count()).toBe(0);}finally{await prisma.$executeRawUnsafe('ALTER TABLE "Product" DROP CONSTRAINT synthetic_import_failure');}
+ expect(catalogLaunchPlan(manifest).digest).toHaveLength(64);
+});
+
+test('pending seller registration cannot receive imported products',async()=>{
+ const {f,manifest}=await catalogLaunchFixture();await emptySyntheticCatalog(f);
+ await prisma.sellerRegistration.create({data:{supplierId:f.supplier.id,state:'PENDING',phoneDigest:'synthetic'}});
+ await expect(rehearseCatalogLaunch(manifest)).rejects.toThrow('verification');expect(await prisma.product.count()).toBe(0);
+ await prisma.sellerRegistration.update({where:{supplierId:f.supplier.id},data:{state:'APPROVED'}});
+ await expect(rehearseCatalogLaunch(manifest)).resolves.toMatchObject({products:1});
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();
