@@ -1,0 +1,6 @@
+# Keep source archives free of historical key artifacts and local/rehearsal data.
+/abc export-ignore
+/abc.pub export-ignore
+/.env* export-ignore
+/tests export-ignore
+/scripts/hosted-* export-ignore

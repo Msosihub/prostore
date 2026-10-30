@@ -11,6 +11,7 @@ async function request(endpoint: string, body?: ZenoBody): Promise<unknown> {
     headers: { "Content-Type": "application/json", "x-api-key": key },
     ...(body ? { body: JSON.stringify(body) } : {}),
     cache: "no-store",
+    redirect: "error",
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) throw new Error("Payment provider request failed");

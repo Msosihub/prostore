@@ -21,6 +21,7 @@ export async function getPesapalToken() {
       consumer_secret: process.env.PESAPAL_CONSUMER_SECRET,
     }),
     cache: "no-store",
+    redirect: "error",
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) throw new Error("Pesapal authentication failed");
@@ -34,6 +35,7 @@ export async function getPesapalStatus(trackingId: string) {
     {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       cache: "no-store",
+      redirect: "error",
       signal: AbortSignal.timeout(15000),
     },
   );

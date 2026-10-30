@@ -38,6 +38,7 @@ test("accepts actual provider success with timeout and no-store", async () => {
   });
   expect(fetch.mock.calls[0][1]).toMatchObject({
     cache: "no-store",
+    redirect: "error",
     headers: { "x-api-key": "test-only" },
   });
   expect(fetch.mock.calls[0][1].signal).toBeDefined();
@@ -135,4 +136,15 @@ test("blank completed reference is rejected", async () => {
     ],
   });
   await expect(getZenopayStatus(body.order_id)).rejects.toThrow();
+});
+
+test("status lookup also refuses redirects", async () => {
+  reply({
+    resultcode: "000",
+    data: [
+      { order_id: body.order_id, payment_status: "PENDING", amount: "1000" },
+    ],
+  });
+  await getZenopayStatus(body.order_id);
+  expect(fetch.mock.calls[0][1].redirect).toBe("error");
 });
