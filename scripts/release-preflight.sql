@@ -2,7 +2,7 @@
 -- This checks the deployed shape, not historical migration-chain correctness.
 BEGIN TRANSACTION READ ONLY;
 SELECT name, to_regclass('public.' || quote_ident(name)) IS NOT NULL AS table_present
-FROM (VALUES ('Order'),('SupplierLedger'),('MarketThread'),('MarketProposal'),('OtpThrottle'),('PaymentAttempt'),('PaymentAttemptEvent'),('OrderNotification'),('OrderNotificationEvent'),('MoneyReviewCase'),('MoneyReviewEvent'),('SellerRegistration'),('SellerNotice'),('SellerNoticeEvent')) required(name);
+FROM (VALUES ('Order'),('SupplierLedger'),('MarketThread'),('MarketProposal'),('OtpThrottle'),('PaymentAttempt'),('PaymentAttemptEvent'),('OrderNotification'),('OrderNotificationEvent'),('MoneyReviewCase'),('MoneyReviewEvent'),('SellerRegistration'),('SellerNotice'),('SellerNoticeEvent'),('UnmatchedPaymentNotice')) required(name);
 SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='User' AND column_name='orderSmsEnabled' AND data_type='boolean' AND is_nullable='NO') AS sms_preference_column_present;
 SELECT required.name, EXISTS(
  SELECT 1 FROM pg_index i JOIN pg_class ix ON ix.oid=i.indexrelid JOIN pg_namespace n ON n.oid=ix.relnamespace
@@ -15,6 +15,7 @@ SELECT required.name, EXISTS(
            WHERE key.position<=i.indnkeyatts ORDER BY key.position)=required.columns
 ) AS unique_index_present
 FROM (VALUES
+ ('UnmatchedPaymentNotice_pkey','UnmatchedPaymentNotice',ARRAY['id']),
  ('OrderNotification_eventKey_key','OrderNotification',ARRAY['eventKey']),
  ('PaymentAttempt_provider_providerReference_key','PaymentAttempt',ARRAY['provider','providerReference']),
  ('SellerRegistration_supplierId_key','SellerRegistration',ARRAY['supplierId']),

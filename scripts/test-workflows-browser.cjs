@@ -261,6 +261,7 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       "seller-shops",
       "legacy-review",
       "launch-notice",
+      "unmatched-notice",
     ];
     const selected = process.env.PROSTORE_BROWSER_SCENARIOS?.split(",") ?? scenarios;
     if (selected.some(name => !scenarios.includes(name))) throw Error("Unknown browser scenario");

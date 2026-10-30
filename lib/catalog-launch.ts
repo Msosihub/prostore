@@ -1,4 +1,3 @@
-import "server-only";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 const id = z.string().uuid();

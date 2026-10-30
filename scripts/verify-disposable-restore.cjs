@@ -71,6 +71,7 @@ function verifyRestore(container) {
     { input: dump },
   );
   const tables = [
+    "UnmatchedPaymentNotice",
     "User",
     "Product",
     "Order",
@@ -107,6 +108,7 @@ function verifyRestore(container) {
     throw Error("Restored constraints mismatch");
   if (
     counts.PaymentAttempt < 1 ||
+    counts.UnmatchedPaymentNotice < 1 ||
     counts.OrderNotification < 3 ||
     counts.AuditLog < 1 ||
     counts.SupplierLedger < 2 ||
