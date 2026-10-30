@@ -201,7 +201,9 @@ test("offline preparation writes private new file and refuses overwrite without 
       );
     const r = run();
     expect(r.status).toBe(0);
-    expect(JSON.parse(r.stdout).digest).toBe(prepareSupplierCatalogTransfer(snapshot,review).plan.digest);
+    expect(JSON.parse(r.stdout).digest).toBe(
+      prepareSupplierCatalogTransfer(snapshot, review).plan.digest,
+    );
     expect(r.stdout).not.toContain("Synthetic shop");
     expect(fs.statSync(files[2]).mode & 0o777).toBe(0o600);
     expect(run().status).toBe(2);
@@ -216,5 +218,88 @@ test("zoneless exported dates are refused rather than interpreted in operator ti
   review.snapshotDigest = supplierSnapshotDigest(snapshot);
   expect(() => prepareSupplierCatalogTransfer(snapshot, review)).toThrow(
     "date",
+  );
+});
+
+test("Neon single-row JSON export and direct snapshot have identical digest and plan", () => {
+  const { snapshot, review } = source();
+  review.snapshotDigest = supplierSnapshotDigest(snapshot);
+  for (const wrapped of [
+    [{ supplier_catalog_snapshot: JSON.stringify(snapshot) }],
+    [{ supplier_catalog_snapshot: snapshot }],
+  ]) {
+    expect(supplierSnapshotDigest(wrapped)).toBe(review.snapshotDigest);
+    expect(prepareSupplierCatalogTransfer(wrapped, review).plan.digest).toBe(
+      prepareSupplierCatalogTransfer(snapshot, review).plan.digest,
+    );
+  }
+});
+test.each(
+  [
+    [],
+    [{ supplier_catalog_snapshot: "{" }],
+    [{ supplier_catalog_snapshot: "{}", extra: "private" }],
+    [{ supplier_catalog_snapshot: "{}" }, { supplier_catalog_snapshot: "{}" }],
+  ].map((wrapped) => ({ wrapped })),
+)("ambiguous or malformed export rejected", ({ wrapped }) => {
+  expect(() => supplierSnapshotDigest(wrapped)).toThrow();
+});
+test("safe legacy usernames remain exact; no lowercase or silent renaming", () => {
+  const p = setup();
+  p.suppliers[0].username = "Legacy_Shop";
+  const result = supplierCatalogTransferPlan(p);
+  expect(result.suppliers[0].username).toBe("Legacy_Shop");
+  expect(
+    require("@/lib/seller-registration-policy").shopPath(
+      result.suppliers[0].username,
+      result.suppliers[0].id,
+    ),
+  ).toBe(`/company/${id(4)}/home`);
+});
+test("category mismatch requires explicit snapshot-bound review, does not alter source", () => {
+  const { snapshot, review } = source();
+  const other = { ...snapshot.categories[0], id: id(55), name_en: "Other" };
+  snapshot.categories.push(other);
+  snapshot.products[0].categoryId = other.id;
+  review.snapshotDigest = supplierSnapshotDigest(snapshot);
+  expect(() => prepareSupplierCatalogTransfer(snapshot, review)).toThrow(
+    "dependency",
+  );
+  review.categoryCorrections = [
+    {
+      productId: snapshot.products[0].id,
+      categoryId: snapshot.subcategories[0].categoryId,
+      subcategoryId: snapshot.subcategories[0].id,
+      reviewed: true,
+    },
+  ];
+  const fixed = prepareSupplierCatalogTransfer(snapshot, review);
+  expect(fixed.plan.catalog.data.products[0].categoryId).toBe(
+    snapshot.subcategories[0].categoryId,
+  );
+  expect(snapshot.products[0].categoryId).toBe(other.id);
+  review.categoryCorrections.push({ ...review.categoryCorrections[0] });
+  expect(() => prepareSupplierCatalogTransfer(snapshot, review)).toThrow(
+    "correction",
+  );
+});
+test("unknown product and still inconsistent reviewed category are refused", () => {
+  const { snapshot, review } = source();
+  review.snapshotDigest = supplierSnapshotDigest(snapshot);
+  review.categoryCorrections = [
+    {
+      productId: id(99),
+      categoryId: id(2),
+      subcategoryId: id(3),
+      reviewed: true,
+    },
+  ];
+  expect(() => prepareSupplierCatalogTransfer(snapshot, review)).toThrow(
+    "correction",
+  );
+  review.categoryCorrections[0].productId = id(6);
+  review.categoryCorrections[0].categoryId = id(99);
+  expect(() => prepareSupplierCatalogTransfer(snapshot, review)).toThrow(
+    "dependency",
   );
 });

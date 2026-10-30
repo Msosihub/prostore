@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { catalogLaunchPlan } from "./catalog-launch";
-import { publicShopText, shopSlug } from "./seller-registration-policy";
+import { publicShopText } from "./seller-registration-policy";
 const id = z.string().uuid();
 const media = z
   .string()
@@ -32,7 +32,11 @@ const envelope = z
             ownershipReviewed: z.literal(true),
             name: publicShopText(100).pipe(z.string().min(2)),
             companyName: publicShopText(100).nullable(),
-            username: shopSlug.nullable(),
+            // Legacy safe identifiers retain the existing supplier-ID URL fallback.
+            username: z
+              .string()
+              .regex(/^[A-Za-z0-9_-]{1,100}$/)
+              .nullable(),
             about: publicShopText(2000).nullable(),
             tagLine: publicShopText(300).nullable(),
             logo: media,
@@ -97,16 +101,39 @@ const snapshotSchema = z
     variants: rows,
   })
   .strict();
+export function decodeSupplierCatalogSnapshot(input: unknown) {
+  // Neon SQL Editor downloads one result row with the json value encoded as
+  // text. Accept exactly that envelope, never concatenate rows or drop columns.
+  let value = input;
+  if (Array.isArray(value)) {
+    const rows = z
+      .array(
+        z
+          .object({
+            supplier_catalog_snapshot: z.union([
+              z.string().max(16 * 1024 * 1024),
+              z.record(z.unknown()),
+            ]),
+          })
+          .strict(),
+      )
+      .length(1)
+      .parse(value);
+    value = rows[0].supplier_catalog_snapshot;
+    if (typeof value === "string") value = JSON.parse(value);
+  }
+  return snapshotSchema.parse(value);
+}
 export function supplierSnapshotDigest(snapshot: unknown) {
   return createHash("sha256")
-    .update(JSON.stringify(snapshotSchema.parse(snapshot)))
+    .update(JSON.stringify(decodeSupplierCatalogSnapshot(snapshot)))
     .digest("hex");
 }
 export function prepareSupplierCatalogTransfer(
   snapshotInput: unknown,
   reviewInput: unknown,
 ) {
-  const snapshot = snapshotSchema.parse(snapshotInput);
+  const snapshot = decodeSupplierCatalogSnapshot(snapshotInput);
   const review = z
     .object({
       version: z.literal(1),
@@ -114,6 +141,19 @@ export function prepareSupplierCatalogTransfer(
       priorTransactionsAreTrials: z.literal(true),
       preserveSourceDatabase: z.literal(true),
       completenessReviewed: z.literal(true),
+      categoryCorrections: z
+        .array(
+          z
+            .object({
+              productId: id,
+              categoryId: id,
+              subcategoryId: id,
+              reviewed: z.literal(true),
+            })
+            .strict(),
+        )
+        .max(10000)
+        .default([]),
       accounts: z
         .array(
           z
@@ -142,6 +182,15 @@ export function prepareSupplierCatalogTransfer(
     .parse(reviewInput);
   if (review.snapshotDigest !== supplierSnapshotDigest(snapshot))
     throw Error("Source snapshot changed");
+  const productIds = new Set(snapshot.products.map((p) => p.id));
+  const corrections = new Map(
+    review.categoryCorrections.map((c) => [c.productId, c]),
+  );
+  if (
+    corrections.size !== review.categoryCorrections.length ||
+    [...corrections.keys()].some((id) => !productIds.has(id))
+  )
+    throw Error("Invalid category correction review");
   const accounts = new Map(review.accounts.map((a) => [a.sourceUserId, a]));
   const stock = new Map(review.stock.map((s) => [`${s.kind}:${s.id}`, s]));
   if (
@@ -173,7 +222,17 @@ export function prepareSupplierCatalogTransfer(
       ...rest,
       openingStock: reviewed.openingStock,
       stockReviewed: true,
-      ...(kind === "product" ? { createdAt: date(rest.createdAt) } : {}),
+      ...(kind === "product"
+        ? {
+            createdAt: date(rest.createdAt),
+            ...(corrections.has(String(row.id))
+              ? {
+                  categoryId: corrections.get(String(row.id))!.categoryId,
+                  subcategoryId: corrections.get(String(row.id))!.subcategoryId,
+                }
+              : {}),
+          }
+        : {}),
     };
   };
   const input = {
