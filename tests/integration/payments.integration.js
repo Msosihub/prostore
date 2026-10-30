@@ -4055,6 +4055,116 @@ test('supplier transfer refuses revoked or unverified account and rolls back pro
  try{await expect(rehearseSupplierCatalogTransfer(input)).rejects.toThrow();expect(await prisma.supplier.count()).toBe(0);expect(await prisma.sellerRegistration.count()).toBe(0);expect(await prisma.brand.count()).toBe(0);}finally{await prisma.$executeRawUnsafe('ALTER TABLE "Product" DROP CONSTRAINT synthetic_supplier_transfer_fail');}
 });
 
+async function workerCandidateCount(queue) {
+  const sql = require("fs").readFileSync(
+    require("path").join(
+      __dirname,
+      "../../scripts/worker-health-preflight.sql",
+    ),
+    "utf8",
+  );
+  const statement = sql
+    .replace(/--[^\n]*/g, "")
+    .split(";")
+    .map((s) => s.trim())
+    .find((s) => s.startsWith(`SELECT '${queue}'`));
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe("SET TRANSACTION READ ONLY");
+    const rows = await tx.$queryRawUnsafe(statement);
+    return rows.reduce((total, row) => total + Number(row.due_candidates), 0);
+  });
+}
+
+test.each(["notifications", "seller_notices"])(
+  "worker health matches actual %s dry-run selection",
+  async (queue) => {
+    const seller = queue === "seller_notices";
+    if (seller) {
+      await applicant();
+      await submitSellerApplication(applicationInput);
+    } else {
+      const data = await fixture();
+      await fulfillOrder(data.order.id, attempt(data.order), "verified");
+    }
+    const model = seller ? prisma.sellerNotice : prisma.orderNotification;
+    const batch = seller ? sellerNoticeBatch : notificationBatch;
+    await model.updateMany({ data: { state: "ACCEPTED" } });
+    const row = await model.findFirstOrThrow();
+    const past = new Date(0),
+      future = new Date(Date.now() + 60000);
+    for (const [state, attempts, nextAttemptAt, leaseUntil, expected] of [
+      ["QUEUED", 0, past, null, 1],
+      ["RETRY", 4, past, null, 1],
+      ["RETRY", 5, past, null, 0],
+      ["QUEUED", 0, future, null, 0],
+      ["ACCEPTED", 0, past, null, 0],
+      ["FAILED", 0, past, null, 0],
+      ["UNKNOWN", 0, past, null, 0],
+      ["SUPPRESSED", 0, past, null, 0],
+      ["SENDING", 5, future, past, 1],
+      ["SENDING", 0, past, future, 0],
+    ]) {
+      await model.update({
+        where: { id: row.id },
+        data: { state, attempts, nextAttemptAt, leaseUntil },
+      });
+      expect(await workerCandidateCount(queue)).toBe(expected);
+      expect((await batch()).length).toBe(expected);
+    }
+  },
+);
+
+test("payment health excludes settled and future attempts like the dry-run worker", async () => {
+  const data = await fixture();
+  await prisma.paymentAttempt.create({
+    data: {
+      orderId: data.order.id,
+      providerOrderId: "health-test-reference",
+      amount: data.order.totalPrice,
+    },
+  });
+  for (const [state, nextCheckAt, expected] of [
+    ["PENDING", new Date(0), 1],
+    ["SETTLED", new Date(0), 0],
+    ["PENDING", new Date(Date.now() + 60000), 0],
+  ]) {
+    await prisma.paymentAttempt.update({
+      where: { orderId: data.order.id },
+      data: { state, nextCheckAt },
+    });
+    expect(await workerCandidateCount("payments")).toBe(expected);
+    expect((await reconciliationBatch()).length).toBe(expected);
+  }
+});
+
+import { POST as workerPost } from "@/app/api/internal/workers/[queue]/route";
+test("authenticated worker entrypoint preserves dry-run and dispatches one durable notification", async () => {
+  const keys = ["NIMBOYA_WORKER_SECRET", "NIMBOYA_ORDER_WORKER_MODE"];
+  const saved = keys.map(key => process.env[key]);
+  try {
+    const data = await fixture();
+    await fulfillOrder(data.order.id, attempt(data.order), "verified");
+    const before = await prisma.orderNotification.count({ where: { state: "QUEUED" } });
+    expect(before).toBeGreaterThan(0);
+    process.env.NIMBOYA_WORKER_SECRET = "synthetic-worker-secret-for-integration";
+    process.env.NIMBOYA_ORDER_WORKER_MODE = "dry-run";
+    const call = () => workerPost(new Request("https://example.invalid/api/internal/workers/orders", {
+      method: "POST", headers: { authorization: `Bearer ${process.env.NIMBOYA_WORKER_SECRET}` },
+    }), { params: Promise.resolve({ queue: "orders" }) });
+    expect(await (await call()).json()).toEqual({ queue: "orders", mode: "dry-run", examined: 1 });
+    expect(await prisma.orderNotification.count({ where: { state: "QUEUED" } })).toBe(before);
+    expect(sendSms).not.toHaveBeenCalled();
+    sendSms.mockImplementation(async to => acceptedSms(to));
+    process.env.NIMBOYA_ORDER_WORKER_MODE = "execute";
+    expect((await call()).status).toBe(200);
+    expect(sendSms).toHaveBeenCalledTimes(1);
+    expect(await prisma.orderNotification.count({ where: { state: "ACCEPTED" } })).toBe(1);
+    expect(await prisma.orderNotification.count({ where: { state: "QUEUED" } })).toBe(before - 1);
+  } finally {
+    keys.forEach((key, i) => { if (saved[i] === undefined) delete process.env[key]; else process.env[key] = saved[i]; });
+  }
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();

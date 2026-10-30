@@ -37,9 +37,10 @@ test("staging network firewall rejects unmocked external fetch, HTTP and TCP bef
       "-e",
       `require('./scripts/hosted-staging-network.cjs').install();
  (async()=>{let rejected=0;try{await fetch('https://api.example.test/send')}catch{rejected++}
+ try{await fetch('https://api.sandbox.africastalking.com/version1/messaging')}catch{rejected++}
  try{require('https').get('https://api.example.test/send')}catch{rejected++}
  try{require('net').connect(443,'api.example.test')}catch{rejected++}
- if(rejected!==3)process.exit(1);console.log('blocked');})()`,
+ if(rejected!==4)process.exit(1);console.log('blocked');})()`,
     ],
     {
       cwd: process.cwd(),
@@ -66,4 +67,20 @@ test("unexpected database port refused", () => {
   const env = fixture();
   env.DATABASE_URL = env.DATABASE_URL.replace(HOST, HOST + ":4444");
   expect(() => assertStaging(env)).toThrow();
+});
+
+test.each([
+  "NIMBOYA_WORKER_SECRET",
+  "NIMBOYA_PAYMENT_WORKER_MODE",
+  "NIMBOYA_ORDER_WORKER_MODE",
+  "NIMBOYA_SELLER_WORKER_MODE",
+])("persistent %s configuration is forbidden", (key) => {
+  expect(() => assertStaging({ ...fixture(), [key]: "execute" })).toThrow(
+    "Persistent worker configuration forbidden",
+  );
+});
+test("sandbox key is still a real external credential and is refused", () => {
+  expect(() =>
+    assertStaging({ ...fixture(), AT_SANDBOX_API_KEY: "private-marker" }),
+  ).toThrow("Real integration configuration forbidden");
 });

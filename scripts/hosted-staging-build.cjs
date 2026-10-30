@@ -32,7 +32,18 @@ function run(label, args, env = process.env, executable = process.execPath) {
     "migrate",
     "deploy",
   ]);
-  run("isolated test dependencies", ["ci", "--prefix", "tests/integration", "--include=dev", "--ignore-scripts"], process.env, "npm");
+  run(
+    "isolated test dependencies",
+    [
+      "ci",
+      "--prefix",
+      "tests/integration",
+      "--include=dev",
+      "--ignore-scripts",
+    ],
+    process.env,
+    "npm",
+  );
   run("native Prisma generation", [
     "node_modules/prisma/build/index.js",
     "generate",
@@ -52,7 +63,10 @@ function run(label, args, env = process.env, executable = process.execPath) {
   fs.writeFileSync(file, adapted);
   const catalogFile = "tests/integration/catalog-launch.cjs";
   const originalCatalog = fs.readFileSync(catalogFile, "utf8");
-  fs.writeFileSync(catalogFile, require("./hosted-catalog-adapter.cjs")(originalCatalog));
+  fs.writeFileSync(
+    catalogFile,
+    require("./hosted-catalog-adapter.cjs")(originalCatalog),
+  );
   try {
     const env = {
       ...process.env,
@@ -64,6 +78,18 @@ function run(label, args, env = process.env, executable = process.execPath) {
       NODE_OPTIONS:
         "--require=" + path.resolve("scripts/hosted-staging-network.cjs"),
     };
+    run(
+      "mocked worker and SMS transport contracts",
+      [
+        "node_modules/jest/bin/jest.js",
+        "--runInBand",
+        "tests/worker-options.test.js",
+        "tests/worker-entrypoint.test.js",
+        "tests/sms-sandbox.test.js",
+        "tests/worker-runner.test.js",
+      ],
+      env,
+    );
     run(
       "native synthetic PostgreSQL regression",
       [
@@ -89,10 +115,17 @@ function run(label, args, env = process.env, executable = process.execPath) {
     // Throwaway diagnostic: expose only error type/code, never arguments or contacts.
     const actionFile = "lib/actions/order.actions.ts";
     const actionSource = fs.readFileSync(actionFile, "utf8");
-    const marker = '  } catch {\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };';
-    if (!actionSource.includes(marker)) throw Error("Delivery diagnostic anchor changed");
-    fs.writeFileSync(actionFile, actionSource.replace(marker,
-      '  } catch (error) {\n    console.error("HOSTED_DIAG_DELIVERY", error instanceof Error ? error.name : "unknown", typeof error === "object" && error && "code" in error ? String(error.code) : "no-code", error instanceof Error && ["Unauthorized", "Invalid feedback", "Order not found", "Order is not paid or has no items", "Item not found", "Item cannot release escrow", "Refund review blocks escrow release", "Dispute blocks escrow release", "Escrow credit requires reconciliation", "Legacy release requires reconciliation", "Item changed during release", "Insufficient escrow balance"].includes(error.message) ? error.message : "unclassified");\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };'));
+    const marker =
+      '  } catch {\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };';
+    if (!actionSource.includes(marker))
+      throw Error("Delivery diagnostic anchor changed");
+    fs.writeFileSync(
+      actionFile,
+      actionSource.replace(
+        marker,
+        '  } catch (error) {\n    console.error("HOSTED_DIAG_DELIVERY", error instanceof Error ? error.name : "unknown", typeof error === "object" && error && "code" in error ? String(error.code) : "no-code", error instanceof Error && ["Unauthorized", "Invalid feedback", "Order not found", "Order is not paid or has no items", "Item not found", "Item cannot release escrow", "Refund review blocks escrow release", "Dispute blocks escrow release", "Escrow credit requires reconciliation", "Legacy release requires reconciliation", "Item changed during release", "Insufficient escrow balance"].includes(error.message) ? error.message : "unclassified");\n    return { success: false, message: "Imeshindikana kuthibitisha delivery." };',
+      ),
+    );
     run("native full Next build", ["node_modules/next/dist/bin/next", "build"]);
     run("native browser workflow rehearsal", [
       "scripts/hosted-staging-browser.cjs",

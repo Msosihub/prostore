@@ -29,6 +29,7 @@ function assertStaging(env = process.env) {
   for (const key of [
     "ZENOPAY_API_KEY",
     "AT_API_KEY",
+    "AT_SANDBOX_API_KEY",
     "OPENAI_API_KEY",
     "PESAPAL_CONSUMER_KEY",
     "PESAPAL_CONSUMER_SECRET",
@@ -40,6 +41,16 @@ function assertStaging(env = process.env) {
   ])
     if (env[key] && env[key] !== "fixture-only")
       throw Error("Real integration configuration forbidden in staging");
+  for (const key of [
+    "NIMBOYA_WORKER_SECRET",
+    "NIMBOYA_PAYMENT_WORKER_MODE",
+    "NIMBOYA_ORDER_WORKER_MODE",
+    "NIMBOYA_SELLER_WORKER_MODE",
+  ])
+    if (env[key])
+      throw Error(
+        "Persistent worker configuration forbidden in synthetic staging",
+      );
   return url;
 }
 module.exports = { assertStaging, PROJECT, HOST };
