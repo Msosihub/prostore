@@ -604,6 +604,12 @@ export default function MarketWorkspace({
               )}
               <section aria-label="Mapendekezo ya mfumo" className="space-y-3">
                 <h2 className="font-semibold">Mapendekezo 20 ya karibuni</h2>
+                <Link
+                  className="underline text-sm"
+                  href={`/chat-proposals?thread=${id}`}
+                >
+                  Historia yote ya mapendekezo
+                </Link>
                 {detail.proposals.map((p) => {
                   const q = p.snapshot as unknown as ProposalSnapshot;
                   return (

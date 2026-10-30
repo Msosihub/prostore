@@ -4181,6 +4181,81 @@ test("native inbox product and unread filters stay participant scoped", async ()
  await expect(market.listThreads('seller',undefined,{query:'x'.repeat(81)})).rejects.toThrow();
 });
 
+test("chat rate budget is atomic and exact retries remain allowed", async () => {
+ const f=await marketFixture();
+ await prisma.marketMessage.createMany({data:Array.from({length:59},()=>({id:marketId(),threadId:f.threadId,senderId:f.user.id,content:"Synthetic question"}))});
+ const inputs=Array.from({length:3},()=>({id:marketId(),threadId:f.threadId,content:"Another product question"}));
+ const results=await Promise.allSettled(inputs.map(i=>market.sendMessage(i)));
+ expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
+ expect(await prisma.marketMessage.count()).toBe(60);
+ const accepted=results.findIndex(r=>r.status==='fulfilled');
+ expect((await market.sendMessage(inputs[accepted])).id).toBe(inputs[accepted].id);
+});
+test("hourly sender budget cannot be bypassed by an expired minute bucket",async()=>{
+ const f=await marketFixture();
+ await prisma.marketMessage.createMany({data:Array.from({length:240},()=>({id:marketId(),threadId:f.threadId,senderId:f.user.id,content:"Question",createdAt:new Date(Date.now()-120000)}))});
+ await expect(market.sendMessage({id:marketId(),threadId:f.threadId,content:"Hello"})).rejects.toThrow();
+ marketActor(f.seller);
+ await expect(market.sendMessage({id:marketId(),threadId:f.threadId,content:"Seller answer"})).resolves.toBeDefined();
+});
+test("context catches concurrent split contact without echoing or persisting rejected fragment",async()=>{
+ const f=await marketFixture();
+ const results=await Promise.allSettled(['0712','345678'].map(content=>market.sendMessage({id:marketId(),threadId:f.threadId,content})));
+ expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);
+ expect(await prisma.marketMessage.count()).toBe(1);
+ expect(String(results.find(r=>r.status==='rejected').reason)).not.toMatch(/0712|345678/);
+});
+test("context excludes other sender and expires without blocking legitimate product quantities",async()=>{
+ const f=await marketFixture();
+ await prisma.marketMessage.create({data:{id:marketId(),threadId:f.threadId,senderId:f.seller.id,content:'0712'}});
+ await market.sendMessage({id:marketId(),threadId:f.threadId,content:'345678'});
+ await prisma.marketMessage.updateMany({data:{createdAt:new Date(Date.now()-360000)}});
+ await market.sendMessage({id:marketId(),threadId:f.threadId,content:'Naomba vipande 5 kwa 800 TZS'});
+});
+test("proposal history pages every record and rejects foreign participants and cursors",async()=>{
+ const f=await marketFixture();
+ await prisma.marketProposal.createMany({data:Array.from({length:25},()=>({id:marketId(),threadId:f.threadId,quantity:1,snapshot:{}}))});
+ const a=await market.proposalHistory(f.threadId);
+ expect(a.items).toHaveLength(20);expect(a.hasMore).toBe(true);
+ const b=await market.proposalHistory(f.threadId,a.items.at(-1).id);
+ expect(b.items).toHaveLength(5);expect(b.hasMore).toBe(false);
+ expect(new Set([...a.items,...b.items].map(p=>p.id)).size).toBe(25);
+ await expect(market.proposalHistory(f.threadId,marketId())).rejects.toThrow();
+ marketActor(f.outsider);await expect(market.proposalHistory(f.threadId)).rejects.toThrow();
+});
+test("proposal creation budget preserves existing idempotent request",async()=>{
+ const f=await marketFixture();marketActor(f.seller);
+ const input={id:marketId(),threadId:f.threadId,quantity:1};await market.propose(input);
+ await prisma.marketProposal.createMany({data:Array.from({length:29},()=>({id:marketId(),threadId:f.threadId,quantity:1,snapshot:{}}))});
+ await expect(market.propose({...input,id:marketId()})).rejects.toThrow();
+ expect((await market.propose(input)).id).toBe(input.id);
+});
+
+test("new thread budget spans products but reopening an existing thread remains safe",async()=>{
+ const f=await marketFixture();let next;
+ for(let i=0;i<20;i++){
+   next=await prisma.product.create({data:{...f.product,id:marketId(),slug:'limited-product-'+i}});
+   if(i<19) await prisma.marketThread.create({data:{buyerId:f.user.id,supplierId:f.supplier.id,productId:next.id}});
+ }
+ expect((await market.startThread(f.product.id)).id).toBe(f.threadId);
+ await expect(market.startThread(next.id)).rejects.toThrow();
+ expect(await prisma.marketThread.count()).toBe(20);
+});
+test("seller hourly proposal budget spans buyer threads",async()=>{
+ const f=await marketFixture();
+ const other=await prisma.marketThread.create({data:{buyerId:f.outsider.id,supplierId:f.supplier.id,productId:f.product.id}});
+ await prisma.marketProposal.createMany({data:Array.from({length:120},()=>({id:marketId(),threadId:other.id,quantity:1,snapshot:{},createdAt:new Date(Date.now()-120000)}))});
+ marketActor(f.seller);
+ await expect(market.propose({id:marketId(),threadId:f.threadId,quantity:1})).rejects.toThrow();
+ expect(await prisma.marketProposal.count()).toBe(120);
+});
+test("ambiguous adjacent numeric replies require structured pricing or rewording",async()=>{
+ const f=await marketFixture();
+ await market.sendMessage({id:marketId(),threadId:f.threadId,content:'Bei 2000'});
+ await expect(market.sendMessage({id:marketId(),threadId:f.threadId,content:'3000'})).rejects.toThrow();
+ await market.sendMessage({id:marketId(),threadId:f.threadId,content:'Bei mpya ni 3000 TZS'});
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();
