@@ -1,6 +1,15 @@
 import type { NextConfig } from "next";
 
+// Ubuntu single-process immutable releases retain ISR in bounded process memory.
+// Version-tested against locked Next15.5.9; set at build time. Other hosts unchanged.
+const immutableRelease = process.env.NIMBOYA_IMMUTABLE_RELEASE === "true";
 const nextConfig: NextConfig = {
+  ...(immutableRelease
+    ? {
+        experimental: { isrFlushToDisk: false },
+        cacheMaxMemorySize: 50 * 1024 * 1024,
+      }
+    : {}),
   outputFileTracingExcludes: {
     "/*": [
       "./abc",
