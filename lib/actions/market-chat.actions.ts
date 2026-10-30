@@ -6,8 +6,9 @@ export async function startMarketThread(productId: string) {
 export async function listMarketThreads(
   side: "buyer" | "seller",
   before?: string,
+  filters?: { query?: string; unread?: boolean },
 ) {
-  return chat.safeChat(() => chat.listThreads(side, before));
+  return chat.safeChat(() => chat.listThreads(side, before, filters));
 }
 export async function loadMarketThread(id: string, before?: string) {
   return chat.safeChat(() => chat.loadThread(id, before));

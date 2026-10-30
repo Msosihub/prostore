@@ -4165,6 +4165,22 @@ test("authenticated worker entrypoint preserves dry-run and dispatches one durab
   }
 });
 
+test("native inbox product and unread filters stay participant scoped", async () => {
+ const f=await marketFixture();
+ await market.sendMessage({id:marketId(),threadId:f.threadId,content:'Nahitaji bidhaa'});
+ marketActor(f.seller);
+ expect((await market.listThreads('seller',undefined,{unread:true})).items).toHaveLength(1);
+ expect((await market.listThreads('seller',undefined,{query:f.product.name})).items).toHaveLength(1);
+ expect((await market.listThreads('seller',undefined,{query:'no-such-catalog-match'})).items).toHaveLength(0);
+ marketActor(f.sellerB);
+ expect((await market.listThreads('seller',undefined,{query:f.product.name,unread:true})).items).toHaveLength(0);
+ marketActor(f.seller);
+ const detail=await market.loadThread(f.threadId);
+ await market.markSeen({threadId:f.threadId,ids:detail.messages.map(m=>m.id)});
+ expect((await market.listThreads('seller',undefined,{unread:true})).items).toHaveLength(0);
+ await expect(market.listThreads('seller',undefined,{query:'x'.repeat(81)})).rejects.toThrow();
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();
