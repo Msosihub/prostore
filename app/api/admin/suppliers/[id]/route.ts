@@ -1,7 +1,7 @@
 // app/api/admin/suppliers/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 import { Prisma } from "@prisma/client";
 
 type AuditLog = {
@@ -31,10 +31,10 @@ async function ensureAdminRecord(userId: string) {
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   try {
@@ -55,7 +55,7 @@ export async function GET(
     console.error("GET /api/admin/suppliers/[id] error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -69,10 +69,10 @@ export async function GET(
  */
 export async function PUT(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   // console.log("PUT Admin user verified:", session.user.id);
@@ -110,10 +110,36 @@ export async function PUT(
         updatable[f as keyof Prisma.SupplierUpdateInput] = body[f];
       }
     }
-    console.log("Updatable fields:", updatable);
-    const updated = await prisma.supplier.update({
-      where: { id },
-      data: updatable,
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id"=${adminUserId}::uuid FOR UPDATE`;
+      if (
+        (
+          await tx.user.findUnique({
+            where: { id: adminUserId },
+            select: { role: true },
+          })
+        )?.role !== "ADMIN"
+      )
+        throw new Error("Forbidden");
+      await tx.$queryRaw`SELECT "id" FROM "Supplier" WHERE "id"=${id}::uuid FOR UPDATE`;
+      const current = await tx.supplier.findUniqueOrThrow({
+        where: { id },
+        select: {
+          username: true,
+          isVerified: true,
+          registration: { select: { id: true } },
+        },
+      });
+      if (
+        current.registration &&
+        (("isVerified" in body && body.isVerified !== current.isVerified) ||
+          ("username" in body && body.username !== current.username))
+      )
+        throw new Error(
+          "Use application review; registered shop links are stable",
+        );
+      return tx.supplier.update({ where: { id }, data: updatable });
     });
     // console.log("Updated supplier:", updated);
 
@@ -143,26 +169,26 @@ export async function PUT(
     if (logEntries.length > 0) {
       // write logs
       await Promise.all(
-        logEntries.map((e) => prisma.auditLog.create({ data: e }))
+        logEntries.map((e) => prisma.auditLog.create({ data: e })),
       );
     }
 
     return NextResponse.json(updated);
-  } catch (err: unknown) {
-    console.error("PUT /api/admin/suppliers/[id] error:", err);
+  } catch {
+    // Do not log submitted profile data.
     return NextResponse.json(
-      { error: (err as Error).message || "Failed to update" },
-      { status: 500 }
+      { error: "Failed to update supplier" },
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -178,7 +204,7 @@ export async function DELETE(
     if (productCount > 0) {
       return NextResponse.json(
         { error: "Supplier has products and cannot be deleted" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -204,7 +230,7 @@ export async function DELETE(
     console.error("DELETE /api/admin/suppliers/[id] error:", err);
     return NextResponse.json(
       { error: (err as Error).message || "Failed to delete" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

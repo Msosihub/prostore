@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import { getAllUsers, deleteUser } from "@/lib/actions/user.actions";
 import {
@@ -14,10 +15,10 @@ import Link from "next/link";
 import Pagination from "@/components/shared/pagination";
 import { Badge } from "@/components/ui/badge";
 import DeleteDialog from "@/components/shared/delete-dialog";
-import { requireSupplier } from "@/lib/auth-guard";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const metadata: Metadata = {
-  title: "Supplier Users",
+  title: "User Administration",
 };
 
 const SupplierUserPage = async (props: {
@@ -26,7 +27,11 @@ const SupplierUserPage = async (props: {
     query: string;
   }>;
 }) => {
-  await requireSupplier();
+  try {
+    await requireAdmin();
+  } catch {
+    redirect("/unauthorized");
+  }
 
   const { page = "1", query: searchText } = await props.searchParams;
 

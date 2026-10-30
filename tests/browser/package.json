@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Isolated browser test driver; not an application runtime dependency",
+  "dependencies": {
+    "playwright": "1.62.1"
+  }
+}

@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { formSchema } from "@/lib/validators";
 import { UploadButton } from "@/lib/uploadthing";
-import { APP_NAME, DEFAULT_WORKING_HOURS } from "@/lib/constants";
+import { DEFAULT_WORKING_HOURS } from "@/lib/constants";
 import Image from "next/image";
 import { Check, ImagePlus, Loader2, Trash } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -41,11 +41,12 @@ const allowedPolicyTypes = [
 export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [registeredShop, setRegisteredShop] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updated, setUpdated] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(
-    null
+    null,
   );
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [username, setUsername] = useState("");
@@ -124,9 +125,12 @@ export default function Profile() {
       try {
         const res = await fetch("/api/suppliers/me");
         const data = await res.json();
-        console.log("Data from database", data);
+
+        setRegisteredShop(!!data.registration);
         const mergedData = {
           ...data,
+          tagLine: data.tagLine || "",
+          logo: data.logo || "",
           businessHours:
             Array.isArray(data.businessHours) && data.businessHours.length > 0
               ? data.businessHours
@@ -134,9 +138,7 @@ export default function Profile() {
           policies: data.SupplierPolicy || [], // ✅ ensure policies are present
           banner: data.bannerUrl || "",
           gallery: Array.isArray(data.gallery) ? data.gallery : [],
-          website:
-            data.website ||
-            `www.${APP_NAME.toLocaleLowerCase()}.com/${data?.username}`,
+          website: data.website || "",
           businessType: data.businessType || "",
           email: data.email || "",
           nation: data.nation || "",
@@ -144,7 +146,6 @@ export default function Profile() {
           phone: data.phone || "",
           about: data.about || "",
         };
-        console.log("MergedData: ", mergedData);
         form.reset(mergedData);
       } catch (err) {
         console.error("Failed to load supplier profile", err);
@@ -158,24 +159,14 @@ export default function Profile() {
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     // TODO: replace with API call to save supplier profile
 
-    console.log("Profile Data:", data);
-
     const invalidHours = data.businessHours.filter(
-      (h) => h.open && h.close && h.open >= h.close
+      (h) => h.open && h.close && h.open >= h.close,
     );
 
     if (invalidHours.length > 0) {
       toast({
         variant: "destructive",
         description: "Masaa ya kufungua lazima yawe kabla ya kufunga.",
-      });
-      return;
-    }
-
-    if (!Array.isArray(data.policies) || data.policies.length === 0) {
-      toast({
-        variant: "destructive",
-        description: "Tafadhali ongeza angalau sera moja ya biashara.",
       });
       return;
     }
@@ -188,7 +179,10 @@ export default function Profile() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Failed to save");
+      if (!res.ok) {
+        const result = await res.json().catch(() => null);
+        throw new Error(result?.error || "Failed to save");
+      }
       setUpdated(true);
       if (res.ok) {
         // Optionally show a success message
@@ -197,7 +191,11 @@ export default function Profile() {
         });
       }
     } catch (err) {
-      console.error(err);
+      toast({
+        variant: "destructive",
+        description:
+          err instanceof Error ? err.message : "Unable to save profile",
+      });
     } finally {
       setSaving(false);
     }
@@ -450,7 +448,8 @@ export default function Profile() {
                       <FormControl>
                         <div className="space-y-1">
                           <Input
-                            placeholder="@moshielectronics"
+                            readOnly={registeredShop}
+                            placeholder="your-shop"
                             {...field}
                             {...form.register("username")}
                             onChange={(e) =>
@@ -588,7 +587,7 @@ export default function Profile() {
                               e.target.value,
                               {
                                 shouldValidate: true,
-                              }
+                              },
                             )
                           }
                         />
@@ -605,7 +604,7 @@ export default function Profile() {
                               e.target.value,
                               {
                                 shouldValidate: true,
-                              }
+                              },
                             )
                           }
                         />
@@ -671,7 +670,7 @@ export default function Profile() {
                                 if (val !== "Custom") {
                                   form.setValue(
                                     `policies.${i}.customLabel` as const,
-                                    ""
+                                    "",
                                   );
                                 }
                               }}

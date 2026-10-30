@@ -25,6 +25,7 @@ export default function PlaceOrderForm({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (paymentStage !== "idle") return;
 
     if (!isBuyNow || !productId) return;
 
@@ -57,10 +58,14 @@ export default function PlaceOrderForm({
 
         // Buffer windows to allow user interaction flow
         await new Promise((resolve) => setTimeout(resolve, 6000));
-        setPaymentStage("completed");
+        if (paymentData.status === "COMPLETED") setPaymentStage("completed");
         await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
-        alert("Malipo yameshindikana kuanzishwa, agizo lako limehifadhiwa.");
+        alert(
+          paymentData.error ||
+            paymentData.message ||
+            "Malipo yameshindikana kuanzishwa, agizo lako limehifadhiwa.",
+        );
       }
 
       router.push("/user/orders");
@@ -78,6 +83,7 @@ export default function PlaceOrderForm({
       <form onSubmit={handleSubmit} className="w-full">
         <Button
           className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-6 text-base"
+          disabled={paymentStage !== "idle"}
           type="submit"
         >
           <Check className="w-5 h-5 mr-2" />

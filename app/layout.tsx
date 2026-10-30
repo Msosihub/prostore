@@ -1,3 +1,4 @@
+import OperationalBookNotice from "@/components/operational-book-notice";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
@@ -5,10 +6,10 @@ import "@/assets/styles/globals.css";
 import {
   APP_DESCRIPTION,
   APP_NAME,
-  SERVER_URL,
 } from "@/lib/constants/index.js";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
+import { siteOrigin } from "@/lib/storefront-seo";
 import MarketplaceFooter from "@/components/footerx";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -16,14 +17,11 @@ const inter = Inter({ subsets: ["latin"] });
 // 🟢 ALIBABA/AMAZON SEO ARCHITECTURE METADATA CONFIG
 export const metadata: Metadata = {
   title: {
-    template: `%s | Nimboya Soko la Jumla`,
-    default: `${APP_NAME} | Soko la Jumla Afrika Mashariki (Wholesale Marketplace)`,
+    template: `%s | Nimboya`,
+    default: `${APP_NAME} | Bidhaa na maduka Tanzania`,
   },
   description: APP_DESCRIPTION,
-  metadataBase: new URL(SERVER_URL),
-  alternates: {
-    canonical: "./",
-  },
+  metadataBase: new URL(siteOrigin()),
   robots: {
     index: true,
     follow: true,
@@ -57,6 +55,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SessionProvider>
+            <OperationalBookNotice />
             {/* Unified full-bleed wrapper system layer handling layouts natively */}
             <div className="flex-1 flex flex-col w-full">{children}</div>
             <MarketplaceFooter />

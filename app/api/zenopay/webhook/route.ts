@@ -1,84 +1,82 @@
 import { prisma } from "@/db/prisma";
 import { NextResponse } from "next/server";
-import { fulfillOrder } from "@/lib/order-fulfillment";
+import { z } from "zod";
+import { paymentAttempt, reconcileZenopay } from "@/lib/zenopay-reconciliation";
+
+import {
+  authenticPaymentNotice,
+  retainUnmatchedNotice,
+} from "@/lib/unmatched-payment-notice";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
+async function boundedJson(req: Request) {
+  const reader = req.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let size = 0;
   try {
-    const payload = await req.json();
-    console.log("Zenopay webhook payload parsed:", payload);
-
-    const { order_id, payment_status, reference } = payload;
-
-    // 🟢 SOLUTION: Safely parse and strip the unique retry timestamp suffix away
-    // Example: "66d89181-...-17159740" -> "66d89181-..."
-    const cleanOrderId = order_id.includes("=")
-      ? order_id.split("=")[0]
-      : order_id;
-
-    // Locate the targets order record using the original clean UUID
-    const order = await prisma.order.findUnique({
-      where: { id: cleanOrderId },
-    });
-
-    if (!order) {
-      console.error(`Order ${cleanOrderId} not found in database.`);
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    }
-
-    // Process database statuses safely
-    if (payment_status === "COMPLETED") {
-      // Avoid duplicate executions if webhook delivers multiple times
-      if (order.isPaid) {
-        return NextResponse.json({
-          received: true,
-          message: "Already processed",
-        });
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 8192) {
+        await reader.cancel();
+        return null;
       }
-
-      // Update basic status tracking
-      await prisma.order.update({
-        where: { id: order.id },
-        data: {
-          isPaid: true,
-          paidAt: new Date(),
-          paymentStatus: "COMPLETED",
-          paymentResult: {
-            transactionId: reference,
-            status: payment_status,
-            raw: payload,
-          },
-        },
-      });
-
-      // Trigger our new reusable multi-party fulfillment workflow
-      await fulfillOrder(order.id);
-      console.log(`Order ${order.id} successfully fulfilled.`);
-    } else {
-      // 🚨 ONLY update status to FAILED if the order isn't ALREADY successfully paid
-      // (This prevents an old retry callback from accidentally breaking a successful payment row)
-      if (!order.isPaid) {
-        await prisma.order.update({
-          where: { id: order.id },
-          data: {
-            paymentStatus: "FAILED",
-            paymentResult: {
-              status: payment_status,
-              raw: payload,
-            },
-          },
-        });
-        console.log(`Order ${order.id} was marked as FAILED.`);
-      }
+      chunks.push(value);
     }
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    return null;
+  } finally {
+    reader.releaseLock();
+  }
+}
 
-    return NextResponse.json({ received: true });
-  } catch (error: unknown) {
-    console.error("Webhook processing error encountered:", error);
+export async function POST(req: Request) {
+  const input = z
+    .object({
+      order_id: z.string().regex(/^[A-Za-z0-9=_-]{1,150}$/),
+      payment_status: z.unknown().optional(),
+    })
+    .safeParse(await boundedJson(req));
+  if (!input.success)
     return NextResponse.json(
-      { error: "Internal Server Error", details: error },
-      { status: 500 },
+      { error: "Invalid notification" },
+      { status: 400 },
+    );
+  const attempt = input.data.order_id;
+  const orderId = attempt.split("=")[0];
+  try {
+    const order = z.string().uuid().safeParse(orderId).success
+      ? await prisma.order.findUnique({ where: { id: orderId } })
+      : null;
+    if (
+      !order ||
+      order.paymentMethod !== "ZENOPAY" ||
+      paymentAttempt(order.paymentResult) !== attempt
+    ) {
+      if (authenticPaymentNotice(req)) {
+        await retainUnmatchedNotice(attempt, input.data.payment_status);
+        return NextResponse.json(
+          {
+            error: "Payment reference requires ownership review; not processed",
+          },
+          { status: 503, headers: { "Retry-After": "300" } },
+        );
+      }
+      return NextResponse.json(
+        { error: "Unknown payment attempt" },
+        { status: 404 },
+      );
+    }
+    await reconcileZenopay(orderId, attempt, true);
+    return NextResponse.json({ received: true });
+  } catch {
+    return NextResponse.json(
+      { error: "Payment verification unavailable; retry notification" },
+      { status: 503 },
     );
   }
 }

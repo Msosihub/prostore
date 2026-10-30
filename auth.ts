@@ -9,7 +9,7 @@ import type { NextAuthConfig } from "next-auth";
 import { authConfig } from "./auth.config";
 import { cookies } from "next/headers";
 import GoogleProvider from "next-auth/providers/google";
-import { normalizeIdentifier } from "./lib/utils";
+import { consumeOtp } from "./lib/otp";
 
 export const config = {
   pages: {
@@ -31,56 +31,11 @@ export const config = {
         token: { label: "OTP", type: "text" },
       },
       async authorize(credentials) {
-        let identifier = credentials?.identifier as string | undefined;
-        const token = credentials?.token as string | undefined;
-
-        if (!identifier || !token) return null;
-
-        identifier = normalizeIdentifier(identifier);
-
-        // 1️⃣ Find OTP
-        const record = await prisma.verificationToken.findFirst({
-          where: {
-            identifier,
-            token,
-            expires: { gt: new Date() },
-          },
-        });
-
-        if (!record) return null;
-
-        // 2️⃣ Delete OTP (one-time use)
-        await prisma.verificationToken.delete({
-          where: {
-            identifier_token: {
-              identifier,
-              token,
-            },
-          },
-        });
-
-        // 3️⃣ Find user
-        let user = await prisma.user.findFirst({
-          where: {
-            OR: [{ phone: identifier }, { email: identifier }],
-          },
-        });
-
-        // 4️⃣ Auto create if not exists
-        if (!user) {
-          const isEmail = identifier.includes("@");
-
-          user = await prisma.user.create({
-            data: {
-              phone: isEmail ? null : identifier,
-              email: isEmail ? identifier : null,
-              phoneVerified: isEmail ? null : new Date(),
-              emailVerified: isEmail ? new Date() : null,
-              role: "BUYER",
-              onboarded: false,
-            },
-          });
-        }
+        const user = await consumeOtp(
+          credentials?.identifier,
+          credentials?.token,
+        );
+        if (!user) return null;
 
         return {
           id: user.id,
@@ -101,7 +56,7 @@ export const config = {
   callbacks: {
     ...authConfig.callbacks,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async session({ session, user, trigger, token }: any) {
+    async session({ session, token }: any) {
       // Set the user ID from the token
       session.user.id = token.sub;
       session.user.role = token.role;
@@ -109,15 +64,10 @@ export const config = {
       session.user.phone = token?.phone;
       session.user.onboarded = token.onboarded;
 
-      // If there is an update, set the user name
-      if (trigger === "update") {
-        session.user.name = user.name;
-      }
-      //console.log("Session user:", session.user);
       return session;
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async jwt({ token, user, trigger, session }: any) {
+    async jwt({ token, user, trigger }: any) {
       // Assign user fields to token
       if (user) {
         token.id = user.id;
@@ -173,15 +123,15 @@ export const config = {
         }
       }
 
-      // Handle session updates
-      // When session.update() is called
-      if (trigger === "update" && session) {
-        if (session.name !== undefined) {
-          token.name = session.name;
-        }
-        if (session.role !== undefined) {
-          token.role = session.role;
-        }
+      // Session update payloads are client controlled. Refresh claims from the
+      // database using the existing signed identity, never client role/name/id.
+      if (trigger === "update" && token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { name: true, role: true, phone: true, onboarded: true },
+        });
+        if (!dbUser) throw new Error("User no longer exists");
+        Object.assign(token, dbUser);
       }
 
       // console.log("JWT token:", token);

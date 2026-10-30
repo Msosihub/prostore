@@ -1,10 +1,43 @@
-"use server";
+import "server-only";
 
+import { Prisma } from "@prisma/client";
+import {
+  COD_METHODS,
+  PESAPAL_METHODS,
+  pesapalTrackingId,
+} from "@/lib/payment-methods";
 import { prisma } from "@/db/prisma";
-import { sendSms } from "./africasTalking";
+import { queueOrderNotification } from "@/lib/order-notification-events";
 // import { CartItem } from "@/types";
 
-export async function fulfillOrder(orderId: string) {
+type Settlement =
+  | { gateway: "ZENOPAY"; attempt: string; reference: string; amount?: number }
+  | {
+      gateway: "PESAPAL";
+      trackingId: string;
+      reference: string;
+      amount: number;
+      currency: "TZS";
+    }
+  | { gateway: "COD"; actorId: string };
+
+// Compatibility entry point for the verified ZenoPay reconciliation flow.
+export async function fulfillOrder(
+  orderId: string,
+  attempt: string,
+  reference: string,
+  amount?: number,
+) {
+  return settleOrder(orderId, {
+    gateway: "ZENOPAY",
+    attempt,
+    reference,
+    amount,
+  });
+}
+
+// Server-only: proofs originate from verified provider status or an admin COD action.
+export async function settleOrder(orderId: string, settlement: Settlement) {
   // 1. Fetch Order with Items, Customer info, and Suppliers in one clean query pass
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -14,41 +47,130 @@ export async function fulfillOrder(orderId: string) {
     },
   });
 
-  if (!order) {
+  if (!order || order.orderitems.length === 0) {
     throw new Error(`Order ${orderId} sio halali kwenye mfumo wa malipo.`);
   }
 
-  // 2. Execute stock reductions AND Escrow Ledger calculations safely inside a single transaction
-  await prisma.$transaction(async (tx) => {
-    for (const item of order.orderitems) {
+  let methodFilter: Prisma.OrderWhereInput;
+  let result: Prisma.InputJsonObject;
+  if (settlement.gateway === "ZENOPAY") {
+    if (order.paymentMethod !== "ZENOPAY")
+      throw new Error("Payment method mismatch");
+    methodFilter = {
+      paymentMethod: "ZENOPAY",
+      paymentResult: { path: ["zenopay_order_id"], equals: settlement.attempt },
+    };
+    result = {
+      gateway: "ZENOPAY",
+      zenopay_order_id: settlement.attempt,
+      transactionId: settlement.reference,
+      status: "COMPLETED",
+    };
+  } else if (settlement.gateway === "PESAPAL") {
+    if (
+      !PESAPAL_METHODS.includes(order.paymentMethod) ||
+      pesapalTrackingId(order.paymentResult) !== settlement.trackingId
+    )
+      throw new Error("Payment method or attempt mismatch");
+    if (settlement.currency !== "TZS")
+      throw new Error("Payment currency mismatch");
+    methodFilter = {
+      paymentMethod: { in: PESAPAL_METHODS },
+      paymentResult: { equals: order.paymentResult as Prisma.InputJsonValue },
+    };
+    result = {
+      gateway: "PESAPAL",
+      trackingId: settlement.trackingId,
+      transactionId: settlement.reference,
+      status: "COMPLETED",
+      currency: "TZS",
+    };
+  } else {
+    if (!COD_METHODS.includes(order.paymentMethod))
+      throw new Error("Order is not cash on delivery");
+    if (order.isPaid) return false;
+    if (order.paymentResult !== null)
+      throw new Error("Existing payment requires reconciliation");
+    methodFilter = {
+      paymentMethod: { in: COD_METHODS },
+      paymentResult: { equals: Prisma.AnyNull },
+    };
+    result = {
+      gateway: "COD",
+      recordedBy: settlement.actorId,
+      status: "COMPLETED",
+    };
+  }
+  const amount =
+    settlement.gateway === "COD"
+      ? Number(order.totalPrice)
+      : (settlement.amount ?? Number(order.totalPrice));
+  if (
+    !Number.isFinite(amount) ||
+    amount <= 0 ||
+    amount !== Number(order.totalPrice)
+  )
+    throw new Error("Payment amount mismatch");
+
+  // Paid state, inventory and escrow share the same conditional transaction.
+  const settled = await prisma.$transaction(async (tx) => {
+    // The paid flag, inventory and escrow commit together. Concurrent callbacks
+    // serialize on this row; failures roll back the claim so delivery can retry.
+    const claim = await tx.order.updateMany({
+      where: {
+        id: orderId,
+        isPaid: false,
+        ...methodFilter,
+        totalPrice: amount,
+      },
+      data: {
+        isPaid: true,
+        paidAt: new Date(),
+        paymentStatus: "COMPLETED",
+        paymentResult: result,
+      },
+    });
+    if (!claim.count) return false;
+    for (const item of [...order.orderitems].sort((a, b) =>
+      a.productId.localeCompare(b.productId),
+    )) {
       // Retrieve the current live database product profile record
       const currentProduct = await tx.product.findUnique({
         where: { id: item.productId },
         select: { stock: true, name: true, supplierId: true },
       });
 
-      if (!currentProduct) {
+      if (
+        !currentProduct ||
+        !item.supplierId ||
+        currentProduct.supplierId !== item.supplierId
+      ) {
         throw new Error(
           `Bidhaa ${item.name} haikupatikana wakati wa kukamilisha agizo.`,
         );
       }
 
-      // Strict race condition stock checker guard
-      if (currentProduct.stock < item.qty) {
-        throw new Error(
-          `Mzigo wa "${currentProduct.name}" hautoshi kukamilisha agizo hili. Unaomba: ${item.qty}, Zilizopo: ${currentProduct.stock}`,
-        );
+      if (!Number.isSafeInteger(item.qty) || item.qty < 1) {
+        throw new Error("Invalid order item quantity");
       }
-
-      // Action A: Deduct inventory levels safely
-      await tx.product.update({
-        where: { id: item.productId },
-        data: {
-          stock: {
-            decrement: item.qty,
-          },
-        },
+      // Legacy partial fulfillment cannot safely be replayed without reviewing
+      // inventory. Roll back rather than decrementing stock a second time.
+      const existingLedger = await tx.supplierLedger.findUnique({
+        where: { reference: `ESCROW_CREDIT_${orderId}_${item.productId}` },
       });
+      if (existingLedger)
+        throw new Error("Existing escrow requires reconciliation");
+
+      // Test and decrement in one SQL statement to prevent overselling.
+      const stock = await tx.product.updateMany({
+        where: {
+          id: item.productId,
+          supplierId: item.supplierId,
+          stock: { gte: item.qty },
+        },
+        data: { stock: { decrement: item.qty } },
+      });
+      if (!stock.count) throw new Error("Insufficient stock for paid order");
 
       // Action B: Initialize the itemized escrow state flag on the order item row
       await tx.orderItem.update({
@@ -67,17 +189,6 @@ export async function fulfillOrder(orderId: string) {
       // Action C: 🟢 ESCROW INJECTION: Move earnings into the target Supplier's pendingBalance wallet account
       if (currentProduct.supplierId) {
         const lineItemWholesaleTotal = Number(item.price) * item.qty;
-
-        //This prevents double credit if webhook retries.
-        const existingLedger = await tx.supplierLedger.findUnique({
-          where: {
-            reference: `ESCROW_CREDIT_${orderId}_${item.productId}`,
-          },
-        });
-
-        if (existingLedger) {
-          continue;
-        }
 
         await tx.supplier.update({
           where: { id: currentProduct.supplierId },
@@ -111,82 +222,25 @@ export async function fulfillOrder(orderId: string) {
         );
       }
     }
-  });
-
-  // 3. Dispatch Automated Confirmation SMS to the Buyer
-  const buyerPhone = order.user.phone || order.user.paymentPhone;
-  if (buyerPhone) {
-    const itemNames = order.orderitems
-      .map((i) => `${i.qty}x ${i.name}`)
-      .join(", ");
-    const buyerMsg = `Mambo ${order.user.name}, malipo ya agizo lako #${order.id.slice(0, 8)} yamekamilika! Bidhaa: ${itemNames}. Jumla kuu: TZS ${formatPriceString(Number(order.totalPrice))}. Asante kwa kuchagua Nimboya!`;
-
-    try {
-      await sendSms(buyerPhone, buyerMsg);
-    } catch (smsErr) {
-      console.error("Failed sending SMS to buyer:", smsErr);
-    }
-  }
-
-  // 4. Group order items by Supplier to distribute consolidated notification metrics
-  const supplierGroups: Record<
-    string,
-    {
-      phone: string | null;
-      name: string;
-      items: Array<{ name: string; qty: number }>;
-    }
-  > = {};
-
-  for (const item of order.orderitems) {
-    const productData = await prisma.product.findUnique({
-      where: { id: item.productId },
-      select: {
-        supplier: {
-          select: { id: true, name: true, companyName: true, phone: true },
-        },
-      },
+    await queueOrderNotification(tx, {
+      orderId,
+      kind: "BUYER_PAYMENT",
+      targetId: order.userId,
     });
-
-    const supplier = productData?.supplier;
-    if (!supplier) continue;
-
-    const sName = supplier.companyName || supplier.name;
-
-    if (!supplierGroups[supplier.id]) {
-      supplierGroups[supplier.id] = {
-        phone: supplier.phone,
-        name: sName,
-        items: [],
-      };
+    for (const supplierId of [
+      ...new Set(
+        order.orderitems
+          .map((item) => item.supplierId)
+          .filter((id): id is string => !!id),
+      ),
+    ].sort()) {
+      await queueOrderNotification(tx, {
+        orderId,
+        kind: "SELLER_PAYMENT",
+        targetId: supplierId,
+      });
     }
-    supplierGroups[supplier.id].items.push({ name: item.name, qty: item.qty });
-  }
-
-  // 5. Dispatch single consolidated SMS alert to each vendor involved
-  for (const supplierId in supplierGroups) {
-    const group = supplierGroups[supplierId];
-    if (group.phone) {
-      const supplierItemsStr = group.items
-        .map((i) => `${i.qty}x ${i.name}`)
-        .join(", ");
-      const supplierMsg = `Habari ${group.name}, umepokea agizo jipya la jumla! Agizo ID: #${order.id.slice(0, 8)}. Bidhaa za kuandaa: ${supplierItemsStr}. Fedha zimewekwa salama kwenye Escrow yako. Tafadhali ingia Nimboya Dashboard kuanza kuandaa mzigo.`;
-
-      try {
-        await sendSms(group.phone, supplierMsg);
-      } catch (smsErr) {
-        console.error(
-          `Failed sending fulfillment alert SMS to supplier ${group.name}:`,
-          smsErr,
-        );
-      }
-    }
-  }
-
-  return true;
-}
-
-// Simple locale pricing helper format tool to keep message text strings clean
-function formatPriceString(val: number): string {
-  return new Intl.NumberFormat("en-US").format(val);
+    return true;
+  });
+  return settled;
 }

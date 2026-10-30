@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import React from "react";
 
 const links = [
+  { title: "Refunds", href: "/user/refunds" },
   {
     title: "Profile",
     href: "/user/profile",
@@ -15,7 +16,7 @@ const links = [
   },
   {
     title: "Messages",
-    href: "/user/chat",
+    href: "/buyer/messages",
   },
 ];
 
@@ -26,7 +27,7 @@ const MainNav = ({
   const pathname = usePathname();
   return (
     <nav
-      className={cn("flex items-center space-x-4 lg:space-x-6", className)}
+      className={cn("flex flex-wrap items-center gap-4 lg:gap-6", className)}
       {...props}
     >
       {links.map((item) => (
@@ -35,7 +36,7 @@ const MainNav = ({
           href={item.href}
           className={cn(
             "text-sm font-medium transition-colors hover:text-primary",
-            pathname.includes(item.href) ? "" : "text-muted-foreground"
+            pathname.includes(item.href) ? "" : "text-muted-foreground",
           )}
         >
           {item.title}

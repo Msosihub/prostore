@@ -1,3 +1,4 @@
+import { StartProductChat } from "@/components/market-chat/workspace";
 import { Badge } from "@/components/ui/badge";
 import { getProductBySlug } from "@/lib/actions/product.actions";
 import { notFound } from "next/navigation";
@@ -5,51 +6,73 @@ import ProductImages from "@/components/shared/product/product-images";
 import { getMyCart } from "@/lib/actions/cart.actions";
 import ReviewList from "./review-list";
 import { auth } from "@/auth";
-import Rating from "@/components/shared/product/rating";
+import ReviewSummary from "@/components/shared/product/review-summary";
 import RelatedProducts from "@/components/shared/product/related-products";
 import ProductDescription from "@/components/shared/product/product-description";
 import SupplierProfileCard from "@/components/shared/supplier/supplier-profile-card";
 import ProductClientActions from "@/components/product-action2";
-import NoInternet from "@/components/shared/general/no-internet";
+
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProductDescriptionSkeleton from "@/components/skeletons/skeleton-product-description";
 import SkeletonProduct from "@/components/shared/product/skeleton-product";
-import { Metadata, ResolvingMetadata } from "next";
+import { Metadata } from "next";
+import { cache } from "react";
+import Link from "next/link";
+import {
+  productSlugFromParam,
+  publicUrl,
+  productPath,
+  plainDescription,
+  imageUrl,
+  isPublicProduct,
+  productStructuredData,
+  jsonLd,
+} from "@/lib/storefront-seo";
+const readProduct = cache(getProductBySlug);
 import { APP_NAME } from "@/lib/constants";
 import ShareButton from "@/components/ShareButton";
 import NimboyaTrustBlock from "@/components/shared/nimboya-trust-block";
 
 export const revalidate = 60;
 
-export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> },
-  parent: ResolvingMetadata,
-): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
-  console.log("abc: ", parent);
-
-  const title = product?.name || "Bidhaa";
+  const decoded = productSlugFromParam(slug);
+  const product = decoded ? await readProduct(decoded) : undefined;
+  if (product === null) throw new Error("Catalog temporarily unavailable");
+  if (!product)
+    return {
+      title: "Bidhaa haijapatikana",
+      robots: { index: false, follow: true },
+    };
+  const title = product.name;
   const description =
-    product?.description.slice(0, 100) ||
-    `Angalia hii bidhaa kutoka ${APP_NAME}.`;
-  const imageUrl = product?.images[0] || `https://ufs.sh`;
-
+    plainDescription(product.description) ||
+    `Maelezo na bei ya ${title} kwenye ${APP_NAME}.`;
+  const image = imageUrl(product.images[0]);
+  const url = publicUrl(productPath(product.slug));
   return {
     title,
     description,
+    alternates: { canonical: url },
+    robots: { index: isPublicProduct(product), follow: true },
     openGraph: {
       title,
       description,
-      images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
-      type: "profile",
+      url,
+      type: "website",
+      ...(image ? { images: [{ url: image, alt: title }] } : {}),
     },
     twitter: {
-      card: "summary_large_image",
+      card: image ? "summary_large_image" : "summary",
       title,
       description,
-      images: [imageUrl],
+      ...(image ? { images: [image] } : {}),
     },
   };
 }
@@ -58,11 +81,12 @@ const ProductDetailsPagez = async (props: {
   params: Promise<{ slug: string }>;
 }) => {
   const { slug } = await props.params;
-  const product = await getProductBySlug(slug);
+  const decoded = productSlugFromParam(slug);
+  const product = decoded ? await readProduct(decoded) : undefined;
   const safeCartData = await getMyCart();
 
+  if (product === null) throw new Error("Catalog temporarily unavailable");
   if (!product) return notFound();
-  if (product === null) return <NoInternet />;
 
   const session = await auth();
   const userId = session?.user?.id;
@@ -86,6 +110,18 @@ const ProductDetailsPagez = async (props: {
 
   return (
     <div className="w-full pb-24 md:pb-12 space-y-6">
+      <nav
+        aria-label="Uko hapa"
+        className="flex flex-wrap gap-2 pt-5 text-sm text-slate-500"
+      >
+        <Link href="/">Mwanzo</Link>
+        <span>/</span>
+        <Link href={`/categories/${product.categoryId}`}>
+          {product.category?.name_sw || product.category?.name_en}
+        </Link>
+        <span>/</span>
+        <span>{product.name}</span>
+      </nav>
       {/* 🟢 SECTION 1: CORE PRODUCT DETAILS SUMMARY GRID */}
       <section className="w-full px-2 py-4 sm:px-4 lg:px-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-8 lg:gap-8">
@@ -107,7 +143,7 @@ const ProductDetailsPagez = async (props: {
                 </p>
                 <ShareButton
                   title={product.name}
-                  url={`https://nimboya.com/${product.slug}`}
+                  url={publicUrl(productPath(product.slug))}
                 />
               </div>
 
@@ -134,16 +170,10 @@ const ProductDetailsPagez = async (props: {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <Rating value={Number(product.rating)} />
-                <p className="text-xs font-semibold text-slate-700 pt-0.5">
-                  {Number(product?.rating).toFixed(1)}/5
-                </p>
-                <span className="text-slate-300 text-xs">|</span>
-                <p className="text-xs text-slate-500 pt-0.5">
-                  (Maoni {product?.numReviews})
-                </p>
-              </div>
+              <ReviewSummary
+                rating={Number(product.rating)}
+                numReviews={product.numReviews}
+              />
             </div>
 
             {/* 🟢 UNIFIED PRICE RE-CALCULATION STEPPER LAYER CONTAINER */}
@@ -167,6 +197,7 @@ const ProductDetailsPagez = async (props: {
               />
             </div>
 
+            <StartProductChat productId={product.id} />
             <NimboyaTrustBlock compact />
 
             <div className="space-y-2 border-t border-slate-100 pt-3">
@@ -183,22 +214,7 @@ const ProductDetailsPagez = async (props: {
       {product.supplier && (
         <section className="px-2 sm:px-4 lg:px-6">
           <div className="border-t border-slate-100 pt-6">
-            <SupplierProfileCard
-              supplier={{
-                ...product.supplier,
-                logo: product.supplier.logo ?? null,
-                rating: Number(product.supplier.rating),
-                location: product.supplier.location || "",
-                username: product.supplier.username || "",
-                certifications: product.supplier.certifications.map((c) => ({
-                  id: c.id,
-                  label: c.label,
-                  image: c.image ?? undefined,
-                  certNumber: c.certNumber ?? undefined,
-                  validUntil: c.validUntil ? new Date(c.validUntil) : undefined,
-                })),
-              }}
-            />
+            <SupplierProfileCard supplier={product.supplier} />
           </div>
         </section>
       )}
@@ -237,33 +253,14 @@ const ProductDetailsPagez = async (props: {
         </div>
       </section>
 
-      {/* Structured SEO Schema */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Product",
-            name: product.name,
-            image: product.images,
-            description: product.description,
-            sku: product.slug,
-            brand: {
-              "@type": "Brand",
-              name: product.brand?.name || "Nimboya",
-            },
-            offers: {
-              "@type": "Offer",
-              priceCurrency: "TZS",
-              price: Number(product.price),
-              availability:
-                product.stock > 0
-                  ? "https://schema.orgInStock"
-                  : "https://schema.orgOutOfStock",
-            },
-          }),
-        }}
-      />
+      {productStructuredData(product) && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: jsonLd(productStructuredData(product)),
+          }}
+        />
+      )}
     </div>
   );
 };

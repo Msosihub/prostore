@@ -1,64 +1,35 @@
-"use client";
-
+import { requireAdmin } from "@/lib/auth-guard";
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
-import { MenuIcon, X } from "lucide-react";
-
-export default function AdminLayout({
+import AdminNavigation from "@/components/admin/navigation";
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
+  await requireAdmin().catch(() => redirect("/unauthorized"));
   return (
-    <div className="flex flex-col w-full">
-      {/* Top bar */}
-      <div className="border-b container mx-auto">
-        <div className="flex items-center h-16 px-4 justify-between">
-          {/* Left side */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Open drawer"
-            >
-              <MenuIcon className="w-6 h-6" />
-            </button>
-            <span className="font-bold text-lg">Admin Panel</span>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      <a href="#admin-content" className="sr-only focus:not-sr-only focus:p-3">
+        Skip to admin content
+      </a>
+      <header className="border-b bg-white">
+        <div className="mx-auto max-w-7xl space-y-4 p-4 md:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-emerald-800">NIMBOYA</p>
+              <p className="text-xl font-bold">Platform operations</p>
+            </div>
+            <Link href="/" className="text-sm underline">
+              View storefront
+            </Link>
           </div>
+          <AdminNavigation />
         </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 w-full p-6 container mx-auto">{children}</div>
-
-      {/* Drawer */}
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div
-            className="bg-black/50 w-full"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <div className="bg-white w-64 p-4 shadow-lg">
-            <button
-              className="mb-4"
-              onClick={() => setDrawerOpen(false)}
-              aria-label="Close drawer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <nav className="space-y-4 flex flex-col">
-              <Link href="/admin">Dashboard</Link>
-              <Link href="/admin/suppliers">Suppliers</Link>
-              <Link href="/admin/documents">Documents</Link>
-              <Link href="/admin/categories">Categories</Link>
-              <Link href="/admin/banners">Banners</Link>
-              <Link href="/admin/audit-logs">Audit Logs</Link>
-            </nav>
-          </div>
-        </div>
-      )}
+      </header>
+      <main id="admin-content" className="mx-auto max-w-7xl p-4 md:p-6">
+        {children}
+      </main>
     </div>
   );
 }

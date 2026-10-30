@@ -1,14 +1,14 @@
 // /app/api/admin/categories/[id]/subcategories/[subId]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string; subId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { subId } = await params;
@@ -37,8 +37,8 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string; subId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { subId } = await params;

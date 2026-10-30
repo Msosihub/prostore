@@ -13,8 +13,8 @@ interface BottomNavProps {
 }
 
 export default function BottomNav({
-  unreadMessagesCount = 20,
-  cartItemsCount = 10,
+  unreadMessagesCount = 0,
+  cartItemsCount = 0,
 }: BottomNavProps) {
   const pathname = usePathname();
 
@@ -32,8 +32,8 @@ export default function BottomNav({
     { name: "Mwanzo", href: "/", icon: Home },
     { name: "Makundi", href: "/categories", icon: Grid },
     {
-      name: "Messenger",
-      href: "/buyer/chat",
+      name: "Ujumbe",
+      href: "/buyer/messages",
       icon: MessageCircle,
       badge: unreadMessagesCount,
     },
@@ -51,7 +51,10 @@ export default function BottomNav({
       {/* Dynamic structural spacer tray to prevent component overlap constraints */}
       <div className="h-16 md:hidden" />
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] pb-safe">
+      <nav
+        aria-label="Ukurasa na akaunti"
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-[0_-4px_16px_rgba(0,0,0,0.04)] pb-safe"
+      >
         <div className="mx-auto flex max-w-md items-center justify-around px-3 py-1.5">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -63,7 +66,8 @@ export default function BottomNav({
               <Link
                 key={item.name}
                 href={item.href}
-                className="relative flex flex-col items-center justify-center min-w-[60px] py-0.5 group"
+                aria-current={isActive ? "page" : undefined}
+                className="relative flex flex-col items-center justify-center min-w-[60px] min-h-12 py-0.5 group"
               >
                 <div className="relative p-1 rounded-xl transition-all duration-200">
                   <Icon
@@ -95,7 +99,7 @@ export default function BottomNav({
             );
           })}
         </div>
-      </div>
+      </nav>
     </>
   );
 }

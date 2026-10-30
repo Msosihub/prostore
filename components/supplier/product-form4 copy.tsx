@@ -99,7 +99,11 @@ const ProductForm = ({
           });
           return;
         }
-        const res = await updateProduct({ ...values, id: productId });
+        const res = await updateProduct({
+          ...values,
+          id: productId,
+          expectedStock: product?.stock ?? 0,
+        });
         if (!res.success) {
           toast({
             variant: "destructive",
@@ -175,7 +179,7 @@ const ProductForm = ({
                     onClick={() => {
                       form.setValue(
                         "slug",
-                        slugify(form.getValues("name") || "", { lower: true })
+                        slugify(form.getValues("name") || "", { lower: true }),
                       );
                     }}
                   >

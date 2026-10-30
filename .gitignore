@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Isolated PostgreSQL test tooling
+/tests/integration/node_modules
+
+/tests/browser/node_modules/

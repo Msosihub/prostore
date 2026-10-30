@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 import { Prisma } from "@prisma/client";
-import { auth } from "@/auth";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export async function GET() {
   const categories = await prisma.category.findMany({
@@ -15,8 +15,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  const session = await requireAdmin().catch(() => null);
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

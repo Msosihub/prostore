@@ -130,7 +130,7 @@ export default function ProductForm({
   // 🟢 LIVE DEPENDENT FILTERING: Read current selected Category to compute subcategory matching subsets
   const selectedCategoryId = form.watch("categoryId");
   const filteredSubcategories = subcategories.filter(
-    (sub) => sub.categoryId === selectedCategoryId
+    (sub) => sub.categoryId === selectedCategoryId,
   );
 
   const handleGenerateSlug = () => {
@@ -167,7 +167,11 @@ export default function ProductForm({
             });
             return;
           }
-          const res = await updateProduct({ ...values, id: productId });
+          const res = await updateProduct({
+            ...values,
+            id: productId,
+            expectedStock: product?.stock ?? 0,
+          });
           if (!res.success) {
             toast({ variant: "destructive", description: res.message });
             return;

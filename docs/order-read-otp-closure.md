@@ -1,0 +1,15 @@
+# Bounded order-read and OTP-log closure
+
+This follow-up supersedes the three deferred order-read findings and plaintext OTP logging noted in the earlier review reports. It does not change financial settlement, refunds, retry policy, OTP generation/delivery/consumption, or deployment settings.
+
+Consumer tracing confirmed `app/supplier/overview/page.tsx` passes the supplier's user ID to `getOrderSummary`, while `app/supplier/orders/page.tsx` passes the supplier record ID to `getSupplierOrderItems`. Both actions now resolve an explicit scope through `requireSupplierScope`: a current database ADMIN can inspect a specified existing supplier; a current database SUPPLIER is additionally constrained by its session user ID. Other roles, absent identities, absent/deleted suppliers, blank scopes and object-shaped filter inputs fail closed before order queries. Session role claims are not authority. All financial counts, groups and item reads use the resolved supplier ID. Existing empty-result error behavior is retained.
+
+`getMyOrders` now requires `session.user.id` before either query and always scopes both listing/count to that identity, including admin/supplier callers viewing their own purchases. Its selection contains only the five fields consumed by the buyer list. Supplier order lists retain buyer name but omit unused buyer ID, phone and payment phone. Summary no longer reads whole-order totals across suppliers.
+
+OTP send/verify no longer log tokens, identifiers or token records. Both failure boundaries log fixed messages and return sanitized 500 responses, preventing credential-bearing database/SMS exceptions from reaching framework logging. Generation, storage, SMS content, verification and consumption remain unchanged; email delivery remains the existing TODO.
+
+A separate read-only reviewer examined the actual diff and UI consumers. It accepted the order scopes/selections, identified the uncaught OTP-send exception path, and re-reviewed its fix and the runtime scope validation. No further concrete defect was found. It did not execute tests.
+
+Final validation: 140 unit/route tests across 15 suites, 33 isolated PostgreSQL tests, typecheck, lint with existing warnings, offline compile-only build, and diff whitespace checks passed. Direct action tests cover anonymous/malformed identity, forged role, buyer denial, wrong/nonexistent supplier, allowed owner/admin, missing/malformed scope and self-scoped buyer/admin/supplier order history. OTP tests cover successful delivery/consumption and sanitized database/SMS failure logs. All provider/SMS calls are mocked.
+
+Existing caveats remain: PostgreSQL uses the disposable test-only Prisma JS/pg adapter and fixture schema, not production native engines/migrations. Offline compilation does not establish full production build or browser/provider acceptance. Broader chat/supplier authorization and other sensitive logging remain outside this bounded closure. No Library retry, remote publication, production change, or live transaction occurred.

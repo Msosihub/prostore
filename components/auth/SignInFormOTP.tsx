@@ -48,7 +48,7 @@ export default function SignInFormOTP() {
     if (!identifier.trim()) {
       toast({
         variant: "destructive",
-        description: "Tafadhali ingiza namba ya simu au barua pepe.",
+        description: "Tafadhali ingiza namba ya simu.",
       });
       return;
     }
@@ -64,6 +64,8 @@ export default function SignInFormOTP() {
         const data = await res.json();
 
         if (!res.ok) {
+          const retry = Number(res.headers.get("Retry-After"));
+          if (Number.isFinite(retry) && retry > 0) setResendCooldown(retry);
           toast({
             variant: "destructive",
             title: "Imeshindikana",
@@ -108,7 +110,7 @@ export default function SignInFormOTP() {
   //     if (res?.error) {
   //       toast({
   //         title: "Msimbo si Sahihi ❌",
-  //         description: "OTP uliyoweka si sahihi au imekwisha muda wake.",
+  //         description: "Msimbo si sahihi, umeisha muda au majaribio yamezidi. Subiri kabla ya kuomba mwingine.",
   //         variant: "destructive",
   //       });
   //       return;
@@ -138,12 +140,11 @@ export default function SignInFormOTP() {
           redirect: false,
         });
 
-        console.log("NextAuth Authentication Result:", loginRes);
-
         if (loginRes?.error) {
           toast({
             title: "Msimbo si Sahihi ❌",
-            description: "OTP uliyoweka si sahihi au imekwisha muda wake.",
+            description:
+              "Msimbo si sahihi, umeisha muda au majaribio yamezidi. Subiri kabla ya kuomba mwingine.",
             variant: "destructive",
           });
           return;
@@ -192,12 +193,13 @@ export default function SignInFormOTP() {
               htmlFor="identifier"
               className="text-xs font-semibold text-slate-600"
             >
-              Namba yako ya Simu / Email *
+              Namba yako ya Simu *
             </Label>
             <Input
               id="identifier"
-              type="text"
-              placeholder="Mfano: +255760111222 au barua pepe"
+              type="tel"
+              autoComplete="tel"
+              placeholder="Mfano: +255700000000"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               disabled={isPending}

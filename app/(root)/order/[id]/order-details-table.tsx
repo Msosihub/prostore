@@ -1,6 +1,8 @@
 "use client";
 
+import PaymentRefresh from "@/components/admin/payment-refresh";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +61,8 @@ interface LocalOrder {
   taxPrice: string;
   totalPrice: string;
   paymentMethod: string;
+  paymentResult?: unknown;
+  paymentStatus?: string;
 
   shippingAddress: ShippingAddress;
   user: {
@@ -154,7 +158,7 @@ function OrderItemTimeline({
             {item.dispatchNote && (
               <div className="mt-2 rounded-xl border border-amber-100 bg-white p-2">
                 <p className="text-[10px] font-black uppercase text-amber-600">
-                  Tracking / Dispatch Note
+                  Taarifa za muuzaji (manual — si tracking ya moja kwa moja)
                 </p>
                 <p className="mt-1 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
                   {item.dispatchNote}
@@ -195,6 +199,7 @@ function OrderItemTimeline({
 }
 
 export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
+  const router = useRouter();
   const {
     id,
     orderitems,
@@ -230,18 +235,25 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (data.status === "REQUIRES_REVIEW") {
+        alert("Payment requires support review. Do not pay again.");
+      } else if (data.success) {
         setPaymentStage("push_sent");
         await new Promise((resolve) => setTimeout(resolve, 6000));
-        setPaymentStage("completed");
+        if (data.status === "COMPLETED") setPaymentStage("completed");
         await new Promise((resolve) => setTimeout(resolve, 2000));
       } else {
-        alert("Imeshindikana kuanzisha malipo ya Zenopay.");
+        alert(
+          data.error ||
+            data.message ||
+            "Imeshindikana kuanzisha malipo ya Zenopay.",
+        );
       }
     } catch (error) {
       console.error(error);
       alert("Tatizo limetokea wakati wa kuwasiliana na mfumo wa malipo.");
     } finally {
+      router.refresh();
       setPaymentStage("idle");
     }
   };
@@ -269,7 +281,22 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
 
   return (
     <>
+      <p role="status" className="rounded-xl border bg-white p-3 text-sm">
+        Bidhaa zilizopokelewa:{" "}
+        {orderitems.filter((item) => item.isDelivered).length}/
+        {orderitems.length}. Kila muuzaji hutuma bidhaa zake; malipo
+        hayamaanishi bidhaa zote zimepokelewa.
+      </p>
       {paymentStage !== "idle" && <PaymentLoadingScreen stage={paymentStage} />}
+      {!isPaid && order.paymentMethod === "ZENOPAY" && (
+        <div className="rounded-xl border bg-amber-50 p-4">
+          <p>
+            Already approved a phone payment? Check it here before trying again.
+            Pending or review does not mean you should pay again.
+          </p>
+          <PaymentRefresh orderId={id} />
+        </div>
+      )}
 
       <OrderItemDeliveryConfirmDialog
         open={!!deliveryDialogItem}
@@ -343,7 +370,9 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                       variant="destructive"
                       className="text-[11px] font-medium bg-rose-50 text-rose-700 border-rose-200 rounded-full px-2.5 py-0.5"
                     >
-                      Haijalipiwa bado
+                      {order.paymentStatus === "REQUIRES_REVIEW"
+                        ? "Malipo yanahitaji uhakiki — usilipe tena"
+                        : "Malipo hayajathibitishwa"}
                     </Badge>
                   )}
                 </div>
@@ -475,6 +504,7 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                                 {isPaid ? (
                                   <Button
                                     size="sm"
+                                    aria-label={`Nimepokea Bidhaa Hii: ${item.name}`}
                                     disabled={!!deliveryDialogItem}
                                     onClick={() =>
                                       setDeliveryDialogItem({
@@ -544,7 +574,10 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
                       onClick={handleReinitializePayment}
                       className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
                     >
-                      <RefreshCw className="w-3.5 h-3.5" /> Jaribu Tena Kulipa
+                      <RefreshCw className="w-3.5 h-3.5" />{" "}
+                      {order.paymentResult
+                        ? "Angalia / endelea na malipo"
+                        : "Endelea kulipa"}
                     </Button>
                   )}
                 </div>
@@ -570,7 +603,10 @@ export default function OrderDetailsTable({ order }: OrderDetailsTableProps) {
               onClick={handleReinitializePayment}
               className="w-full h-11 bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <RefreshCw className="w-3.5 h-3.5" /> Jaribu Tena Kulipa
+              <RefreshCw className="w-3.5 h-3.5" />{" "}
+              {order.paymentResult
+                ? "Angalia / endelea na malipo"
+                : "Endelea kulipa"}
             </Button>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { visibleCatalogProduct, visibleSeller } from "@/lib/catalog-visibility";
 import { NextResponse } from "next/server";
 import { prisma } from "@/db/prisma";
 
@@ -11,6 +12,7 @@ export async function GET() {
   let suppliers = [];
   try {
     suppliers = await prisma.supplier.findMany({
+      where: visibleSeller,
       select: {
         id: true,
         companyName: true,
@@ -21,8 +23,11 @@ export async function GET() {
         isVerified: true,
       },
     });
-  } catch (error) {
-    return NextResponse.json({ error });
+  } catch {
+    return NextResponse.json(
+      { error: "Catalog temporarily unavailable" },
+      { status: 503 },
+    );
   }
 
   if (suppliers.length === 0) {
@@ -44,7 +49,7 @@ export async function GET() {
   let products = [];
   try {
     products = await prisma.product.findMany({
-      where: { supplierId: sup.id },
+      where: { ...visibleCatalogProduct, supplierId: sup.id },
       take: 8,
       orderBy: { createdAt: "desc" },
       include: {
@@ -55,8 +60,11 @@ export async function GET() {
         pricingTiers: { orderBy: { minQty: "asc" } },
       },
     });
-  } catch (error) {
-    return NextResponse.json({ error });
+  } catch {
+    return NextResponse.json(
+      { error: "Catalog temporarily unavailable" },
+      { status: 503 },
+    );
   }
 
   return NextResponse.json({ supplier: sup, products });
