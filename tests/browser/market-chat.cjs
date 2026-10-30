@@ -304,6 +304,7 @@ async function until(check) {
       state.baseUrl + "/supplier/marketplace-chat?thread=" + first.id,
     );
     await sp.getByLabel("Idadi ya bidhaa", { exact: true }).fill("5");
+    await sp.getByLabel("Muda wa kukubali", { exact: true }).selectOption("24");
     await sp
       .getByRole("button", { name: "Tuma pendekezo", exact: true })
       .click();
@@ -341,7 +342,17 @@ async function until(check) {
       JSON.parse(fs.readFileSync(state.stage + "/payments.json")).collections,
       before,
     );
-    // Acceptance is separate from the existing authorized payment endpoint.
+    await bp.goto(state.baseUrl + "/buyer/messages?thread=" + first.id);
+    await bp
+      .getByLabel("Agizo na malipo", { exact: true })
+      .getByText("Malipo hayajathibitishwa.", { exact: true })
+      .waitFor();
+    await bp
+      .getByRole("link", { name: "Fungua agizo / hakiki malipo", exact: true })
+      .click();
+    await bp.waitForURL((url) => url.pathname === "/order/" + orderId);
+    // Acceptance and the chat order card are separate from explicit buyer payment.
+
     const payment = bp.waitForResponse((r) =>
       r.url().endsWith("/api/zenopay/create-payment"),
     );
@@ -357,6 +368,17 @@ async function until(check) {
     assert.equal(
       Number(provider.orders[order.paymentResult.zenopay_order_id].amount),
       7000,
+    );
+    await bp.goto(state.baseUrl + "/buyer/messages?thread=" + first.id);
+    await bp
+      .getByText(
+        "Malipo yanasubiri uthibitisho. Usitume ombi jingine la malipo.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(
+      JSON.parse(fs.readFileSync(state.stage + "/payments.json")).collections,
+      before + 1,
     );
     provider.orders[order.paymentResult.zenopay_order_id].status = "COMPLETED";
     fs.writeFileSync(state.stage + "/payments.json", JSON.stringify(provider));
@@ -391,6 +413,45 @@ async function until(check) {
       ),
       false,
     );
+    await bp
+      .getByLabel("Agizo na malipo", { exact: true })
+      .getByText("Malipo yamethibitishwa.", { exact: true })
+      .waitFor();
+    await bp.screenshot({
+      path: state.stage + "/market-payment-card-mobile.png",
+      fullPage: true,
+    });
+    await sp.reload();
+    await sp.getByText("Malipo yamethibitishwa.", { exact: true }).waitFor();
+    assert.equal(
+      await sp.getByRole("link", { name: "Fungua agizo", exact: true }).count(),
+      0,
+    );
+    // Expiry is displayed on reload; it does not cancel accepted orders.
+    const expired = await prisma.marketProposal.create({
+      data: {
+        id: randomUUID(),
+        threadId: first.id,
+        quantity: 5,
+        snapshot: (
+          await prisma.marketProposal.findFirst({ where: { orderId } })
+        ).snapshot,
+        expiresAt: new Date(Date.now() - 1000),
+      },
+    });
+    await bp.reload();
+    await bp
+      .getByText("Muda wa pendekezo umeisha. Omba pendekezo jipya.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(
+      await bp
+        .getByRole("button", { name: "Hakiki pendekezo", exact: true })
+        .count(),
+      0,
+    );
+    await prisma.marketProposal.delete({ where: { id: expired.id } });
     // New arrivals beyond one inbox page must not hide older loaded threads.
     for (let i = 0; i < 31; i++) {
       const buyer = await prisma.user.create({
@@ -527,9 +588,15 @@ async function until(check) {
       .click();
     await ap.waitForURL((url) => url.pathname === "/admin/chat-reports");
     await ap.goto(state.baseUrl + "/admin/chat-reports/" + report.id);
+    const reviewResponse = ap.waitForResponse(
+      (r) =>
+        r.request().method() === "POST" &&
+        new URL(r.url()).pathname === "/admin/chat-reports/" + report.id,
+    );
     await ap
       .getByRole("button", { name: "Record review", exact: true })
       .click();
+    assert.equal((await reviewResponse).status(), 200);
     await ap.getByText(/Review recorded/).waitFor();
     assert.equal(
       await prisma.marketReportEvent.count({ where: { reportId: report.id } }),

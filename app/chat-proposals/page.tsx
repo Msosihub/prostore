@@ -46,17 +46,31 @@ export default async function ProposalHistory({
                 ? "Limekubaliwa"
                 : p.status === "CANCELLED"
                   ? "Limeondolewa"
-                  : "Linahitaji mapitio"}
+                  : p.expiresAt && p.expiresAt.getTime() <= Date.now()
+                    ? "Muda umeisha"
+                    : "Linahitaji mapitio"}
             </p>
             <time>{p.createdAt.toISOString()}</time>
-            {p.status === "OPEN" && (
-              <Link
-                className="block underline"
-                href={`${inbox}?thread=${encodeURIComponent(params.thread!)}&proposal=${p.id}`}
-              >
-                Hakiki pendekezo hili
-              </Link>
+            {p.expiresAt && (
+              <p>
+                Mwisho wa kukubali:{" "}
+                <time>
+                  {p.expiresAt.toLocaleString("sw-TZ", {
+                    timeZone: "Africa/Dar_es_Salaam",
+                  })}{" "}
+                  (EAT)
+                </time>
+              </p>
             )}
+            {p.status === "OPEN" &&
+              (!p.expiresAt || p.expiresAt.getTime() > Date.now()) && (
+                <Link
+                  className="block underline"
+                  href={`${inbox}?thread=${encodeURIComponent(params.thread!)}&proposal=${p.id}`}
+                >
+                  Hakiki pendekezo hili
+                </Link>
+              )}
             {p.status === "ACCEPTED" && p.orderId && !data.isSeller && (
               <Link className="block underline" href={`/order/${p.orderId}`}>
                 Fungua agizo

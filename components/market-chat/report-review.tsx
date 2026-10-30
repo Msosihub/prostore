@@ -1,11 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { reviewMarketReport } from "@/lib/actions/market-chat.actions";
 export default function ReportReview({ id }: { id: string }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const router = useRouter();
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   return (
     <form
       className="space-y-3"
@@ -37,7 +39,7 @@ export default function ReportReview({ id }: { id: string }) {
         participant block, send a message, or resolve an order dispute.
       </p>
       <button
-        disabled={busy}
+        disabled={busy || !ready}
         className="rounded bg-emerald-800 px-4 py-2 text-white"
       >
         {busy ? "Saving…" : "Record review"}
