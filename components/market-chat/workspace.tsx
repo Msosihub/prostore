@@ -58,6 +58,7 @@ export default function MarketWorkspace({
     [busy, setBusy] = useState(false),
     [content, setContent] = useState(""),
     [quantity, setQuantity] = useState("1");
+  const [validForHours, setValidForHours] = useState("none");
   const [review, setReview] = useState<(Review & { id: string }) | null>(null);
   const sendKey = useRef<{
       id: string;
@@ -67,6 +68,7 @@ export default function MarketWorkspace({
     proposalKey = useRef<{
       id: string;
       quantity: number;
+      validForHours?: number;
       threadId: string;
     } | null>(null);
   const pagedList = useRef(false);
@@ -184,6 +186,8 @@ export default function MarketWorkspace({
     setContent("");
     sendKey.current = null;
     proposalKey.current = null;
+    setQuantity("1");
+    setValidForHours("none");
     setError("");
     setStatus("");
   }
@@ -219,6 +223,9 @@ export default function MarketWorkspace({
         const parsed = JSON.parse(proposal);
         proposalKey.current = parsed;
         setQuantity(String(parsed.quantity));
+        setValidForHours(
+          parsed.validForHours ? String(parsed.validForHours) : "none",
+        );
       }
     } catch {
       /* Corrupt local draft never grants server authority. */
@@ -255,15 +262,19 @@ export default function MarketWorkspace({
   async function propose() {
     await run(async () => {
       const qty = Number(quantity);
+      const hours =
+        validForHours === "none" ? undefined : Number(validForHours);
       if (
         !proposalKey.current ||
         proposalKey.current.quantity !== qty ||
+        proposalKey.current.validForHours !== hours ||
         proposalKey.current.threadId !== id
       )
         proposalKey.current = {
           id: crypto.randomUUID(),
           threadId: id,
           quantity: qty,
+          validForHours: hours,
         };
       const draftKey = `market-proposal:${detail?.viewerId}:${id}`;
       saveChatDraft(draftKey, proposalKey.current);
@@ -550,7 +561,13 @@ export default function MarketWorkspace({
                   Ripoti mazungumzo
                 </button>
               </section>
-              <div className="rounded-xl border bg-white p-4">
+              <div
+                className="rounded-xl border bg-white p-4"
+                aria-label="Bidhaa ya mazungumzo"
+              >
+                <p className="text-xs font-semibold uppercase text-emerald-700">
+                  Mazungumzo kuhusu bidhaa hii
+                </p>
                 <Link
                   href={
                     detail.thread.product.slug
@@ -696,6 +713,26 @@ export default function MarketWorkspace({
                     className="rounded border p-2 w-28"
                     disabled={busy}
                   />
+                  <label htmlFor="proposal-validity" className="block text-sm">
+                    Muda wa kukubali
+                  </label>
+                  <select
+                    id="proposal-validity"
+                    value={validForHours}
+                    onChange={(e) => setValidForHours(e.target.value)}
+                    disabled={busy}
+                    className="rounded border p-2 w-full"
+                  >
+                    <option value="none">Bila kikomo cha muda</option>
+                    <option value="1">Saa 1</option>
+                    <option value="24">Saa 24</option>
+                    <option value="72">Siku 3</option>
+                    <option value="168">Siku 7</option>
+                  </select>
+                  <p className="text-xs text-slate-600">
+                    Bidhaa hazihifadhiwi kwa pendekezo. Bei na upatikanaji
+                    huhakikiwa tena kabla ya agizo.
+                  </p>
                   <button
                     className={`${button} ml-2`}
                     disabled={busy || detail.blocked}
@@ -733,20 +770,56 @@ export default function MarketWorkspace({
                       <p className="font-bold">
                         Jumla {formatCurrency(q.totalPrice)}
                       </p>
+                      <p className="text-sm">
+                        {p.expiresAt
+                          ? `Mwisho wa kukubali: ${new Date(p.expiresAt).toLocaleString("sw-TZ", { timeZone: "Africa/Dar_es_Salaam" })} (EAT)`
+                          : "Bila kikomo cha muda; bei na bidhaa huhakikiwa tena."}
+                      </p>
                       {p.status === "ACCEPTED" ? (
-                        <p>
-                          Agizo limeundwa. Malipo yanathibitishwa kwenye agizo.{" "}
-                          {!detail.isSeller && (
+                        <div
+                          aria-label="Agizo na malipo"
+                          className="rounded-lg bg-emerald-50 p-3 space-y-2"
+                        >
+                          <p className="font-semibold">Agizo limeundwa</p>
+                          <p className="text-xs break-all">
+                            Rejea: {p.orderId}
+                          </p>
+                          <p>
+                            {p.order?.isPaid
+                              ? "Malipo yamethibitishwa."
+                              : p.order?.paymentStatus === "REQUIRES_REVIEW"
+                                ? "Malipo yanahitaji uhakiki — usilipe tena."
+                                : p.order?.paymentStatus === "PENDING" &&
+                                    p.order.paymentStarted
+                                  ? "Malipo yanasubiri uthibitisho. Usitume ombi jingine la malipo."
+                                  : "Malipo hayajathibitishwa."}
+                          </p>
+                          <p className="text-xs">
+                            Hali inatoka kwenye agizo la mfumo. Ujumbe wa
+                            muuzaji si uthibitisho wa malipo. Malipo si
+                            uthibitisho wa kuwasilishwa.
+                          </p>
+                          {!detail.isSeller ? (
                             <Link
-                              className="underline"
+                              className="underline font-semibold"
                               href={`/order/${p.orderId}`}
                             >
-                              Fungua agizo
+                              {p.order?.isPaid
+                                ? "Fungua agizo"
+                                : "Fungua agizo / hakiki malipo"}
                             </Link>
+                          ) : (
+                            <p className="text-xs">
+                              Mnunuzi pekee anaendelea na malipo kwenye agizo
+                              lake.
+                            </p>
                           )}
-                        </p>
+                        </div>
                       ) : p.status === "CANCELLED" ? (
                         <p>Pendekezo limeondolewa.</p>
+                      ) : p.expiresAt &&
+                        new Date(p.expiresAt).getTime() <= Date.now() ? (
+                        <p>Muda wa pendekezo umeisha. Omba pendekezo jipya.</p>
                       ) : detail.isSeller ? (
                         <button
                           className="text-sm underline"
@@ -784,6 +857,15 @@ export default function MarketWorkspace({
                     {review.address.fullName} · {review.address.streetAddress},{" "}
                     {review.address.city}, {review.address.country}
                   </p>
+                  {review.expiresAt && (
+                    <p className="text-sm">
+                      Kubali kabla ya{" "}
+                      {new Date(review.expiresAt).toLocaleString("sw-TZ", {
+                        timeZone: "Africa/Dar_es_Salaam",
+                      })}{" "}
+                      (EAT). Muda ukipita, omba pendekezo jipya.
+                    </p>
+                  )}
                   <p>Simu ya kupokea: {review.address.phone}</p>
                   <p className="font-bold">
                     Jumla: {formatCurrency(review.quote.totalPrice)}

@@ -1855,6 +1855,7 @@ model MarketProposal {
   snapshot Json
   status String @default("OPEN")
   orderId String? @unique @db.Uuid
+  expiresAt DateTime? @db.Timestamp(6)
   createdAt DateTime @default(now()) @db.Timestamp(6)
   thread MarketThread @relation(fields: [threadId], references: [id])
   order Order? @relation(fields: [orderId], references: [id], onDelete: Restrict, onUpdate: Cascade)

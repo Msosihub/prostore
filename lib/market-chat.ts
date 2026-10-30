@@ -271,6 +271,14 @@ export async function loadThread(
       snapshot: true,
       status: true,
       orderId: true,
+      expiresAt: true,
+      order: {
+        select: {
+          isPaid: true,
+          paymentStatus: true,
+          _count: { select: { paymentAttempts: true } },
+        },
+      },
     },
   });
   if (proposalId && !proposals.some((p) => p.id === proposalId)) {
@@ -282,6 +290,14 @@ export async function loadThread(
         snapshot: true,
         status: true,
         orderId: true,
+        expiresAt: true,
+        order: {
+          select: {
+            isPaid: true,
+            paymentStatus: true,
+            _count: { select: { paymentAttempts: true } },
+          },
+        },
       },
     });
     if (!selected) return fail("Pendekezo halipatikani.");
@@ -297,7 +313,16 @@ export async function loadThread(
     thread: visibleContext(data),
     messages: messages.slice(0, 50).reverse(),
     hasOlder: messages.length > 50,
-    proposals,
+    proposals: proposals.map(({ order, ...proposal }) => ({
+      ...proposal,
+      order: order
+        ? {
+            isPaid: order.isPaid,
+            paymentStatus: order.paymentStatus,
+            paymentStarted: order._count.paymentAttempts > 0,
+          }
+        : null,
+    })),
     viewerId: user.id,
     isSeller: data.supplier.userId === user.id && user.role === "SUPPLIER",
   };
@@ -427,6 +452,7 @@ export async function propose(input: {
   id: string;
   threadId: string;
   quantity: number;
+  validForHours?: number;
 }) {
   const user = await actor();
   const value = z
@@ -434,6 +460,9 @@ export async function propose(input: {
       id: uuid,
       threadId: uuid,
       quantity: z.number().int().min(1).max(2147483647),
+      validForHours: z
+        .union([z.literal(1), z.literal(24), z.literal(72), z.literal(168)])
+        .optional(),
     })
     .strict()
     .parse(input);
@@ -447,7 +476,11 @@ export async function propose(input: {
     if (existing) {
       if (
         existing.threadId !== value.threadId ||
-        existing.quantity !== value.quantity
+        existing.quantity !== value.quantity ||
+        (existing.expiresAt
+          ? (existing.expiresAt.getTime() - existing.createdAt.getTime()) /
+            3600000
+          : undefined) !== value.validForHours
       )
         return fail("Ombi hili tayari limetumika.");
       return { id: existing.id };
@@ -476,8 +509,17 @@ export async function propose(input: {
       return fail(
         "Jina la bidhaa/duka lina taarifa za mawasiliano; lisahihishe kabla ya pendekezo.",
       );
+    const { validForHours, ...fields } = value;
+    const createdAt = new Date();
     await tx.marketProposal.create({
-      data: { ...value, snapshot: snapshot as Prisma.InputJsonValue },
+      data: {
+        ...fields,
+        createdAt,
+        expiresAt: validForHours
+          ? new Date(createdAt.getTime() + validForHours * 3600000)
+          : null,
+        snapshot: snapshot as Prisma.InputJsonValue,
+      },
     });
     await tx.marketThread.update({
       where: { id: data.id },
@@ -497,6 +539,10 @@ async function review(tx: Tx, id: string, user: Actor) {
   if (proposal.status === "ACCEPTED")
     return { accepted: true as const, orderId: proposal.orderId! };
   if (proposal.status !== "OPEN") return fail("Pendekezo limeondolewa.");
+  if (proposal.expiresAt && proposal.expiresAt.getTime() <= Date.now())
+    return fail(
+      "Muda wa pendekezo umeisha. Mwombe muuzaji atume pendekezo jipya.",
+    );
   const current = await canonicalQuote(tx, data, proposal.quantity);
   // JSONB key order is not stable; compare the explicitly ordered canonical fields.
   const saved = proposal.snapshot as unknown as ProposalSnapshot;
@@ -540,7 +586,12 @@ async function review(tx: Tx, id: string, user: Actor) {
     proposal,
     quote: current,
     order,
-    fingerprint: digest({ id, quote: current, order }),
+    fingerprint: digest({
+      id,
+      quote: current,
+      order,
+      expiresAt: proposal.expiresAt,
+    }),
   };
 }
 export async function reviewProposal(id: string) {
@@ -553,6 +604,7 @@ export async function reviewProposal(id: string) {
       quote: result.quote,
       address: result.order.shippingAddress,
       fingerprint: result.fingerprint,
+      expiresAt: result.proposal.expiresAt,
     };
   });
 }
@@ -574,6 +626,14 @@ export async function acceptProposal(input: {
         "Anwani au taarifa zimebadilika. Hakiki tena kabla ya kukubali.",
       );
     await lockPurchasableSellers(tx, [checked.quote.item.supplierId]);
+    // Recheck after lock waits: a previously reviewed offer can expire meanwhile.
+    if (
+      checked.proposal.expiresAt &&
+      checked.proposal.expiresAt.getTime() <= Date.now()
+    )
+      return fail(
+        "Muda wa pendekezo umeisha. Mwombe muuzaji atume pendekezo jipya.",
+      );
     const order = await tx.order.create({
       data: checked.order,
       select: { id: true },
@@ -646,6 +706,7 @@ export async function proposalHistory(id: string, before?: string) {
       quantity: true,
       status: true,
       orderId: true,
+      expiresAt: true,
     },
   });
   return {

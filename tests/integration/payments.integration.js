@@ -4328,6 +4328,107 @@ test("conflicting concurrent staff decisions never falsely report both as saved"
  const report=await market.readChatReport(r.id);expect(report.reporterId).toBe(f.user.id);expect(report.threadId).toBe(f.threadId);
 });
 
+test("proposal validity is seller scoped, bounded and immutable on request retries", async () => {
+  const f = await marketFixture();
+  const input = { id: marketId(), threadId: f.threadId, quantity: 5, validForHours: 24 };
+  for (const user of [f.user, f.outsider, f.sellerB]) {
+    marketActor(user); expect((await createMarketProposal(input)).ok).toBe(false);
+  }
+  auth.mockResolvedValue(null); expect((await createMarketProposal(input)).ok).toBe(false);
+  marketActor(f.seller);
+  for (const hours of [0, -1, 2, 1.5, 169, "24", null])
+    expect((await createMarketProposal({ ...input, validForHours: hours })).ok).toBe(false);
+  const results = await Promise.all(Array.from({ length: 4 }, () => market.propose(input)));
+  expect(new Set(results.map(r => r.id)).size).toBe(1);
+  const saved = await prisma.marketProposal.findUnique({ where: { id: input.id } });
+  expect(saved.expiresAt.getTime() - saved.createdAt.getTime()).toBe(24 * 3600000);
+  await expect(market.propose({ ...input, validForHours: 72 })).rejects.toThrow();
+  expect((await prisma.marketProposal.findUnique({ where: { id: input.id } })).expiresAt).toEqual(saved.expiresAt);
+});
+test("expired reviewed proposal cannot create an order and remains visible in scoped history", async () => {
+  const f = await marketFixture(); marketActor(f.seller);
+  const p = await market.propose({ id: marketId(), threadId: f.threadId, quantity: 5, validForHours: 1 });
+  marketActor(f.user); const review = await market.reviewProposal(p.id);
+  const count = await prisma.order.count();
+  await prisma.marketProposal.update({ where: { id: p.id }, data: { expiresAt: new Date(Date.now() - 1) } });
+  await expect(market.reviewProposal(p.id)).rejects.toThrow(/Muda/);
+  const attempts = await Promise.allSettled(Array.from({ length: 4 }, () => market.acceptProposal({ id: p.id, fingerprint: review.fingerprint })));
+  expect(attempts.every(r => r.status === "rejected")).toBe(true);
+  expect(await prisma.order.count()).toBe(count);
+  expect((await market.proposalHistory(f.threadId)).items[0].expiresAt).toBeTruthy();
+  expect((await market.loadThread(f.threadId, undefined, p.id)).proposals[0].expiresAt).toBeTruthy();
+});
+test("accepted expiring proposal replays its one order after deadline with immutable canonical snapshot", async () => {
+  const f = await marketFixture(); marketActor(f.seller);
+  const p = await market.propose({ id: marketId(), threadId: f.threadId, quantity: 5, validForHours: 72 });
+  marketActor(f.user); const review = await market.reviewProposal(p.id);
+  const results = await Promise.all(Array.from({ length: 4 }, () => market.acceptProposal({ id: p.id, fingerprint: review.fingerprint })));
+  expect(new Set(results.map(r => r.orderId)).size).toBe(1);
+  await prisma.marketProposal.update({ where: { id: p.id }, data: { expiresAt: new Date(Date.now() - 1) } });
+  expect(await market.acceptProposal({ id: p.id, fingerprint: review.fingerprint })).toEqual(results[0]);
+  const item = await prisma.orderItem.findFirst({ where: { orderId: results[0].orderId } });
+  expect(item.qty).toBe(5); expect(item.price.toString()).toBe("800");
+  expect((await prisma.order.findUnique({ where: { id: results[0].orderId } })).isPaid).toBe(false);
+});
+test("non-expiring legacy proposal retains review while changed deadline invalidates buyer consent", async () => {
+  const f = await marketFixture(); const p = await marketProposal(f);
+  expect((await market.reviewProposal(p.id)).expiresAt).toBeNull();
+  const review = await market.reviewProposal(p.id);
+  await prisma.marketProposal.update({ where: { id: p.id }, data: { expiresAt: new Date(Date.now() + 3600000) } });
+  await expect(market.acceptProposal({ id: p.id, fingerprint: review.fingerprint })).rejects.toThrow(/Hakiki/);
+  expect((await prisma.marketProposal.findUnique({ where: { id: p.id } })).orderId).toBeNull();
+});
+
+test("chat payment card projects canonical order state only to participants", async () => {
+  const f = await marketFixture(); const p = await marketProposal(f);
+  const review = await market.reviewProposal(p.id);
+  const { orderId } = await market.acceptProposal({ id: p.id, fingerprint: review.fingerprint });
+  for (const paymentStatus of ["PENDING", "REQUIRES_REVIEW", "FAILED"]) {
+    await prisma.order.update({ where: { id: orderId }, data: { paymentStatus } });
+    for (const user of [f.user, f.seller]) {
+      marketActor(user); const card = (await market.loadThread(f.threadId)).proposals[0].order;
+      expect(card).toEqual({ isPaid: false, paymentStatus, paymentStarted: false });
+      expect(Object.keys(card).sort()).toEqual(["isPaid", "paymentStarted", "paymentStatus"]);
+    }
+  }
+  await prisma.paymentAttempt.create({ data: { orderId, providerOrderId: "fixture-" + orderId, amount: 7000 } });
+  expect((await market.loadThread(f.threadId)).proposals[0].order.paymentStarted).toBe(true);
+  await prisma.order.update({ where: { id: orderId }, data: { isPaid: true } });
+  expect((await market.loadThread(f.threadId)).proposals[0].order.isPaid).toBe(true);
+  for (const user of [f.outsider, f.sellerB]) { marketActor(user); await expect(market.loadThread(f.threadId, undefined, p.id)).rejects.toThrow(); }
+});
+
+test("acceptance waiting on seller lock rechecks expiry before creating order", async () => {
+  const f = await marketFixture(); const p = await marketProposal(f);
+  const deadline = new Date(Date.now() + 1500);
+  await prisma.marketProposal.update({ where: { id: p.id }, data: { expiresAt: deadline } });
+  const review = await market.reviewProposal(p.id);
+  const before = await prisma.order.count();
+  let unlock, locked;
+  const gate = new Promise(resolve => { unlock = resolve; });
+  const ready = new Promise(resolve => { locked = resolve; });
+  const holder = prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "Supplier" WHERE "id" = ${f.supplier.id}::uuid FOR UPDATE`;
+    locked(); await gate;
+  }, { timeout: 10000 });
+  await ready;
+  const accepting = market.acceptProposal({ id: p.id, fingerprint: review.fingerprint }).then(value => ({ value }), error => ({ error }));
+  try {
+    let waiting = false;
+    for (let n = 0; n < 50; n++) {
+      const rows = await prisma.$queryRaw`SELECT pid FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%Supplier%'`;
+      if (rows.length) { waiting = true; break; }
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    expect(waiting).toBe(true);
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, deadline.getTime() - Date.now() + 30)));
+  } finally { unlock(); await holder; }
+  const result = await accepting;
+  expect(result.error?.message).toMatch(/Muda/);
+  expect(await prisma.order.count()).toBe(before);
+  expect((await prisma.marketProposal.findUnique({ where: { id: p.id } })).orderId).toBeNull();
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();
