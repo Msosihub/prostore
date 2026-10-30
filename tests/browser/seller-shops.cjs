@@ -222,7 +222,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       state.baseUrl + "/admin/seller-applications?state=APPROVED",
     );
     await admin.p
-      .locator("#admin-content")
+      .locator("#admin-content").filter({ visible: true })
       .screenshot({
         path: state.stage + "/seller-application-admin-mobile.png",
       });
