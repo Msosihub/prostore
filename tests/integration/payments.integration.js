@@ -4002,6 +4002,58 @@ test("unmatched storage failure never acknowledges processed",async()=>{
  }finally{await prisma.$executeRawUnsafe('ALTER TABLE "UnmatchedPaymentNotice" DROP CONSTRAINT synthetic_notice_failure');if(previous===undefined)delete process.env.ZENOPAY_API_KEY;else process.env.ZENOPAY_API_KEY=previous;}
 });
 
+
+import {prepareSupplierCatalogTransfer,supplierSnapshotDigest} from "@/lib/supplier-catalog-transfer";
+const {rehearseSupplierCatalogTransfer}=require('./catalog-launch.cjs');
+async function supplierTransferFixture(){
+ const f=await fixture();
+ const before=await prisma.order.findUnique({where:{id:f.order.id}});
+ const client=new (require('pg').Client)({connectionString:process.env.PROSTORE_TEST_DATABASE_URL});await client.connect();
+ let snapshot;
+ try{const results=await client.query(require('fs').readFileSync(require('path').join(__dirname,'../../scripts/supplier-catalog-export.sql'),'utf8'));snapshot=results.find(r=>r.rows?.[0]?.supplier_catalog_snapshot).rows[0].supplier_catalog_snapshot;}finally{await client.end();}
+ expect(await prisma.order.findUnique({where:{id:f.order.id}})).toEqual(before);
+ const encoded=JSON.stringify(snapshot);expect(encoded).not.toContain('buyer@example.test');expect(encoded).not.toContain('supplier@example.test');expect(encoded).not.toContain('+255700000000');expect(encoded).not.toContain(f.order.id);
+ const review={version:1,snapshotDigest:supplierSnapshotDigest(snapshot),priorTransactionsAreTrials:true,preserveSourceDatabase:true,completenessReviewed:true,accounts:[{sourceUserId:f.user.id,targetUserId:f.user.id,ownershipReviewed:true}],stock:[{kind:'product',id:f.product.id,openingStock:7,stockReviewed:true}]};
+ const result=prepareSupplierCatalogTransfer(snapshot,review);
+ // Reset only this disposable fixture to model an empty target. Real source is never touched by importer.
+ await emptySyntheticCatalog(f);await prisma.supplier.delete({where:{id:f.supplier.id}});
+ return {f,input:result.input};
+}
+test('supplier/catalog export and atomic transfer preserve URLs; approval then new settlement works',async()=>{
+ const {f,input}=await supplierTransferFixture();
+ const beforeUser=await prisma.user.findUnique({where:{id:f.user.id}});
+ const r=await rehearseSupplierCatalogTransfer(input);expect(r.pendingSuppliers).toBe(1);
+ const supplier=await prisma.supplier.findUnique({where:{id:f.supplier.id},include:{registration:true}});
+ expect(supplier.userId).toBe(f.user.id);expect(supplier.registration.state).toBe('PENDING');expect(supplier.isVerified).toBe(false);expect(Number(supplier.walletBalance)).toBe(0);expect(supplier.phone).toBeNull();
+ expect(await prisma.user.findUnique({where:{id:f.user.id}})).toEqual(beforeUser);
+ expect(await prisma.order.count()).toBe(0);expect(await prisma.supplierLedger.count()).toBe(0);expect(await prisma.sellerNotice.count()).toBe(0);
+ expect(await getPublicShop(f.supplier.id,true)).toBeNull();expect((await shopCatalog(f.supplier.id,{})).count).toBe(0);
+ const admin=await prisma.user.create({data:{name:'Synthetic transfer admin',role:'ADMIN'}});
+ auth.mockResolvedValue({user:{id:admin.id}});
+ await reviewSellerApplication({id:supplier.registration.id,version:1,decision:'APPROVED',reason:'Synthetic transfer identity reviewed'});
+ expect(await getPublicShop(f.supplier.id,true)).not.toBeNull();expect((await shopCatalog(f.supplier.id,{})).count).toBe(1);
+ expect((await prisma.sellerNotice.findFirst()).state).toBe('SUPPRESSED');expect(sendSms).not.toHaveBeenCalled();
+ const product=await prisma.product.findUnique({where:{id:f.product.id}});expect(product.slug).toBe(f.product.slug);expect(product.stock).toBe(7);
+ const buyerUser=await prisma.user.create({data:{name:'Synthetic new buyer',role:'BUYER'}});
+ const order=await newOrder({user:buyerUser,product,qty:1});expect(order.id).not.toBe(f.order.id);
+ await Promise.all([fulfillOrder(order.id,attempt(order),'new-book-confirmed'),fulfillOrder(order.id,attempt(order),'new-book-confirmed')]);
+ expect((await prisma.product.findUnique({where:{id:product.id}})).stock).toBe(6);expect(await prisma.supplierLedger.count()).toBe(1);
+ await confirmDelivery(order.id,product.id,{kind:'buyer',userId:buyerUser.id});expect(Number((await prisma.supplier.findUnique({where:{id:f.supplier.id}})).walletBalance)).toBe(1000);
+});
+test('supplier transfer concurrent replay imports once and parent categories work in reverse order',async()=>{
+ const {f,input}=await supplierTransferFixture();const parent={...input.catalog.categories[0],id:require('crypto').randomUUID(),name_en:'Synthetic parent category',parentId:null};input.catalog.categories[0].parentId=parent.id;input.catalog.categories.push(parent);
+ const results=await Promise.allSettled([rehearseSupplierCatalogTransfer(input),rehearseSupplierCatalogTransfer(input)]);
+ expect(results.filter(r=>r.status==='fulfilled')).toHaveLength(1);expect(await prisma.supplier.count()).toBe(1);expect(await prisma.product.count()).toBe(1);expect(await prisma.category.count()).toBe(2);
+});
+test('supplier transfer refuses revoked or unverified account and rolls back profiles with catalog failure',async()=>{
+ const {f,input}=await supplierTransferFixture();
+ await prisma.user.update({where:{id:f.user.id},data:{role:'BUYER'}});await expect(rehearseSupplierCatalogTransfer(input)).rejects.toThrow('Verified');expect(await prisma.supplier.count()).toBe(0);
+ await prisma.user.update({where:{id:f.user.id},data:{role:'SUPPLIER',phoneVerified:null}});await expect(rehearseSupplierCatalogTransfer(input)).rejects.toThrow('Verified');
+ await prisma.user.update({where:{id:f.user.id},data:{phoneVerified:new Date()}});
+ await prisma.$executeRawUnsafe('ALTER TABLE "Product" ADD CONSTRAINT synthetic_supplier_transfer_fail CHECK (stock < 0)');
+ try{await expect(rehearseSupplierCatalogTransfer(input)).rejects.toThrow();expect(await prisma.supplier.count()).toBe(0);expect(await prisma.sellerRegistration.count()).toBe(0);expect(await prisma.brand.count()).toBe(0);}finally{await prisma.$executeRawUnsafe('ALTER TABLE "Product" DROP CONSTRAINT synthetic_supplier_transfer_fail');}
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();

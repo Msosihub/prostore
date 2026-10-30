@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { containsContact } from "@/lib/chat-content-policy";
+import { containsContact } from "./chat-content-policy";
 export const shopSlug = z
   .string()
   .trim()
