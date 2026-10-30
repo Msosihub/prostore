@@ -3865,6 +3865,47 @@ test("release preflight rejects partial seller dedupe index and missing latest t
   expect(restored.every(r=>r.unique_index_present)).toBe(true);
 });
 
+
+import { legacyReviewQueue } from '@/lib/admin-legacy-review';
+test('legacy paid order is review-only while unrelated new order settles once', async () => {
+  const f = await fixture();
+  await prisma.order.update({where:{id:f.order.id},data:{isPaid:true}});
+  await prisma.user.update({where:{id:f.user.id},data:{role:'ADMIN'}});
+  auth.mockResolvedValue({user:{id:f.user.id}});
+  const before = await prisma.supplier.findUnique({where:{id:f.supplier.id}});
+  const queue = await legacyReviewQueue();
+  expect(queue.items.map(x=>x.id)).toEqual([f.order.id]);
+  await expect(confirmDelivery(f.order.id,f.product.id,{kind:'admin',userId:f.user.id})).rejects.toThrow('Escrow credit requires reconciliation');
+  await expect(fulfillOrder(f.order.id,attempt(f.order),'legacy-no-replay')).resolves.toBe(false);
+  expect(await prisma.supplier.findUnique({where:{id:f.supplier.id}})).toEqual(before);
+  expect(await prisma.supplierLedger.count()).toBe(0);
+  const fresh = await newOrder(f);
+  await Promise.all([fulfillOrder(fresh.id,attempt(fresh),'new-proof'),fulfillOrder(fresh.id,attempt(fresh),'new-proof')]);
+  expect(await prisma.supplierLedger.count()).toBe(1);
+  expect((await legacyReviewQueue()).items.map(x=>x.id)).toEqual([f.order.id]);
+  await prisma.user.update({where:{id:f.user.id},data:{role:'BUYER'}});
+  await expect(legacyReviewQueue()).rejects.toThrow('Unauthorized');
+});
+test('credit with canonical reference but wrong order cannot release funds', async()=>{
+  const f=await paidFixture();
+  const other=await newOrder(f);
+  await prisma.supplierLedger.updateMany({where:{orderId:f.order.id},data:{orderId:other.id}});
+  const before=await prisma.supplier.findUnique({where:{id:f.supplier.id}});
+  await expect(confirmDelivery(f.order.id,f.product.id,buyer(f))).rejects.toThrow('Escrow credit requires reconciliation');
+  expect(await prisma.supplier.findUnique({where:{id:f.supplier.id}})).toEqual(before);
+  expect(await releases()).toBe(0);
+});
+
+test('nonfinite legacy allocation stays visible and cannot release', async()=>{
+ const f=await paidFixture();
+ await prisma.user.update({where:{id:f.user.id},data:{role:'ADMIN'}});auth.mockResolvedValue({user:{id:f.user.id}});
+ await prisma.$executeRaw`UPDATE "OrderItem" SET price='NaN'::numeric WHERE "orderId"=${f.order.id}::uuid`;
+ await prisma.$executeRaw`UPDATE "SupplierLedger" SET amount='NaN'::numeric WHERE "orderId"=${f.order.id}::uuid`;
+ expect((await legacyReviewQueue()).items.map(x=>x.id)).toEqual([f.order.id]);
+ await expect(confirmDelivery(f.order.id,f.product.id,buyer(f))).rejects.toThrow('Escrow credit requires reconciliation');
+ expect(await releases()).toBe(0);
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();

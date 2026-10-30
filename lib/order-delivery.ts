@@ -1,4 +1,5 @@
 import "server-only";
+import { validEscrowCredit } from "@/lib/escrow-credit";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/db/prisma";
 import { queueOrderNotification } from "@/lib/order-notification-events";
@@ -64,14 +65,7 @@ export async function confirmDelivery(
         const credit = await tx.supplierLedger.findUnique({
           where: { reference: `ESCROW_CREDIT_${orderId}_${item.productId}` },
         });
-        if (
-          !credit ||
-          credit.supplierId !== item.supplierId ||
-          credit.type !== "ESCROW_CREDIT" ||
-          credit.status !== "COMPLETED" ||
-          !amount.equals(credit.amount) ||
-          !amount.greaterThan(0)
-        )
+        if (!validEscrowCredit(credit, item))
           throw new Error("Escrow credit requires reconciliation");
         const releaseReference = `ESCROW_RELEASE_${orderId}_${item.productId}`;
         if (
