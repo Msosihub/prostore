@@ -1,5 +1,7 @@
 # Provider and worker launch gates
 
+Current direction: see [production release path](production-release-path.md). The owner confirms live providers work; sandbox setup is optional, not a mandatory launch prerequisite. Earlier validation limits remain factual.
+
 ## Verified scope
 
 The synthetic hosted release at `99a7bcee209aa86cfd94233b9e1504ff90c49ed0` passed native Prisma, 188 database regressions, an optimized build and 17 loopback browser workflows. See `synthetic-hosted-refresh-results.md`. Payment and SMS transports were mocked. This is not provider acceptance, production PostgreSQL 17 acceptance or proof of an operating scheduler.

@@ -1,5 +1,7 @@
 # Catalog-only operational relaunch — not production activation
 
+Current direction: see [production release path](production-release-path.md). The owner confirms live providers work; sandbox setup is optional, not a mandatory launch prerequisite. Earlier validation limits remain factual.
+
 ## Latest owner clarification
 
 The owner confirmed all past transactions were trials, not customer records. Per-order historical reconciliation is no longer a launch gate for these records. Preserve the old database; carry only suppliers/products and dependencies forward. See [trial supplier/catalog transfer](trial-supplier-catalog-transfer.md) for the current executable preparation path and remaining real evidence requirements. Earlier historical-obligation precautions below describe the conservative original assessment; they do not require reconciling the now-confirmed trial transactions.

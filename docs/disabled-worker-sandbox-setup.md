@@ -1,5 +1,7 @@
 # Disabled worker entrypoint and SMS sandbox preparation
 
+Current direction: see [production release path](production-release-path.md). The owner confirms live providers work; sandbox setup is optional, not a mandatory launch prerequisite. Earlier validation limits remain factual.
+
 This change installs no credentials, scheduler or provider resources and performs no deployment. Existing SMS behavior remains live with the existing account/sender when AT_SMS_MODE is absent. Do not configure this in production as part of sandbox acceptance.
 
 ## Trusted worker contract
