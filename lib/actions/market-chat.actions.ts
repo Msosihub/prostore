@@ -10,8 +10,12 @@ export async function listMarketThreads(
 ) {
   return chat.safeChat(() => chat.listThreads(side, before, filters));
 }
-export async function loadMarketThread(id: string, before?: string) {
-  return chat.safeChat(() => chat.loadThread(id, before));
+export async function loadMarketThread(
+  id: string,
+  before?: string,
+  proposalId?: string,
+) {
+  return chat.safeChat(() => chat.loadThread(id, before, proposalId));
 }
 export async function sendMarketMessage(
   input: Parameters<typeof chat.sendMessage>[0],
@@ -38,4 +42,16 @@ export async function acceptMarketProposal(
 }
 export async function cancelMarketProposal(id: string) {
   return chat.safeChat(() => chat.cancelProposal(id));
+}
+
+export async function blockMarketThread(id: string, blocked: boolean) {
+  return chat.safeChat(() => chat.setThreadBlock(id, blocked));
+}
+export async function reportMarketThread(
+  input: Parameters<typeof chat.reportThread>[0],
+) {
+  return chat.safeChat(() => chat.reportThread(input));
+}
+export async function reviewMarketReport(id: string, decision: string) {
+  return chat.safeChat(() => chat.reviewChatReport(id, decision));
 }

@@ -1,5 +1,7 @@
 # Chat abuse controls and proposal history
 
+Subsequent report/block and older-proposal acceptance capabilities are documented in `chat-report-block.md`; the results below describe this earlier tranche.
+
 Native writes now apply database-backed safety budgets inside the existing serializable transactions: 60 new messages per sender/thread/minute and 240 per sender/hour across threads; 30 new proposals per thread/minute and 120 per seller/hour; 20 new threads per buyer/minute. Existing idempotency-key retries return the saved result before consuming budgets. These are initial application safety thresholds, not an external provider guarantee or per-IP perimeter limiter. Ordinary reads and order checkout are unchanged. An additive sender/time index supports message budget queries; no production migration was run.
 
 Message contact validation also examines the last three messages from the same sender in the same thread within five minutes, in chronological order, both separated and concatenated with the new text. It never combines another participant's message, exposes context in errors, logs rejected text or persists a rejected fragment. The bounded policy catches some split numbers/addresses, including concurrent attempts under serializable retries. It can still miss longer/covert obfuscations and can reject ambiguous numeric fragments; use structured quantity/price/address fields instead. Historical text is not rewritten. No perfect prevention is claimed.

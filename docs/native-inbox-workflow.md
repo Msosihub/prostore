@@ -1,5 +1,7 @@
 # Native inbox workflow and remaining integration boundaries
 
+Subsequent report/block and older-proposal acceptance capabilities are documented in `chat-report-block.md`; the results below describe this earlier tranche.
+
 Buyer/seller chat uses the native product-scoped inboxes and canonical-priced proposals. This tranche adds server-side product-name search across owned threads, and a live view of the 30 most recent unread threads. Normal/search history remains cursor-paginated; unread is explicitly bounded. Reading a selected thread clears its incoming unread state. The UI does not claim SMS, push, delivery acknowledgement, negotiated prices, attachments or working calls.
 
 Polling stops while hidden, does not start overlapping refreshes, and discards responses for superseded filters/threads. Existing interrupted-send idempotency, participant checks, contact validation and proposal/order invariants remain authoritative.

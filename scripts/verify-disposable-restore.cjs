@@ -71,6 +71,9 @@ function verifyRestore(container) {
     { input: dump },
   );
   const tables = [
+    "MarketBlock",
+    "MarketReport",
+    "MarketReportEvent",
     "UnmatchedPaymentNotice",
     "User",
     "Product",
@@ -107,6 +110,9 @@ function verifyRestore(container) {
   if (psql(source, constraints) !== psql(target, constraints))
     throw Error("Restored constraints mismatch");
   if (
+    counts.MarketBlock < 1 ||
+    counts.MarketReport < 1 ||
+    counts.MarketReportEvent < 1 ||
     counts.PaymentAttempt < 1 ||
     counts.UnmatchedPaymentNotice < 1 ||
     counts.OrderNotification < 3 ||

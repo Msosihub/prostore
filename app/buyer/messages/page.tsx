@@ -4,7 +4,7 @@ import MarketWorkspace from "@/components/market-chat/workspace";
 export default async function BuyerMessages({
   searchParams,
 }: {
-  searchParams: Promise<{ thread?: string }>;
+  searchParams: Promise<{ thread?: string; proposal?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/sign-in?callbackUrl=/buyer/messages");
@@ -12,6 +12,9 @@ export default async function BuyerMessages({
   return (
     <MarketWorkspace
       side="buyer"
+      initialProposal={
+        typeof params.proposal === "string" ? params.proposal : undefined
+      }
       initialId={typeof params.thread === "string" ? params.thread : undefined}
     />
   );

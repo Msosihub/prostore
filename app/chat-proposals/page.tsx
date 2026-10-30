@@ -49,6 +49,14 @@ export default async function ProposalHistory({
                   : "Linahitaji mapitio"}
             </p>
             <time>{p.createdAt.toISOString()}</time>
+            {p.status === "OPEN" && (
+              <Link
+                className="block underline"
+                href={`${inbox}?thread=${encodeURIComponent(params.thread!)}&proposal=${p.id}`}
+              >
+                Hakiki pendekezo hili
+              </Link>
+            )}
             {p.status === "ACCEPTED" && p.orderId && !data.isSeller && (
               <Link className="block underline" href={`/order/${p.orderId}`}>
                 Fungua agizo

@@ -12,6 +12,8 @@ import {
   reviewMarketProposal,
   acceptMarketProposal,
   cancelMarketProposal,
+  blockMarketThread,
+  reportMarketThread,
 } from "@/lib/actions/market-chat.actions";
 import type { ProposalSnapshot } from "@/lib/market-chat";
 import type {
@@ -33,11 +35,16 @@ const button =
 export default function MarketWorkspace({
   side,
   initialId,
+  initialProposal,
 }: {
   side: "buyer" | "seller";
   initialId?: string;
+  initialProposal?: string;
 }) {
   const router = useRouter();
+  const [selectedProposal, setSelectedProposal] = useState(initialProposal);
+  const [reportReason, setReportReason] = useState("CONTACT");
+  const reportKey = useRef<string | null>(null);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<{ query?: string; unread?: boolean }>(
     {},
@@ -99,7 +106,7 @@ export default function MarketWorkspace({
         }
       } else setError(list.error);
       if (!id) return;
-      const result = await loadMarketThread(id);
+      const result = await loadMarketThread(id, undefined, selectedProposal);
       if (active.current !== id || activeFilters.current !== filters) return;
       if (!result.ok) {
         setError(result.error);
@@ -149,7 +156,7 @@ export default function MarketWorkspace({
     } finally {
       refreshInFlight.current = false;
     }
-  }, [side, id, filters]);
+  }, [side, id, filters, selectedProposal]);
   useEffect(() => {
     let live = true;
     const run = () => {
@@ -170,6 +177,8 @@ export default function MarketWorkspace({
   function choose(next: string) {
     active.current = next;
     setId(next);
+    setSelectedProposal(undefined);
+    reportKey.current = null;
     setDetail(null);
     setReview(null);
     setContent("");
@@ -454,6 +463,93 @@ export default function MarketWorkspace({
             </p>
           ) : (
             <>
+              <section
+                aria-label="Usalama wa mazungumzo"
+                className="rounded-xl border bg-white p-4 space-y-3"
+              >
+                <p className="text-sm">
+                  Kuzuia kunasimamisha ujumbe na mapendekezo mapya kwenye
+                  mazungumzo haya tu. Historia, maagizo na migogoro bado
+                  vinapatikana.
+                </p>
+                {detail.blocked && (
+                  <p role="status">Mazungumzo haya yamezuiwa.</p>
+                )}
+                <button
+                  className="underline"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      const r = await blockMarketThread(
+                        id,
+                        !detail.blockedByMe,
+                      );
+                      if (!r.ok) setError(r.error);
+                      else {
+                        setDetail((old) =>
+                          old
+                            ? {
+                                ...old,
+                                blockedByMe: !old.blockedByMe,
+                                blocked: true,
+                              }
+                            : old,
+                        );
+                        await refresh();
+                      }
+                    })
+                  }
+                >
+                  {detail.blockedByMe
+                    ? "Ondoa kizuizi changu"
+                    : "Zuia mazungumzo haya"}
+                </button>
+                <label className="block text-sm">
+                  Sababu ya kuripoti
+                  <select
+                    className="block w-full rounded border p-2"
+                    value={reportReason}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setReportReason(e.target.value);
+                      reportKey.current = null;
+                    }}
+                  >
+                    <option value="CONTACT">Kushiriki mawasiliano</option>
+                    <option value="HARASSMENT">Unyanyasaji</option>
+                    <option value="PAYMENT">
+                      Maelekezo ya malipo yasiyo salama
+                    </option>
+                    <option value="OTHER">Tatizo jingine</option>
+                  </select>
+                </label>
+                <p className="text-xs">
+                  Taarifa mpya huhifadhi ujumbe 10 wa karibuni kwa ukaguzi wa
+                  wasimamizi. Hakuna SMS inayotumwa. Hii haifungui mgogoro wa
+                  agizo.
+                </p>
+                <button
+                  className={button}
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      reportKey.current ??= crypto.randomUUID();
+                      const r = await reportMarketThread({
+                        id: reportKey.current,
+                        threadId: id,
+                        reason: reportReason,
+                      });
+                      if (!r.ok) setError(r.error);
+                      else {
+                        reportKey.current = null;
+                        setStatus("Taarifa imehifadhiwa kwa ukaguzi.");
+                      }
+                    })
+                  }
+                >
+                  Ripoti mazungumzo
+                </button>
+              </section>
               <div className="rounded-xl border bg-white p-4">
                 <Link
                   href={
@@ -567,7 +663,10 @@ export default function MarketWorkspace({
                   className="w-full rounded-lg border p-2"
                   rows={3}
                 />
-                <button className={button} disabled={busy || !content.trim()}>
+                <button
+                  className={button}
+                  disabled={busy || detail.blocked || !content.trim()}
+                >
                   Tuma ujumbe
                 </button>
               </form>
@@ -597,13 +696,18 @@ export default function MarketWorkspace({
                     className="rounded border p-2 w-28"
                     disabled={busy}
                   />
-                  <button className={`${button} ml-2`} disabled={busy}>
+                  <button
+                    className={`${button} ml-2`}
+                    disabled={busy || detail.blocked}
+                  >
                     Tuma pendekezo
                   </button>
                 </form>
               )}
               <section aria-label="Mapendekezo ya mfumo" className="space-y-3">
-                <h2 className="font-semibold">Mapendekezo 20 ya karibuni</h2>
+                <h2 className="font-semibold">
+                  Mapendekezo ya karibuni na pendekezo lililochaguliwa
+                </h2>
                 <Link
                   className="underline text-sm"
                   href={`/chat-proposals?thread=${id}`}
