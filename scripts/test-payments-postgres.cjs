@@ -37,7 +37,7 @@ try {
     "POSTGRES_PASSWORD=local-test-only",
     "-e",
     "POSTGRES_DB=prostore_payment_test",
-    "postgres:16-alpine",
+    require("./postgres-test-image.cjs")(),
   ]);
   started = true;
   const binding = docker(["port", name, "5432/tcp"]);
