@@ -46,6 +46,18 @@ The first browser attempt exposed missing ProductVariant/Quote fixture tables, n
 
 The preparation command accepts either the direct snapshot object or exactly one SQL Editor result row: `[{"supplier_catalog_snapshot":"<JSON snapshot text>"}]` (an object-valued cell is also accepted). Extra result columns, multiple rows, malformed JSON and incomplete snapshots are refused. All representations produce the same reviewed snapshot digest. A successful Library read is useful for private inspection but does not establish a byte-verified local materialization; do not claim an actual import from an unreadable local file.
 
-If a product category disagrees with its subcategory's parent, preparation refuses it. Resolve through optional `categoryCorrections` in the review: an array of `{productId, categoryId, subcategoryId, reviewed:true}`. Each product may appear once, must exist in the exact digest-bound snapshot, and the resulting category/subcategory must satisfy the canonical hierarchy. Other fields, product IDs and slugs remain unchanged. This creates a reviewed target proposal only; it never mutates the source or invents a category. No corrections are inferred automatically or marked reviewed by the tool.
+If a product category disagrees with its subcategory's parent, preparation refuses it. Resolve through optional `categoryCorrections` in the review: an array of `{productId, categoryId, subcategoryId, reviewed:true}`. Each product may appear once, must exist in the exact digest-bound snapshot, and the resulting category/subcategory must satisfy the canonical hierarchy. Other fields, product IDs and slugs remain unchanged. This creates a reviewed target proposal only; it never mutates the source or invents a category. No corrections are applied automatically or marked reviewed by the tool; the optional draft command can propose structural corrections for review.
 
 Envelope/compatibility follow-up validation:530 unit/action tests and188 PostgreSQL17 integration tests passed, including the wrapped export path and unchanged legacy shop-ID routing. Migrated SQL chain and synthetic backup/restore passed; typecheck/lint passed with existing warnings. No application UI or provider logic changed, so the prior full transferred-catalog browser evidence remains prior evidence rather than a newly rerun browser result. Malformed wrapper test parameterization found during independent review was fixed before final pass. No actual owner snapshot was copied into this repository or imported.
+
+## Create a private review draft without inventing approvals
+
+```sh
+node scripts/supplier-catalog-prepare.cjs --draft /private/snapshot.json /private/NEW-review.json
+```
+
+The draft proposes using each selected subcategory's existing parent category when the product disagrees. This is a deterministic structural proposal, not proof that the selected subcategory is semantically correct. Missing/ambiguous identities or parent relationships refuse drafting. Consistent products are not changed. Source data is untouched.
+
+Every category proposal starts `reviewed:false`. `targetUserId` and `openingStock` start null, ownership/stock/completeness approvals false. The actual preparation command refuses this unfinished draft. Do not copy source stock, reuse synthetic test accounts or match owners by similar business names. Establish verified target ownership and actual opening stock through the approved workflow. The draft file is mode0600, never overwrites an existing file, and console output includes counts/digest only.
+
+Review-draft follow-up:539 unit/action tests, typecheck and lint passed; independent review found no blocker. This pure offline helper does not change importer/database/UI behavior. Prior188 PostgreSQL integration tests remain prior evidence, not a newly rerun database suite.
