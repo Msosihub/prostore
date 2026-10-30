@@ -213,6 +213,10 @@ async function prepare() {
   );
   for (const statement of migration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  for (const name of ["20261031010000_chat_sender_rate_index", "20261031020000_market_chat_safety"]) {
+    const sql=fs.readFileSync(path.join(__dirname,"../../prisma/migrations",name,"migration.sql"),"utf8");
+    for (const statement of sql.split(";")) if(statement.trim()) await prisma.$executeRawUnsafe(statement);
+  }
   // Fixture User already reflects the latest schema; exercise ALTER against its prior shape.
   await prisma.$executeRawUnsafe(
     'ALTER TABLE "User" DROP COLUMN "orderSmsEnabled"',

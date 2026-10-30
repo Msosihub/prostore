@@ -4256,6 +4256,78 @@ test("ambiguous adjacent numeric replies require structured pricing or rewording
  await market.sendMessage({id:marketId(),threadId:f.threadId,content:'Bei mpya ni 3000 TZS'});
 });
 
+test("participant blocks stop new writes, preserve retries and cannot be removed by the peer",async()=>{
+ const f=await marketFixture();const sent={id:marketId(),threadId:f.threadId,content:'Question'};await market.sendMessage(sent);
+ await market.setThreadBlock(f.threadId,true);
+ expect((await market.sendMessage(sent)).id).toBe(sent.id);
+ await expect(market.sendMessage({...sent,id:marketId()})).rejects.toThrow();
+ marketActor(f.seller);await market.setThreadBlock(f.threadId,false);
+ await expect(market.propose({id:marketId(),threadId:f.threadId,quantity:1})).rejects.toThrow();
+ expect((await market.loadThread(f.threadId)).blocked).toBe(true);
+ marketActor(f.user);await market.setThreadBlock(f.threadId,false);
+ await market.sendMessage({...sent,id:marketId()});
+ marketActor(f.outsider);await expect(market.setThreadBlock(f.threadId,true)).rejects.toThrow();
+});
+test("concurrent block and send leave subsequent writes blocked",async()=>{
+ const f=await marketFixture();await Promise.allSettled([market.setThreadBlock(f.threadId,true),market.sendMessage({id:marketId(),threadId:f.threadId,content:'Race'})]);
+ expect((await market.loadThread(f.threadId)).blockedByMe).toBe(true);
+ await expect(market.sendMessage({id:marketId(),threadId:f.threadId,content:'After block'})).rejects.toThrow();
+});
+test("reports deduplicate, freeze minimal evidence and staff review is audited once",async()=>{
+ const f=await marketFixture();await market.sendMessage({id:marketId(),threadId:f.threadId,content:'Report fixture'});
+ const input={id:marketId(),threadId:f.threadId,reason:'PAYMENT'};
+ const results=await Promise.all(Array.from({length:3},()=>market.reportThread(input)));
+ expect(new Set(results.map(r=>r.id)).size).toBe(1);expect(await prisma.marketReport.count()).toBe(1);
+ await market.sendMessage({id:marketId(),threadId:f.threadId,content:'Later message'});
+ await expect(market.listChatReports()).rejects.toThrow();
+ marketActor(f.outsider);await expect(market.reportThread({...input,id:marketId()})).rejects.toThrow();
+ await prisma.user.update({where:{id:f.outsider.id},data:{role:'ADMIN'}});
+ const report=await market.readChatReport(input.id);expect(report.evidence).toHaveLength(1);expect(JSON.stringify(report)).not.toContain('Later message');
+ await Promise.all(Array.from({length:3},()=>market.reviewChatReport(input.id,'FOLLOW_UP')));
+ expect(await prisma.marketReportEvent.count()).toBe(1);expect((await prisma.marketReport.findUnique({where:{id:input.id}})).status).toBe('REVIEWED');
+ await prisma.user.update({where:{id:f.outsider.id},data:{role:'BUYER'}});
+ await expect(market.readChatReport(input.id)).rejects.toThrow();await expect(market.reviewChatReport(input.id,'NO_ACTION')).rejects.toThrow();
+});
+test("older proposal selection stays thread scoped and acceptance remains idempotent after blocking",async()=>{
+ const f=await marketFixture();const p=await marketProposal(f);
+ const old=await prisma.marketProposal.findUnique({where:{id:p.id}});
+ await prisma.marketProposal.createMany({data:Array.from({length:21},()=>({id:marketId(),threadId:f.threadId,quantity:5,snapshot:old.snapshot,status:'CANCELLED'}))});
+ const detail=await market.loadThread(f.threadId,undefined,p.id);expect(detail.proposals.some(v=>v.id===p.id)).toBe(true);
+ await expect(market.loadThread(f.threadId,undefined,marketId())).rejects.toThrow();
+ await market.setThreadBlock(f.threadId,true);
+ const review=await market.reviewProposal(p.id);
+ const results=await Promise.all([market.acceptProposal({id:p.id,fingerprint:review.fingerprint}),market.acceptProposal({id:p.id,fingerprint:review.fingerprint})]);
+ expect(new Set(results.map(r=>r.orderId)).size).toBe(1);
+});
+
+test("anonymous safety actions never access reports or blocks",async()=>{
+ auth.mockResolvedValue(null);
+ await expect(market.setThreadBlock(marketId(),true)).rejects.toThrow();
+ await expect(market.reportThread({id:marketId(),threadId:marketId(),reason:'OTHER'})).rejects.toThrow();
+ await expect(market.listChatReports()).rejects.toThrow();
+ expect(await prisma.marketReport.count()).toBe(0);expect(await prisma.marketBlock.count()).toBe(0);
+});
+test("reviewed reports stay immutable while new reports and daily limits are enforced",async()=>{
+ const f=await marketFixture();const input={id:marketId(),threadId:f.threadId,reason:'OTHER'};
+ await market.reportThread(input);
+ await prisma.marketReport.update({where:{id:input.id},data:{status:'REVIEWED'}});
+ const next=await market.reportThread({...input,id:marketId()});expect(next.id).not.toBe(input.id);
+ await prisma.marketReport.update({where:{id:next.id},data:{status:'REVIEWED'}});
+ await prisma.marketReport.createMany({data:Array.from({length:8},()=>({id:marketId(),threadId:f.threadId,reporterId:f.user.id,reason:'OTHER',status:'REVIEWED',evidence:[]}))});
+ await expect(market.reportThread({...input,id:marketId()})).rejects.toThrow();
+ expect(await prisma.marketReport.count()).toBe(10);
+});
+
+test("conflicting concurrent staff decisions never falsely report both as saved",async()=>{
+ const f=await marketFixture();const r=await market.reportThread({id:marketId(),threadId:f.threadId,reason:'OTHER'});
+ await prisma.user.update({where:{id:f.outsider.id},data:{role:'ADMIN'}});marketActor(f.outsider);
+ const outcomes=await Promise.allSettled(['FOLLOW_UP','NO_ACTION'].map(d=>market.reviewChatReport(r.id,d)));
+ expect(outcomes.filter(o=>o.status==='fulfilled')).toHaveLength(1);
+ expect(outcomes.filter(o=>o.status==='rejected')).toHaveLength(1);
+ expect(await prisma.marketReportEvent.count()).toBe(1);
+ const report=await market.readChatReport(r.id);expect(report.reporterId).toBe(f.user.id);expect(report.threadId).toBe(f.threadId);
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();
@@ -4285,6 +4357,10 @@ if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
       quantity: 1,
       reason: "Synthetic restored review",
     });
+    const restoredThread=await prisma.marketThread.create({data:{buyerId:data.user.id,supplierId:data.supplier.id,productId:data.product.id}});
+    await prisma.marketBlock.create({data:{threadId:restoredThread.id,userId:data.user.id,blocked:true}});
+    const restoredReport=await prisma.marketReport.create({data:{id:marketId(),threadId:restoredThread.id,reporterId:data.user.id,reason:'OTHER',status:'REVIEWED',evidence:[{content:'Synthetic preserved evidence'}]}});
+    await prisma.marketReportEvent.create({data:{reportId:restoredReport.id,actorId:data.user.id,decision:'NO_ACTION'}});
     await applicant();
     await submitSellerApplication(applicationInput);
     expect(await prisma.sellerNotice.count()).toBe(1);

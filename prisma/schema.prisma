@@ -47,6 +47,9 @@ model VerificationToken {
 }
 
 model User {
+  marketBlocks MarketBlock[]
+  marketReports MarketReport[]
+  marketReportEvents MarketReportEvent[]
   moneyCases MoneyReviewCase[] @relation("MoneyCaseActor")
   moneyEvents MoneyReviewEvent[] @relation("MoneyEventActor")
   orderSmsEnabled Boolean @default(true)
@@ -1816,6 +1819,8 @@ enum PayoutStatus {
 
 // First-party commerce chat is isolated from legacy Chatwoot mirrors.
 model MarketThread {
+  blocks MarketBlock[]
+  reports MarketReport[]
   id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   buyerId String @db.Uuid
   supplierId String @db.Uuid
@@ -2023,4 +2028,38 @@ model UnmatchedPaymentNotice {
   occurrences      Int      @default(1)
 
   @@index([lastSeenAt, id])
+}
+
+model MarketBlock {
+ threadId String @db.Uuid
+ userId String @db.Uuid
+ blocked Boolean @default(true)
+ updatedAt DateTime @updatedAt @db.Timestamp(6)
+ thread MarketThread @relation(fields:[threadId],references:[id],onDelete:Restrict)
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ @@id([threadId,userId])
+}
+model MarketReport {
+ id String @id @db.Uuid
+ threadId String @db.Uuid
+ reporterId String @db.Uuid
+ reason String
+ evidence Json
+ status String @default("OPEN")
+ createdAt DateTime @default(now()) @db.Timestamp(6)
+ thread MarketThread @relation(fields:[threadId],references:[id],onDelete:Restrict)
+ reporter User @relation(fields:[reporterId],references:[id],onDelete:Restrict)
+ events MarketReportEvent[]
+ @@index([threadId,reporterId,status])
+ @@index([status,createdAt,id])
+ @@index([reporterId,createdAt])
+}
+model MarketReportEvent {
+ id String @id @default(uuid()) @db.Uuid
+ reportId String @db.Uuid
+ actorId String @db.Uuid
+ decision String
+ createdAt DateTime @default(now()) @db.Timestamp(6)
+ report MarketReport @relation(fields:[reportId],references:[id],onDelete:Restrict)
+ actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
 }

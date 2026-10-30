@@ -230,7 +230,11 @@ export async function listThreads(
     hasMore: rows.length > 30,
   };
 }
-export async function loadThread(id: string, before?: string) {
+export async function loadThread(
+  id: string,
+  before?: string,
+  proposalId?: string,
+) {
   const user = await actor();
   const data = await transaction((tx) => thread(tx, id, user));
   const where: Prisma.MarketMessageWhereInput = { threadId: data.id };
@@ -269,7 +273,27 @@ export async function loadThread(id: string, before?: string) {
       orderId: true,
     },
   });
+  if (proposalId && !proposals.some((p) => p.id === proposalId)) {
+    const selected = await prisma.marketProposal.findFirst({
+      where: { id: uuid.parse(proposalId), threadId: data.id },
+      select: {
+        id: true,
+        quantity: true,
+        snapshot: true,
+        status: true,
+        orderId: true,
+      },
+    });
+    if (!selected) return fail("Pendekezo halipatikani.");
+    proposals.push(selected);
+  }
+  const blocks = await prisma.marketBlock.findMany({
+    where: { threadId: data.id, blocked: true },
+    select: { userId: true },
+  });
   return {
+    blocked: blocks.length > 0,
+    blockedByMe: blocks.some((b) => b.userId === user.id),
     thread: visibleContext(data),
     messages: messages.slice(0, 50).reverse(),
     hasOlder: messages.length > 50,
@@ -308,6 +332,7 @@ export async function sendMessage(input: {
         return fail("Ombi hili tayari limetumika. Tuma ujumbe mpya.");
       return { id: existing.id };
     }
+    await assertChatOpen(tx, value.threadId);
     // Serializable predicate reads prevent concurrent unique sends exceeding the budget.
     const now = Date.now();
     const [recentCount, hourlyCount, recent] = await Promise.all([
@@ -427,6 +452,7 @@ export async function propose(input: {
         return fail("Ombi hili tayari limetumika.");
       return { id: existing.id };
     }
+    await assertChatOpen(tx, value.threadId);
     const proposalsThisMinute = await tx.marketProposal.count({
       where: {
         threadId: value.threadId,
@@ -627,4 +653,160 @@ export async function proposalHistory(id: string, before?: string) {
     hasMore: rows.length > 20,
     isSeller: data.supplier.userId === user.id,
   };
+}
+
+async function assertChatOpen(tx: Tx, threadId: string) {
+  if (await tx.marketBlock.count({ where: { threadId, blocked: true } }))
+    return fail("Mazungumzo yamezuiwa. Historia na maagizo bado vinapatikana.");
+}
+export async function setThreadBlock(id: string, blocked: boolean) {
+  const user = await actor();
+  z.boolean().parse(blocked);
+  return transaction(async (tx) => {
+    await thread(tx, id, user);
+    await tx.marketBlock.upsert({
+      where: { threadId_userId: { threadId: id, userId: user.id } },
+      create: { threadId: id, userId: user.id, blocked },
+      update: { blocked },
+    });
+    // Serialize with sends/proposals so a stale transaction cannot bypass a block.
+    await tx.marketThread.update({
+      where: { id },
+      data: { updatedAt: new Date() },
+    });
+    return { blocked };
+  });
+}
+export async function reportThread(input: {
+  id: string;
+  threadId: string;
+  reason: string;
+}) {
+  const user = await actor();
+  const v = z
+    .object({
+      id: uuid,
+      threadId: uuid,
+      reason: z.enum(["CONTACT", "HARASSMENT", "PAYMENT", "OTHER"]),
+    })
+    .strict()
+    .parse(input);
+  return transaction(async (tx) => {
+    await thread(tx, v.threadId, user);
+    const sameId = await tx.marketReport.findUnique({ where: { id: v.id } });
+    if (sameId) {
+      if (
+        sameId.reporterId !== user.id ||
+        sameId.threadId !== v.threadId ||
+        sameId.reason !== v.reason
+      )
+        return fail("Ombi hili tayari limetumika.");
+      return { id: sameId.id };
+    }
+    const existing = await tx.marketReport.findFirst({
+      where: { threadId: v.threadId, reporterId: user.id, status: "OPEN" },
+      select: { id: true },
+    });
+    if (existing) return existing;
+    if (
+      (await tx.marketReport.count({
+        where: {
+          reporterId: user.id,
+          createdAt: { gte: new Date(Date.now() - 86400000) },
+        },
+      })) >= 10
+    )
+      return fail("Umefikia kikomo cha taarifa kwa leo.");
+    const evidence = await tx.marketMessage.findMany({
+      where: { threadId: v.threadId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 10,
+      select: { id: true, senderId: true, content: true, createdAt: true },
+    });
+    await tx.marketReport.create({
+      data: {
+        ...v,
+        reporterId: user.id,
+        evidence: JSON.parse(JSON.stringify(evidence)),
+      },
+    });
+    return { id: v.id };
+  });
+}
+export async function listChatReports(before?: string) {
+  const user = await actor();
+  if (user.role !== "ADMIN") return fail("Huna ruhusa.");
+  const where: Prisma.MarketReportWhereInput = {};
+  if (before) {
+    const c = await prisma.marketReport.findUnique({
+      where: { id: uuid.parse(before) },
+      select: { id: true, createdAt: true },
+    });
+    if (!c) return fail("Haipatikani.");
+    where.OR = [
+      { createdAt: { lt: c.createdAt } },
+      { createdAt: c.createdAt, id: { lt: c.id } },
+    ];
+  }
+  const rows = await prisma.marketReport.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 31,
+    select: { id: true, reason: true, status: true, createdAt: true },
+  });
+  return { items: rows.slice(0, 30), hasMore: rows.length > 30 };
+}
+export async function readChatReport(id: string) {
+  const user = await actor();
+  if (user.role !== "ADMIN") return fail("Huna ruhusa.");
+  return prisma.marketReport.findUnique({
+    where: { id: uuid.parse(id) },
+    select: {
+      id: true,
+      threadId: true,
+      reporterId: true,
+      reason: true,
+      status: true,
+      createdAt: true,
+      evidence: true,
+      events: {
+        orderBy: { createdAt: "asc" },
+        select: { decision: true, createdAt: true },
+      },
+    },
+  });
+}
+export async function reviewChatReport(id: string, decision: string) {
+  const user = await actor();
+  uuid.parse(id);
+  z.enum(["FOLLOW_UP", "NO_ACTION"]).parse(decision);
+  return transaction(async (tx) => {
+    const current = await tx.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+    if (current?.role !== "ADMIN") return fail("Huna ruhusa.");
+    const report = await tx.marketReport.findUnique({ where: { id } });
+    if (!report) return fail("Haipatikani.");
+    if (report.status === "REVIEWED") {
+      const saved = await tx.marketReportEvent.findFirst({
+        where: { reportId: id },
+        orderBy: { createdAt: "desc" },
+        select: { decision: true },
+      });
+      if (saved?.decision !== decision)
+        return fail(
+          "Taarifa hii imepitiwa kwa uamuzi mwingine. Pakia upya kabla ya kuendelea.",
+        );
+      return { reviewed: true, decision: saved.decision };
+    }
+    await tx.marketReport.update({
+      where: { id },
+      data: { status: "REVIEWED" },
+    });
+    await tx.marketReportEvent.create({
+      data: { reportId: id, actorId: user.id, decision },
+    });
+    return { reviewed: true };
+  });
 }

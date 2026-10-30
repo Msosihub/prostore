@@ -426,13 +426,25 @@ async function until(check) {
         .count(),
       0,
     );
+    const originalProposal = await prisma.marketProposal.findFirst({
+      where: { threadId: first.id, status: "ACCEPTED" },
+    });
+    const oldOpen = await prisma.marketProposal.create({
+      data: {
+        id: randomUUID(),
+        threadId: first.id,
+        quantity: originalProposal.quantity,
+        snapshot: originalProposal.snapshot,
+        createdAt: new Date("2000-01-01T00:00:00Z"),
+      },
+    });
     await prisma.marketProposal.createMany({
       data: Array.from({ length: 24 }, () => ({
         id: randomUUID(),
         threadId: first.id,
         quantity: 2,
         status: "CANCELLED",
-        snapshot: {},
+        snapshot: originalProposal.snapshot,
       })),
     });
     await bp.goto(state.baseUrl + "/chat-proposals?thread=" + first.id);
@@ -442,13 +454,92 @@ async function until(check) {
     assert.equal(await bp.locator("main ol > li").count(), 20);
     await bp.getByRole("link", { name: "Ya awali", exact: true }).click();
     await bp.waitForURL((url) => url.searchParams.has("before"));
-    assert.equal(await bp.locator("main ol > li").count(), 5);
+    assert.equal(await bp.locator("main ol > li").count(), 6);
     await bp.screenshot({
       path: state.stage + "/proposal-history-mobile.png",
       fullPage: true,
     });
+    await bp
+      .getByRole("link", { name: "Hakiki pendekezo hili", exact: true })
+      .click();
+    await bp.waitForURL(
+      (url) => url.searchParams.get("proposal") === oldOpen.id,
+    );
+    await bp
+      .getByRole("button", { name: "Zuia mazungumzo haya", exact: true })
+      .click();
+    await bp
+      .getByRole("button", { name: "Ondoa kizuizi changu", exact: true })
+      .waitFor();
+    await bp
+      .getByRole("button", { name: "Ripoti mazungumzo", exact: true })
+      .click();
+    await bp
+      .getByText("Taarifa imehifadhiwa kwa ukaguzi.", { exact: true })
+      .waitFor();
+    assert.equal(
+      await prisma.marketReport.count({ where: { threadId: first.id } }),
+      1,
+    );
+    await bp
+      .getByRole("button", { name: "Hakiki pendekezo", exact: true })
+      .click();
+    await bp
+      .getByRole("button", { name: "Kubali na unda agizo", exact: true })
+      .click();
+    await until(
+      async () =>
+        !!(
+          await prisma.marketProposal.findUnique({ where: { id: oldOpen.id } })
+        ).orderId,
+    );
+    assert.equal(
+      await prisma.marketBlock.count({
+        where: { threadId: first.id, blocked: true },
+      }),
+      1,
+    );
     await vp.goto(state.baseUrl + "/chat-proposals?thread=" + first.id);
     assert.equal(await vp.locator("main ol > li").count(), 0);
+    const report = await prisma.marketReport.findFirst({
+      where: { threadId: first.id },
+    });
+    await prisma.user.create({
+      data: {
+        name: "Synthetic Chat Reviewer",
+        phone: "+255700000009",
+        role: "ADMIN",
+        onboarded: true,
+      },
+    });
+    const ac = await context(),
+      ap = await ac.newPage();
+    await ap.goto(state.baseUrl + "/sign-in?callbackUrl=/admin/chat-reports");
+    await ap.locator("#identifier").fill("+255700000009");
+    await ap.getByRole("button", { name: "Tuma Msimbo wa OTP" }).click();
+    await ap.locator("#otp").waitFor();
+    const adminOtp = await prisma.verificationToken.findFirst({
+      where: { identifier: "+255700000009" },
+    });
+    await ap.locator("#otp").fill(adminOtp.token);
+    await ap
+      .getByRole("button", { name: "Thibitisha na Uingie Sokoni" })
+      .click();
+    await ap.waitForURL((url) => url.pathname === "/admin/chat-reports");
+    await ap.goto(state.baseUrl + "/admin/chat-reports/" + report.id);
+    await ap
+      .getByRole("button", { name: "Record review", exact: true })
+      .click();
+    await ap.getByText(/Review recorded/).waitFor();
+    assert.equal(
+      await prisma.marketReportEvent.count({ where: { reportId: report.id } }),
+      1,
+    );
+    await ap.screenshot({
+      path: state.stage + "/chat-report-admin-mobile.png",
+      fullPage: true,
+    });
+
     console.log(
       "PASS first-party buyer/two-seller inbox isolation, contact rejection, interrupted-send reload retry, paged unread history, canonical proposal → explicit acceptance → separate mocked payment/one escrow credit",
     );
