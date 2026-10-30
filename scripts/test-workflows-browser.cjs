@@ -243,7 +243,7 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       if (i === 119) throw Error("Staging server startup timed out");
       await new Promise((r) => setTimeout(r, 500));
     }
-    for (const test of [
+    const scenarios = [
       "storefront-seo",
       "credibility",
       "discovery",
@@ -259,9 +259,12 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       "catalog-otp",
       "seller-shops",
       "legacy-review",
-    ])
+    ];
+    const selected = process.env.PROSTORE_BROWSER_SCENARIOS?.split(",") ?? scenarios;
+    if (selected.some(name => !scenarios.includes(name))) throw Error("Unknown browser scenario");
+    for (const test of selected)
       await run(path.join(root, "tests/browser", test + ".cjs"), driverEnv);
-    console.log("PASS all disposable browser workflow assertions");
+    console.log("PASS selected disposable browser workflows:", selected.join(", "));
   } finally {
     if (server) {
       try {
