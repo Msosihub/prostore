@@ -17,8 +17,15 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     const otherVendor = await prisma.user.create({
       data: { name: "Private unrelated vendor", role: "SUPPLIER" },
     });
-    const own = await prisma.conversation.create({
-      data: {
+    const own = await prisma.conversation.upsert({
+      where: {
+        buyerId_supplierId: {
+          buyerId: state.fixture.buyer,
+          supplierId: state.fixture.vendor,
+        },
+      },
+      update: {},
+      create: {
         buyerId: state.fixture.buyer,
         supplierId: state.fixture.vendor,
         productId: state.fixture.product,
@@ -68,6 +75,8 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     const page = await buyer.newPage();
     page.setDefaultTimeout(60000);
     await page.goto(state.baseUrl + "/buyer/chat");
+    await page.waitForURL((url) => url.pathname === "/buyer/messages");
+    await page.goto(state.baseUrl + "/chat-history?thread=" + own.id);
     await page
       .getByText("Participant-visible vendor message", { exact: true })
       .last()
@@ -120,22 +129,24 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     const vpage = await vendor.newPage();
     vpage.setDefaultTimeout(60000);
     await vpage.goto(state.baseUrl + "/supplier/messages");
-    const seen = vpage.waitForResponse(
-      (r) =>
-        r.url().endsWith("/api/chat/mark-seen") &&
-        r.request().method() === "POST",
+    await vpage.waitForURL(
+      (url) => url.pathname === "/supplier/marketplace-chat",
     );
-    await vpage.getByRole("button", { name: /Test Buyer/ }).click();
-    assert.equal((await seen).status(), 200);
+    await vpage.goto(state.baseUrl + "/chat-history?thread=" + own.id);
     await vpage
       .getByText("Participant-visible buyer message", { exact: true })
       .last()
       .waitFor();
     assert.equal(
       (await prisma.message.findUnique({ where: { id: incoming.id } })).seen,
-      true,
+      false,
     );
-    assert.equal(await prisma.message.count({ where: { seen: true } }), 1);
+    await vpage.goto(state.baseUrl + "/chat-history?thread=" + foreign.id);
+    assert(
+      !(await vpage.locator("body").innerText()).includes(
+        "private-foreign-message-fixture",
+      ),
+    );
     assert.equal(
       (
         await vendor.request.post(state.baseUrl + "/api/inquiries", {
@@ -190,7 +201,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       401,
     );
     console.log(
-      "PASS participant buyer/supplier chat UI, minimal polling payloads, scoped seen mutation and buyer-owned inquiry; unrelated/anonymous denied",
+      "PASS participant read-only archive and redirects, minimal polling payloads and buyer-owned inquiry; unrelated/anonymous denied",
     );
   } finally {
     await browser.close();

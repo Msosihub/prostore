@@ -40,8 +40,8 @@ const supplierNavigationRoutes = [
     icon: MessageSquare,
   },
   {
-    title: "Chatwoot (Awali)",
-    href: "/supplier/messages",
+    title: "Historia ya mazungumzo",
+    href: "/chat-history",
     icon: MessageSquare,
   },
   {

@@ -302,13 +302,12 @@ export default function MarketWorkspace({
         </p>
         <Link
           className="text-sm underline"
-          href={side === "seller" ? "/supplier/messages" : "/buyer/chat"}
+          href="/chat-history"
         >
-          Mazungumzo ya awali (Chatwoot)
+          Historia ya mazungumzo (kusoma tu)
         </Link>
         <p className="text-xs text-slate-500">
-          Kizuizi kipya cha mawasiliano kinatumika hapa; huduma ya awali
-          haijabadilishwa.
+          Historia ya awali ni ya kusoma tu. Tuma ujumbe mpya hapa.
         </p>
       </header>
       <p className="rounded-xl bg-amber-50 p-3 text-sm">
