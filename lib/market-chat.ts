@@ -143,6 +143,26 @@ export async function startThread(productId: string) {
       product.supplier.userId === user.id
     )
       return fail("Chagua bidhaa ya muuzaji mwingine anayepatikana.");
+    const existing = await tx.marketThread.findUnique({
+      where: {
+        buyerId_supplierId_productId: {
+          buyerId: user.id,
+          supplierId: product.supplierId,
+          productId,
+        },
+      },
+      select: { id: true },
+    });
+    if (existing) return existing;
+    if (
+      (await tx.marketThread.count({
+        where: {
+          buyerId: user.id,
+          createdAt: { gte: new Date(Date.now() - 60000) },
+        },
+      })) >= 20
+    )
+      return fail("Mazungumzo mapya mengi. Subiri dakika moja.");
     const result = await tx.marketThread.upsert({
       where: {
         buyerId_supplierId_productId: {
@@ -288,6 +308,38 @@ export async function sendMessage(input: {
         return fail("Ombi hili tayari limetumika. Tuma ujumbe mpya.");
       return { id: existing.id };
     }
+    // Serializable predicate reads prevent concurrent unique sends exceeding the budget.
+    const now = Date.now();
+    const [recentCount, hourlyCount, recent] = await Promise.all([
+      tx.marketMessage.count({
+        where: {
+          threadId: value.threadId,
+          senderId: user.id,
+          createdAt: { gte: new Date(now - 60000) },
+        },
+      }),
+      tx.marketMessage.count({
+        where: {
+          senderId: user.id,
+          createdAt: { gte: new Date(now - 3600000) },
+        },
+      }),
+      tx.marketMessage.findMany({
+        where: {
+          threadId: value.threadId,
+          senderId: user.id,
+          createdAt: { gte: new Date(now - 300000) },
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 3,
+        select: { content: true },
+      }),
+    ]);
+    if (recentCount >= 60 || hourlyCount >= 240)
+      return fail("Umetuma ujumbe mwingi. Subiri kidogo kisha ujaribu tena.");
+    const context = [...recent.reverse().map((m) => m.content), value.content];
+    if (containsContact(context.join(" ")) || containsContact(context.join("")))
+      return fail(contactPolicyMessage);
     const result = await tx.marketMessage.create({
       data: { ...value, senderId: user.id },
       select: { id: true },
@@ -375,6 +427,20 @@ export async function propose(input: {
         return fail("Ombi hili tayari limetumika.");
       return { id: existing.id };
     }
+    const proposalsThisMinute = await tx.marketProposal.count({
+      where: {
+        threadId: value.threadId,
+        createdAt: { gte: new Date(Date.now() - 60000) },
+      },
+    });
+    const proposalsThisHour = await tx.marketProposal.count({
+      where: {
+        thread: { supplier: { userId: user.id } },
+        createdAt: { gte: new Date(Date.now() - 3600000) },
+      },
+    });
+    if (proposalsThisMinute >= 30 || proposalsThisHour >= 120)
+      return fail("Mapendekezo mengi. Subiri dakika moja kisha ujaribu tena.");
     const snapshot = await canonicalQuote(tx, data, value.quantity);
     if (
       containsContact(snapshot.item.name) ||
@@ -526,4 +592,39 @@ export async function cancelProposal(id: string) {
     });
     return { success: true };
   });
+}
+
+// Historical proposal browsing never creates orders or changes prices.
+export async function proposalHistory(id: string, before?: string) {
+  const user = await actor();
+  const data = await transaction((tx) => thread(tx, id, user));
+  const where: Prisma.MarketProposalWhereInput = { threadId: data.id };
+  if (before) {
+    const cursor = await prisma.marketProposal.findFirst({
+      where: { id: uuid.parse(before), threadId: data.id },
+      select: { id: true, createdAt: true },
+    });
+    if (!cursor) return fail("Pendekezo halipatikani.");
+    where.OR = [
+      { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+    ];
+  }
+  const rows = await prisma.marketProposal.findMany({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 21,
+    select: {
+      id: true,
+      createdAt: true,
+      quantity: true,
+      status: true,
+      orderId: true,
+    },
+  });
+  return {
+    items: rows.slice(0, 20),
+    hasMore: rows.length > 20,
+    isSeller: data.supplier.userId === user.id,
+  };
 }

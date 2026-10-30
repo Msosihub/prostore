@@ -18,7 +18,7 @@ The existing isolated preview proves a rehearsal, not an actual production backu
 
 ## 3. Schema and runtime
 
-Verify the 55-migration manifest against the target's actual history. On the approved EMPTY target apply the complete reviewed chain using the native runtime. Never reset, db-push, edit applied checksums or blindly mark migrations applied. For populated targets use the separate baseline/adoption procedure; this clean-start package does not authorize in-place conversion.
+Verify the migration manifest against the target's actual history. On the approved EMPTY target apply the complete reviewed chain using the native runtime. Never reset, db-push, edit applied checksums or blindly mark migrations applied. For populated targets use the separate baseline/adoption procedure; this clean-start package does not authorize in-place conversion.
 
 Run runtime/release preflight SQL and verify expected schema/constraints, then a full native target build and non-chargeable page/auth checks. Keep migration/build identity tied to the manifest. Confirm account roles, seller ownership, inventory, domain/canonical URLs and callback origin. The exact candidate's newly added packaging/redirect fixes still need native target deployment validation; earlier native staging evidence must not be relabeled as that pass.
 

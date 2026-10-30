@@ -1841,6 +1841,7 @@ model MarketMessage {
   thread MarketThread @relation(fields: [threadId], references: [id])
   sender User @relation(fields: [senderId], references: [id])
   @@index([threadId, createdAt, id])
+  @@index([senderId, createdAt])
 }
 model MarketProposal {
   id String @id @db.Uuid

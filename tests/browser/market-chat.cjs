@@ -416,7 +416,7 @@ async function until(check) {
     assert.equal(
       await sp
         .getByRole("navigation", { name: "Mazungumzo" })
-        .getByRole("button", {name: /Test Item/})
+        .getByRole("button", { name: /Test Item/ })
         .count(),
       32,
     );
@@ -426,6 +426,29 @@ async function until(check) {
         .count(),
       0,
     );
+    await prisma.marketProposal.createMany({
+      data: Array.from({ length: 24 }, () => ({
+        id: randomUUID(),
+        threadId: first.id,
+        quantity: 2,
+        status: "CANCELLED",
+        snapshot: {},
+      })),
+    });
+    await bp.goto(state.baseUrl + "/chat-proposals?thread=" + first.id);
+    await bp
+      .getByRole("heading", { name: "Historia ya mapendekezo" })
+      .waitFor();
+    assert.equal(await bp.locator("main ol > li").count(), 20);
+    await bp.getByRole("link", { name: "Ya awali", exact: true }).click();
+    await bp.waitForURL((url) => url.searchParams.has("before"));
+    assert.equal(await bp.locator("main ol > li").count(), 5);
+    await bp.screenshot({
+      path: state.stage + "/proposal-history-mobile.png",
+      fullPage: true,
+    });
+    await vp.goto(state.baseUrl + "/chat-proposals?thread=" + first.id);
+    assert.equal(await vp.locator("main ol > li").count(), 0);
     console.log(
       "PASS first-party buyer/two-seller inbox isolation, contact rejection, interrupted-send reload retry, paged unread history, canonical proposal → explicit acceptance → separate mocked payment/one escrow credit",
     );
