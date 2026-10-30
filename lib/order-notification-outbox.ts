@@ -1,3 +1,4 @@
+import { assertDryRun } from "@/lib/worker-options";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/db/prisma";
@@ -189,6 +190,7 @@ export async function notificationBatch({
   dryRun = true,
   limit = 20,
 }: { dryRun?: boolean; limit?: number } = {}) {
+  assertDryRun(dryRun);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50)
     throw new Error("Invalid batch size");
   const now = new Date();
@@ -321,6 +323,7 @@ export async function notificationRetention({
   olderThan: Date;
   limit?: number;
 }) {
+  assertDryRun(dryRun);
   if (
     !Number.isFinite(olderThan.getTime()) ||
     olderThan.getTime() > Date.now() - 90 * 86400000 ||

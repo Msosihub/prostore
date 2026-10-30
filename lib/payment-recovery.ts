@@ -1,3 +1,4 @@
+import { assertDryRun } from "@/lib/worker-options";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -276,6 +277,7 @@ export async function reconciliationBatch({
   dryRun = true,
   limit = 20,
 }: { dryRun?: boolean; limit?: number } = {}) {
+  assertDryRun(dryRun);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50)
     throw new Error("Invalid batch size");
   const attempts = await prisma.paymentAttempt.findMany({
