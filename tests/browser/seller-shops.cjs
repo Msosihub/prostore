@@ -52,7 +52,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       .waitFor();
     assert.equal(
       await page.locator("link[rel=canonical]").getAttribute("href"),
-      state.baseUrl + "/sell",
+      (state.publicOrigin || state.baseUrl) + "/sell",
     );
     assert(
       (

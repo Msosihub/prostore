@@ -56,6 +56,7 @@ export default function RootLayout({
         >
           <SessionProvider>
             <OperationalBookNotice />
+            <aside aria-label="Synthetic demo notice" className="bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-950">DEMO · Synthetic sellers and products. Stock, payments and SMS are simulated; no real purchase or message is sent.</aside>
             {/* Unified full-bleed wrapper system layer handling layouts natively */}
             <div className="flex-1 flex flex-col w-full">{children}</div>
             <MarketplaceFooter />

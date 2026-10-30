@@ -1,0 +1,5 @@
+.env*
+abc
+abc.pub
+*.pem
+*.key

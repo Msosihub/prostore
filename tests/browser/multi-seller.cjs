@@ -31,7 +31,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await p.goto(state.baseUrl + "/sign-in?callbackUrl=" + path);
     await p.locator("#identifier").fill(phone);
     await p.getByRole("button", { name: "Tuma Msimbo wa OTP" }).click();
-    await p.locator("#otp").waitFor();
+    await p.locator("#otp").filter({ visible: true }).waitFor();
     const otp = await prisma.verificationToken.findFirst({
       where: { identifier: phone },
     });
@@ -89,7 +89,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       await page.getByRole("button", { name: "Weka Kikapuni" }).click();
       await page
         .getByText("Bidhaa imewekwa kwenye kikapu chako.", { exact: true })
-        .waitFor();
+        .filter({ visible: true }).waitFor();
     }
     const cart = await prisma.cart.findFirst({
       where: { userId: state.fixture.buyer },
@@ -123,7 +123,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     );
     await vp
       .getByRole("heading", { name: "Haujapatikana", exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     assert.equal(await vp.getByText("Test Item", { exact: true }).count(), 0);
     const payments = JSON.parse(
       fs.readFileSync(state.stage + "/payments.json"),
@@ -161,7 +161,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await vp.goto(
       state.baseUrl + `/supplier/orders/${order.id}?productId=${original.id}`,
     );
-    await vp.getByText("Test Item", { exact: true }).waitFor();
+    await vp.getByText("Test Item", { exact: true }).filter({ visible: true }).waitFor();
     let text = await vp.locator("body").innerText();
     assert(!text.includes("Second Seller Item"));
     assert(!text.includes("Changed profile marker"));
@@ -186,7 +186,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     );
     await vp
       .getByRole("heading", { name: "Haujapatikana", exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     assert.equal(
       await vp.getByText("Second Seller Item", { exact: true }).count(),
       0,
@@ -195,7 +195,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await vb.p.goto(
       state.baseUrl + `/supplier/orders/${order.id}?productId=${second.id}`,
     );
-    await vb.p.getByText("Second Seller Item", { exact: true }).waitFor();
+    await vb.p.getByText("Second Seller Item", { exact: true }).filter({ visible: true }).waitFor();
     assert(!(await vb.p.locator("body").innerText()).includes("SELLER-A-001"));
     await vb.p.getByRole("button", { name: "Dispatch", exact: true }).click();
     await vb.p
@@ -207,10 +207,10 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await page.goto(state.baseUrl + "/order/" + order.id);
     await page
       .getByText("Manual reference SELLER-A-001", { exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     await page
       .getByText("Manual reference SELLER-B-002", { exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     await page
       .getByRole("button", {
         name: "Nimepokea Bidhaa Hii: Test Item",
@@ -231,7 +231,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       .click();
     await page.getByRole("dialog").waitFor({ state: "hidden" });
     await page.reload();
-    await page.getByRole("status").filter({ hasText: "1/2" }).waitFor();
+    await page.getByRole("status").filter({ hasText: "1/2" }).filter({ visible: true }).waitFor();
     assert.equal(
       (await prisma.order.findUnique({ where: { id: order.id } })).isDelivered,
       false,
@@ -272,19 +272,19 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     });
     const admin = await login("+255700000004", "/admin/orders");
     await admin.p.goto(state.baseUrl + "/admin/orders/" + order.id);
-    await admin.p.getByText("Test Item", { exact: true }).waitFor();
-    await admin.p.getByText("Second Seller Item", { exact: true }).waitFor();
+    await admin.p.getByText("Test Item", { exact: true }).filter({ visible: true }).waitFor();
+    await admin.p.getByText("Second Seller Item", { exact: true }).filter({ visible: true }).waitFor();
     await admin.p
       .getByText("Ombi la tatizo/kurudisha: REQUESTED", { exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     await admin.p
       .getByText("Tatizo lililoripotiwa: Second shipment issue", {
         exact: true,
       })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     await admin.p
       .getByText("Tathmini baada ya kupokea: 5/5", { exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     await admin.p.screenshot({
       path: state.stage + "/multi-seller-admin-mobile.png",
     });
@@ -292,18 +292,18 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     const ownCard = page
       .locator('a[href="/order/' + order.id + '"]')
       .filter({ hasText: "Zilizopokelewa: 1/2" });
-    await ownCard.first().waitFor();
+    await ownCard.first().filter({ visible: true }).waitFor();
     await page.screenshot({
       path: state.stage + "/buyer-partial-summary-mobile.png",
     });
     await vb.p.goto(state.baseUrl + "/supplier/overview");
     await vb.p
       .getByText("Thamani ya Bidhaa Zilizolipiwa", { exact: true })
-      .waitFor();
-    const dashboard = await vb.p.locator("main").innerText();
+      .filter({ visible: true }).waitFor();
+    const dashboard = await vb.p.locator("main:visible").innerText();
     assert(!dashboard.includes("3121359"));
     assert(!dashboard.includes("Staging Vendor"));
-    await vb.p.locator(".recharts-bar-rectangle path").first().waitFor();
+    await vb.p.locator(".recharts-bar-rectangle path").first().filter({ visible: true }).waitFor();
     await vb.p.waitForFunction(() => {
       const bar = document.querySelector(".recharts-bar-rectangle path");
       return bar && bar.getBoundingClientRect().height > 10;
@@ -333,19 +333,19 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     );
     await admin.p
       .getByRole("heading", { name: "Payment recovery", exact: true })
-      .waitFor();
-    await admin.p.getByText("Page 1 of 1", { exact: false }).waitFor();
+      .filter({ visible: true }).waitFor();
+    await admin.p.getByText("Page 1 of 1", { exact: false }).filter({ visible: true }).waitFor();
     const selectedAttempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { orderId: order.id } });
-    await admin.p.locator(`a[href="/admin/payments/${selectedAttempt.id}"]`).click();
+    await admin.p.locator(`a[href="/admin/payments/${selectedAttempt.id}"]`).filter({ visible: true }).click();
     await admin.p
       .getByRole("heading", { name: "Payment attempt", exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     await admin.p
       .getByRole("button", { name: "Check existing payment", exact: true })
       .click();
     await admin.p
       .getByText("Payment confirmed and order recorded.", { exact: true })
-      .waitFor();
+      .filter({ visible: true }).waitFor();
     assert.equal(
       await admin.p.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,
@@ -356,7 +356,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       .locator("#admin-content")
       .screenshot({ path: state.stage + "/payment-recovery-mobile.png" });
     await admin.p.goto(state.baseUrl + "/admin");
-    await admin.p.getByRole("heading", { name: "Operations overview" }).waitFor();
+    await admin.p.getByRole("heading", { name: "Operations overview" }).filter({ visible: true }).waitFor();
     assert.equal(await admin.p.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-operations-mobile.png" });
     await admin.p.setViewportSize({ width: 1280, height: 900 });
@@ -365,13 +365,13 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.getByLabel("Product name or full order ID").fill(order.id);
     await admin.p.getByLabel("Payment / fulfillment").selectOption("paid");
     await admin.p.getByRole("button", { name: "Apply filters" }).click();
-    await admin.p.getByRole("link", { name: "Order #" + order.id.slice(0, 8), exact: true }).waitFor();
+    await admin.p.getByRole("link", { name: "Order #" + order.id.slice(0, 8), exact: true }).filter({ visible: true }).waitFor();
     await admin.p.getByLabel("Product name or full order ID").fill("missing-admin-synthetic");
     await admin.p.getByRole("button", { name: "Apply filters" }).click();
-    await admin.p.getByRole("status").getByText("No orders match these filters.").waitFor();
+    await admin.p.getByRole("status").getByText("No orders match these filters.").filter({ visible: true }).waitFor();
     await admin.p.getByRole("link", { name: "Disputes", exact: true }).click();
-    await admin.p.getByRole("heading", { name: "Disputes and returns" }).waitFor();
-    await admin.p.getByRole("link", { name: "Review order #" + order.id.slice(0, 8) }).waitFor();
+    await admin.p.getByRole("heading", { name: "Disputes and returns" }).filter({ visible: true }).waitFor();
+    await admin.p.getByRole("link", { name: "Review order #" + order.id.slice(0, 8) }).filter({ visible: true }).waitFor();
     await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-disputes-desktop.png" });
     assert.equal((await buyer.request.post(state.baseUrl + "/api/admin/brands", { data: { name: "blocked" } })).status(), 403);
     console.log("PASS admin overview/mobile layout, canonical order filtering/empty recovery, dispute queue and buyer mutation denial");
@@ -379,43 +379,43 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     const document = await prisma.supplierDocument.create({ data: { supplierId: documentProduct.supplierId, label: "Synthetic review package", name: "Demo", type: "License", description: "Review both demo pages", fileUrl: "https://example.test/one", files: ["https://example.test/one", "https://example.test/two"] } });
     await prisma.supplierDocument.create({ data: { supplierId: documentProduct.supplierId, label: "Rejected demo package", name: "Demo", fileUrl: "", rejectionReason: "Synthetic rejection" } });
     await admin.p.getByRole("link", { name: "Documents", exact: true }).click();
-    await admin.p.getByText("Synthetic review package", { exact: false }).waitFor();
+    await admin.p.getByText("Synthetic review package", { exact: false }).filter({ visible: true }).waitFor();
     assert.equal(await admin.p.getByText("Rejected demo package", { exact: false }).count(), 0);
     assert.equal(await admin.p.getByRole("link", { name: /Open attachment/ }).count(), 2);
-    await admin.p.getByText("Review both demo pages", { exact: true }).waitFor();
+    await admin.p.getByText("Review both demo pages", { exact: true }).filter({ visible: true }).waitFor();
     await admin.p.getByRole("button", { name: "Approve document", exact: true }).click();
-    await admin.p.getByRole("status").getByText("No documents match these filters.").waitFor();
+    await admin.p.getByRole("status").getByText("No documents match these filters.").filter({ visible: true }).waitFor();
     assert.equal((await prisma.supplierDocument.findUnique({ where: { id: document.id } })).verified, true);
     assert.equal(await prisma.auditLog.count({ where: { entityId: document.id, action: "DOCUMENT_APPROVED" } }), 1);
     await admin.p.getByLabel("Document status").selectOption("rejected");
     await admin.p.getByRole("button", { name: "Apply filters" }).click();
-    await admin.p.getByText("Rejected demo package", { exact: false }).waitFor();
+    await admin.p.getByText("Rejected demo package", { exact: false }).filter({ visible: true }).waitFor();
     console.log("PASS admin document pending/rejected filters, multiple attachments and confirmed decision with persisted audit");
     const queuedSms = await prisma.orderNotification.findFirst({where:{orderId:order.id,state:"QUEUED"}});
     assert(queuedSms);
     await prisma.orderNotification.update({where:{id:queuedSms.id},data:{state:"UNKNOWN",attempts:1,reason:"SYNTHETIC_TIMEOUT"}});
     await admin.p.goto(state.baseUrl+"/admin/notifications?status=UNKNOWN");
-    await admin.p.getByRole("heading",{name:"Order notification outbox",exact:true}).waitFor();
+    await admin.p.getByRole("heading",{name:"Order notification outbox",exact:true}).filter({ visible: true }).waitFor();
     assert(await admin.p.getByRole("button",{name:"Queue reviewed retry"}).isDisabled());
     await admin.p.getByRole("checkbox").check();
     const refreshedNotificationPage = admin.p.waitForRequest(request => request.method() === "GET" && request.isNavigationRequest() && new URL(request.url()).pathname === "/admin/notifications" && new URL(request.url()).searchParams.get("status") === "UNKNOWN");
     await admin.p.getByRole("button",{name:"Queue reviewed retry"}).click();
     await refreshedNotificationPage;
-    await admin.p.getByRole("status").getByText("No matching notifications.",{exact:true}).waitFor();
+    await admin.p.getByRole("status").getByText("No matching notifications.",{exact:true}).filter({ visible: true }).waitFor();
     assert.equal((await prisma.orderNotification.findUnique({where:{id:queuedSms.id}})).state,"QUEUED");
     await admin.p.setViewportSize({width:390,height:844});
     await admin.p.goto(state.baseUrl+"/admin/notifications?q="+order.id);
-    await admin.p.getByRole("heading",{name:"Order notification outbox",exact:true}).waitFor();
+    await admin.p.getByRole("heading",{name:"Order notification outbox",exact:true}).filter({ visible: true }).waitFor();
     assert.equal(await admin.p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await admin.p.locator("#admin-content").screenshot({path:state.stage+"/order-notifications-mobile.png"});
     await page.goto(state.baseUrl+"/user/notifications");
     await page.getByRole("checkbox",{name:"Receive transactional order SMS"}).uncheck();
     await page.getByRole("button",{name:"Save SMS preference"}).click();
-    await page.getByRole("status").getByText("Order SMS disabled.",{exact:false}).waitFor();
+    await page.getByRole("status").getByText("Order SMS disabled.",{exact:false}).filter({ visible: true }).waitFor();
     assert.equal((await prisma.user.findUnique({where:{id:state.fixture.buyer}})).orderSmsEnabled,false);
     await page.getByRole("checkbox",{name:"Receive transactional order SMS"}).check();
     await page.getByRole("button",{name:"Save SMS preference"}).click();
-    await page.getByRole("status").getByText("Order SMS enabled.",{exact:false}).waitFor();
+    await page.getByRole("status").getByText("Order SMS enabled.",{exact:false}).filter({ visible: true }).waitFor();
     console.log("PASS admin outbox unknown acknowledgement/requeue without sends, mobile layout, buyer SMS opt-out/opt-in persistence");
     await vp.goto(state.baseUrl + "/supplier/withdrawals");
     await vp.getByLabel("Amount (TZS)").fill("100.00");
@@ -429,7 +429,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     };
     await vp.route("**/supplier/withdrawals", dropMoneyResponse);
     await vp.getByRole("button", {name:"Submit review request"}).click();
-    await vp.getByRole("status").getByText("Connection interrupted.",{exact:false}).waitFor();
+    await vp.getByRole("status").getByText("Connection interrupted.",{exact:false}).filter({ visible: true }).waitFor();
     assert(droppedMoneyResponse); assert.equal(await prisma.moneyReviewCase.count({where:{kind:"WITHDRAWAL"}}),1);
     await vp.unroute("**/supplier/withdrawals", dropMoneyResponse);
     await vp.reload();
@@ -437,7 +437,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await vp.getByLabel("Reason (no bank details or private contact information)").fill("Synthetic seller withdrawal review");
     await vp.getByRole("checkbox").check();
     await vp.getByRole("button", {name:"Submit review request"}).click();
-    await vp.getByRole("status").getByText("Review case saved.",{exact:false}).waitFor();
+    await vp.getByRole("status").getByText("Review case saved.",{exact:false}).filter({ visible: true }).waitFor();
     const withdrawalCase = await prisma.moneyReviewCase.findFirst({where:{kind:"WITHDRAWAL"}});
     assert(withdrawalCase); assert.equal(withdrawalCase.amount.toString(),"100");
     assert.equal(await prisma.moneyReviewCase.count({where:{kind:"WITHDRAWAL"}}),1);
@@ -452,7 +452,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.getByLabel("Decision reason").fill("Synthetic approval retains hold only");
     await admin.p.getByRole("checkbox").check();
     await admin.p.getByRole("button",{name:"Save decision"}).click();
-    await admin.p.getByRole("status").getByText("Review case saved.",{exact:false}).waitFor();
+    await admin.p.getByRole("status").getByText("Review case saved.",{exact:false}).filter({ visible: true }).waitFor();
     assert.equal((await prisma.moneyReviewCase.findUnique({where:{id:withdrawalCase.id}})).state,"APPROVED");
     await page.goto(state.baseUrl+"/user/refunds");
     await page.getByLabel("Paid order item").selectOption(order.id+":"+original.id);
@@ -460,7 +460,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await page.getByLabel("Reason (no bank details or private contact information)").fill("Synthetic delivered item refund review");
     await page.getByRole("checkbox").check();
     await page.getByRole("button",{name:"Submit review request"}).click();
-    await page.getByRole("status").getByText("Review case saved.",{exact:false}).waitFor();
+    await page.getByRole("status").getByText("Review case saved.",{exact:false}).filter({ visible: true }).waitFor();
     const refundCase = await prisma.moneyReviewCase.findFirst({where:{kind:"REFUND"}});
     assert(refundCase); assert.equal(refundCase.orderId,order.id);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -471,14 +471,14 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.getByLabel("Decision reason").fill("Synthetic allocation review required");
     await admin.p.getByRole("checkbox").check();
     await admin.p.getByRole("button",{name:"Save decision"}).click();
-    await admin.p.getByRole("status").getByText("Review case saved.",{exact:false}).waitFor();
+    await admin.p.getByRole("status").getByText("Review case saved.",{exact:false}).filter({ visible: true }).waitFor();
     assert.equal(await admin.p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
     await admin.p.locator("#admin-content").screenshot({path:state.stage+"/money-review-admin-mobile.png"});
     await vp.goto(state.baseUrl+"/supplier/withdrawals/"+withdrawalCase.id);
     await vp.getByLabel("Decision reason").fill("Synthetic seller cancels reservation");
     await vp.getByRole("checkbox").check();
     await vp.getByRole("button",{name:"Save decision"}).click();
-    await vp.getByText("CANCELLED",{exact:true}).first().waitFor();
+    await vp.getByText("CANCELLED",{exact:true}).first().filter({ visible: true }).waitFor();
     assert.equal((await prisma.moneyReviewCase.findUnique({where:{id:withdrawalCase.id}})).state,"CANCELLED");
     assert.equal(await prisma.supplierLedger.count({where:{type:{in:["PAYOUT","REFUND"]}}}),0);
     console.log("PASS seller withdrawal reservation/admin review/owner cancellation, cross-seller detail isolation, buyer delivered-item refund review with execution gated, mobile layouts; no money movement");

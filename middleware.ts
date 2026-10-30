@@ -12,6 +12,12 @@ export const middleware: NextMiddleware = async (request, event) => {
     demoOrigin(request.nextUrl.hostname)
   )
     response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  // Rehearsal branch only: prevent browser-side third-party network activity.
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+  );
+  response.headers.set("X-Nimboya-Environment", "synthetic-staging");
   return response;
 };
 export const config = {
