@@ -14,7 +14,7 @@ const { catalogLaunchPlan } = require("@/lib/catalog-launch");
 const { visibleSeller } = require("@/lib/catalog-visibility");
 // Deliberately not a production migration or server action. Only the established
 // disposable harness target is accepted; never reads a source DATABASE_URL.
-async function rehearseCatalogLaunch(input) {
+async function executeCatalogLaunch(input, transfer) {
   assertTarget();
   const plan = catalogLaunchPlan(input);
   if (
@@ -65,7 +65,55 @@ async function rehearseCatalogLaunch(input) {
         })
       )
         throw Error("Existing balances must not be changed");
-      for (const mapping of plan.data.suppliers) {
+      if (transfer) {
+        if (await tx.supplier.count())
+          throw Error("Supplier target must be empty");
+        for (const profile of transfer.suppliers) {
+          const user = await tx.user.findUnique({
+            where: { id: profile.targetUserId },
+          });
+          if (
+            !user ||
+            user.role !== "SUPPLIER" ||
+            !user.phoneVerified ||
+            !/^\+255[67]\d{8}$/.test(user.phone || "")
+          )
+            throw Error("Verified target seller account required");
+          const {
+            sourceUserId,
+            targetUserId,
+            ownershipReviewed,
+            ...publicProfile
+          } = profile;
+          void sourceUserId;
+          void ownershipReviewed;
+          await tx.supplier.create({
+            data: {
+              ...publicProfile,
+              userId: targetUserId,
+              createdAt: new Date(publicProfile.createdAt),
+              // Required legacy column; deliberately no copied private contact.
+              email: `${profile.id}@seller.invalid`,
+              isVerified: false,
+              pendingBalance: 0,
+              walletBalance: 0,
+              rating: 0,
+              deliveryRate: 0,
+              registration: {
+                create: {
+                  state: "PENDING",
+                  smsConsent: false,
+                  phoneDigest: require("node:crypto")
+                    .createHash("sha256")
+                    .update(user.phone)
+                    .digest("hex"),
+                },
+              },
+            },
+          });
+        }
+      }
+      for (const mapping of transfer ? [] : plan.data.suppliers) {
         const s = await tx.supplier.findFirst({
           where: { id: mapping.targetId, ...visibleSeller },
           include: { user: true },
@@ -79,8 +127,21 @@ async function rehearseCatalogLaunch(input) {
           throw Error("Seller ownership and verification required");
       }
       for (const row of plan.data.brands) await tx.brand.create({ data: row });
-      for (const row of plan.data.categories)
-        await tx.category.create({ data: row });
+      // Snapshot order is not parent order. Validated acyclic trees are inserted
+      // topologically so child IDs sorting before their parents do not fail.
+      const remaining = new Map(
+        plan.data.categories.map((row) => [row.id, row]),
+      );
+      while (remaining.size) {
+        const ready = [...remaining.values()].filter(
+          (row) => !row.parentId || !remaining.has(row.parentId),
+        );
+        if (!ready.length) throw Error("Category dependency cycle");
+        for (const row of ready) {
+          await tx.category.create({ data: row });
+          remaining.delete(row.id);
+        }
+      }
       for (const row of plan.data.subcategories)
         await tx.subcategory.create({ data: row });
       for (const p of plan.data.products) {
@@ -109,7 +170,8 @@ async function rehearseCatalogLaunch(input) {
       for (const row of plan.data.tiers)
         await tx.productPricing.create({ data: row });
       return {
-        digest: plan.digest,
+        digest: transfer?.digest || plan.digest,
+        pendingSuppliers: transfer?.suppliers.length || 0,
         products: plan.data.products.length,
         importedHistoricalTransactions: 0,
         productionExecutionEnabled: false,
@@ -119,4 +181,15 @@ async function rehearseCatalogLaunch(input) {
   );
 }
 
-module.exports = { rehearseCatalogLaunch };
+async function rehearseCatalogLaunch(input) {
+  return executeCatalogLaunch(input);
+}
+async function rehearseSupplierCatalogTransfer(input) {
+  assertTarget();
+  const transfer =
+    require("@/lib/supplier-catalog-transfer").supplierCatalogTransferPlan(
+      input,
+    );
+  return executeCatalogLaunch(transfer.catalog.data, transfer);
+}
+module.exports = { rehearseCatalogLaunch, rehearseSupplierCatalogTransfer };

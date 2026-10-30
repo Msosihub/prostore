@@ -1,5 +1,9 @@
 # Catalog-only operational relaunch — not production activation
 
+## Latest owner clarification
+
+The owner confirmed all past transactions were trials, not customer records. Per-order historical reconciliation is no longer a launch gate for these records. Preserve the old database; carry only suppliers/products and dependencies forward. See [trial supplier/catalog transfer](trial-supplier-catalog-transfer.md) for the current executable preparation path and remaining real evidence requirements. Earlier historical-obligation precautions below describe the conservative original assessment; they do not require reconciling the now-confirmed trial transactions.
+
 ## Decision
 
 Prefer a new, fully migrated operational database over an in-place cutoff. Existing code relates orders, ledger credits, supplier balances, returns and chat across shared tables; hiding old orders by date would not isolate wallet balances, stock commitments or late callbacks. A new database can retain the catalog while keeping new financial movements separate. It does not erase historical obligations or make legacy funds available in the new book.

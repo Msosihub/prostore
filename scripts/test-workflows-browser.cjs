@@ -166,7 +166,7 @@ const freePort = () =>
       .readFileSync(fixtureFile, "utf8")
       .replace(
         '  "User",',
-        '  "Cart", "Review", "Account", "Session", "Certification", "Banner", "BannerItem", "SupplierPolicy", "ProductComment", "Notification", \n  "User",',
+        '  "ProductVariant", "Quote", "Cart", "Review", "Account", "Session", "Certification", "Banner", "BannerItem", "SupplierPolicy", "ProductComment", "Notification", \n  "User",',
       )
       .replace(
         "defaultValue.startsWith",
@@ -202,6 +202,8 @@ const freePort = () =>
       PROSTORE_CHROMIUM: process.env.PROSTORE_CHROMIUM || "/usr/bin/chromium",
     };
     await run(path.join(root, "tests/browser/seed.cjs"), driverEnv);
+    if (process.env.PROSTORE_BROWSER_SUPPLIER_TRANSFER === "1")
+      await run(path.join(root, "tests/browser/transfer-seed.cjs"), driverEnv);
     // This delayed route exists only inside the disposable QA copy, never in the app source.
     const loadingRoute = path.join(stage, "app/qa-loading");
     fs.mkdirSync(loadingRoute, { recursive: true });
@@ -245,6 +247,7 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       await new Promise((r) => setTimeout(r, 500));
     }
     const scenarios = [
+      ...(process.env.PROSTORE_BROWSER_SUPPLIER_TRANSFER === "1" ? ["transfer-approval"] : []),
       "storefront-seo",
       "credibility",
       "discovery",
