@@ -10,6 +10,7 @@ export default async function Payments({
   return (
     <section className="space-y-4">
       <h1 className="text-2xl font-bold">Payment recovery</h1>
+      <Link className="underline" href="/admin/payments/legacy">Legacy escrow review queue</Link>
       <p>
         Provider confirmation and inventory / escrow settlement are separate.
         Review never means refunded. No automatic recharge or refund is
