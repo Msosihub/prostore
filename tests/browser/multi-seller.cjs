@@ -353,14 +353,14 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       false,
     );
     await admin.p
-      .locator("#admin-content")
+      .locator("#admin-content").filter({ visible: true })
       .screenshot({ path: state.stage + "/payment-recovery-mobile.png" });
     await admin.p.goto(state.baseUrl + "/admin");
     await admin.p.getByRole("heading", { name: "Operations overview" }).filter({ visible: true }).waitFor();
     assert.equal(await admin.p.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-    await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-operations-mobile.png" });
+    await admin.p.locator("#admin-content").filter({ visible: true }).screenshot({ path: state.stage + "/admin-operations-mobile.png" });
     await admin.p.setViewportSize({ width: 1280, height: 900 });
-    await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-operations-desktop.png" });
+    await admin.p.locator("#admin-content").filter({ visible: true }).screenshot({ path: state.stage + "/admin-operations-desktop.png" });
     await admin.p.getByRole("link", { name: "Orders", exact: true }).click();
     await admin.p.getByLabel("Product name or full order ID").fill(order.id);
     await admin.p.getByLabel("Payment / fulfillment").selectOption("paid");
@@ -372,7 +372,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.getByRole("link", { name: "Disputes", exact: true }).click();
     await admin.p.getByRole("heading", { name: "Disputes and returns" }).filter({ visible: true }).waitFor();
     await admin.p.getByRole("link", { name: "Review order #" + order.id.slice(0, 8) }).filter({ visible: true }).waitFor();
-    await admin.p.locator("#admin-content").screenshot({ path: state.stage + "/admin-disputes-desktop.png" });
+    await admin.p.locator("#admin-content").filter({ visible: true }).screenshot({ path: state.stage + "/admin-disputes-desktop.png" });
     assert.equal((await buyer.request.post(state.baseUrl + "/api/admin/brands", { data: { name: "blocked" } })).status(), 403);
     console.log("PASS admin overview/mobile layout, canonical order filtering/empty recovery, dispute queue and buyer mutation denial");
     const documentProduct = await prisma.product.findUnique({ where: { id: state.fixture.product } });
@@ -407,7 +407,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.goto(state.baseUrl+"/admin/notifications?q="+order.id);
     await admin.p.getByRole("heading",{name:"Order notification outbox",exact:true}).filter({ visible: true }).waitFor();
     assert.equal(await admin.p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await admin.p.locator("#admin-content").screenshot({path:state.stage+"/order-notifications-mobile.png"});
+    await admin.p.locator("#admin-content").filter({ visible: true }).screenshot({path:state.stage+"/order-notifications-mobile.png"});
     await page.goto(state.baseUrl+"/user/notifications");
     await page.getByRole("checkbox",{name:"Receive transactional order SMS"}).uncheck();
     await page.getByRole("button",{name:"Save SMS preference"}).click();
@@ -473,7 +473,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.getByRole("button",{name:"Save decision"}).click();
     await admin.p.getByRole("status").getByText("Review case saved.",{exact:false}).filter({ visible: true }).waitFor();
     assert.equal(await admin.p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    await admin.p.locator("#admin-content").screenshot({path:state.stage+"/money-review-admin-mobile.png"});
+    await admin.p.locator("#admin-content").filter({ visible: true }).screenshot({path:state.stage+"/money-review-admin-mobile.png"});
     await vp.goto(state.baseUrl+"/supplier/withdrawals/"+withdrawalCase.id);
     await vp.getByLabel("Decision reason").fill("Synthetic seller cancels reservation");
     await vp.getByRole("checkbox").check();
