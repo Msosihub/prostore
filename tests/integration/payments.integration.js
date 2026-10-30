@@ -4137,6 +4137,34 @@ test("payment health excludes settled and future attempts like the dry-run worke
   }
 });
 
+import { POST as workerPost } from "@/app/api/internal/workers/[queue]/route";
+test("authenticated worker entrypoint preserves dry-run and dispatches one durable notification", async () => {
+  const keys = ["NIMBOYA_WORKER_SECRET", "NIMBOYA_ORDER_WORKER_MODE"];
+  const saved = keys.map(key => process.env[key]);
+  try {
+    const data = await fixture();
+    await fulfillOrder(data.order.id, attempt(data.order), "verified");
+    const before = await prisma.orderNotification.count({ where: { state: "QUEUED" } });
+    expect(before).toBeGreaterThan(0);
+    process.env.NIMBOYA_WORKER_SECRET = "synthetic-worker-secret-for-integration";
+    process.env.NIMBOYA_ORDER_WORKER_MODE = "dry-run";
+    const call = () => workerPost(new Request("https://example.invalid/api/internal/workers/orders", {
+      method: "POST", headers: { authorization: `Bearer ${process.env.NIMBOYA_WORKER_SECRET}` },
+    }), { params: Promise.resolve({ queue: "orders" }) });
+    expect(await (await call()).json()).toEqual({ queue: "orders", mode: "dry-run", examined: 1 });
+    expect(await prisma.orderNotification.count({ where: { state: "QUEUED" } })).toBe(before);
+    expect(sendSms).not.toHaveBeenCalled();
+    sendSms.mockImplementation(async to => acceptedSms(to));
+    process.env.NIMBOYA_ORDER_WORKER_MODE = "execute";
+    expect((await call()).status).toBe(200);
+    expect(sendSms).toHaveBeenCalledTimes(1);
+    expect(await prisma.orderNotification.count({ where: { state: "ACCEPTED" } })).toBe(1);
+    expect(await prisma.orderNotification.count({ where: { state: "QUEUED" } })).toBe(before - 1);
+  } finally {
+    keys.forEach((key, i) => { if (saved[i] === undefined) delete process.env[key]; else process.env[key] = saved[i]; });
+  }
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();
