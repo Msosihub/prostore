@@ -1,6 +1,6 @@
 # Nimboya production candidate and cutover package
 
-Use the complete reviewed candidate tree identified by its exact manifest SHA, not individual feature commits and not `test/hosted-*`. This branch includes the accumulated marketplace changes. Its PR compares only the final integration delta to the preceding branch for review; deploying a partial stack is unsupported. This package authorizes no infrastructure operation by itself.
+Use the complete reviewed candidate tree identified by its exact manifest SHA, not individual feature commits and not `test/hosted-*`. This branch includes the accumulated marketplace changes. The consolidated launch PR targets main and contains the whole reviewed stack; deploying a partial stack is unsupported. This package authorizes no infrastructure operation by itself.
 
 ## 1. Freeze the reviewed candidate
 
