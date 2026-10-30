@@ -17,6 +17,10 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
         ? route.continue()
         : route.abort(),
     );
+    const health = await context.request.get(state.baseUrl + "/api/health/live");
+    assert.equal(health.status(), 200);
+    assert.deepEqual(await health.json(), { status: "ok" });
+    assert.equal(health.headers()["cache-control"], "no-store");
     const retired = await context.request.post(state.baseUrl + "/api/auth/send-sms", {
       data: { to: "+255700000000", message: "must not send" },
     });

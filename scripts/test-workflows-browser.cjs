@@ -108,6 +108,7 @@ const freePort = () =>
       HOME: stage,
       NODE_ENV: "production",
       NEXT_TELEMETRY_DISABLED: "1",
+      NIMBOYA_IMMUTABLE_RELEASE: process.env.PROSTORE_BROWSER_IMMUTABLE_RELEASE === "1" ? "true" : "false",
       DATABASE_URL: url,
       PROSTORE_TEST_DATABASE_URL: url,
       PROSTORE_TEST_CLIENT: client,
