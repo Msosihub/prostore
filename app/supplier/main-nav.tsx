@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 const links = [
   {
@@ -18,8 +18,8 @@ const links = [
     href: "/supplier/orders",
   },
   {
-    title: "SMS",
-    href: "/supplier/messages",
+    title: "Mazungumzo",
+    href: "/supplier/marketplace-chat",
   },
   // {
   //   title: "Users",
@@ -33,24 +33,6 @@ const MainNav = ({
 }: React.HTMLAttributes<HTMLElement>) => {
   const pathname = usePathname();
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [smsUnread, setSmsUnread] = useState(0);
-
-  useEffect(() => {
-    const load = async () => {
-      const res = await fetch("/api/chat/supplier/unread-count");
-      if (!res.ok) return;
-
-      const data = await res.json();
-      setSmsUnread(data.count || 0);
-    };
-
-    load();
-    const interval = setInterval(load, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <nav
       className={cn("flex items-center space-x-4 lg:space-x-6", className)}
@@ -62,17 +44,11 @@ const MainNav = ({
           href={item.href}
           className={cn(
             "text-sm font-medium transition-colors hover:text-primary",
-            pathname.includes(item.href) ? "" : "text-muted-foreground"
+            pathname.includes(item.href) ? "" : "text-muted-foreground",
           )}
         >
           <span className="relative inline-flex items-center gap-1">
             {item.title}
-
-            {item.href === "/supplier/messages" && smsUnread > 0 && (
-              <span className="min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">
-                {smsUnread > 99 ? "99+" : smsUnread}
-              </span>
-            )}
           </span>
         </Link>
       ))}

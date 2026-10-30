@@ -46,6 +46,40 @@ async function until(check) {
       sp = await seller.newPage();
     bp.setDefaultTimeout(60000);
     sp.setDefaultTimeout(60000);
+    await bp.goto(state.baseUrl + "/buyer/chat");
+    await bp.waitForURL((url) => url.pathname === "/buyer/messages");
+    await sp.goto(state.baseUrl + "/supplier/messages");
+    await sp.waitForURL((url) => url.pathname === "/supplier/marketplace-chat");
+    const legacy = await prisma.conversation.upsert({
+      where: {
+        buyerId_supplierId: {
+          buyerId: state.fixture.buyer,
+          supplierId: state.fixture.vendor,
+        },
+      },
+      update: {},
+      create: {
+        buyerId: state.fixture.buyer,
+        supplierId: state.fixture.vendor,
+      },
+    });
+    await prisma.message.create({
+      data: {
+        conversationId: legacy.id,
+        senderId: state.fixture.buyer,
+        content: "Archived text <script>alert(1)</script>",
+      },
+    });
+    await bp.goto(state.baseUrl + "/chat-history?thread=" + legacy.id);
+    await bp
+      .getByText("Archived text <script>alert(1)</script>", { exact: true })
+      .waitFor();
+    assert.equal(await bp.locator("main textarea").count(), 0);
+    assert.equal(await bp.locator("main input").count(), 0);
+    await bp.screenshot({
+      path: state.stage + "/chat-history-mobile.png",
+      fullPage: true,
+    });
     await bp.goto(state.baseUrl + "/product/test-item");
     await bp
       .getByRole("button", {
@@ -323,8 +357,8 @@ async function until(check) {
         },
       });
     const callbacks = await Promise.all([callback(), callback()]);
-    assert(callbacks.some(r => r.ok()));
-    assert(callbacks.every(r => [200, 503].includes(r.status())));
+    assert(callbacks.some((r) => r.ok()));
+    assert(callbacks.every((r) => [200, 503].includes(r.status())));
     assert.equal((await callback()).status(), 200);
     assert.equal(
       await prisma.supplierLedger.count({
