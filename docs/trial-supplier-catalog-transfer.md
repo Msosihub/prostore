@@ -1,5 +1,19 @@
 # Supplier/product-only restart after owner clarification
 
+## Test-catalog clarification — 2026-10-30
+
+The owner subsequently confirmed that suppliers and products are test data too. **The original export, individual category approval, real owner mapping and verified inventory are not blockers for synthetic staging.** Preserve the source database; do not copy its private account fields or claim an exact verified transfer. The production importer remains unavailable and real merchant onboarding/inventory checks remain necessary before a real commerce launch.
+
+The disposable browser rehearsal now deliberately creates a synthetic category/subcategory mismatch, uses the existing subcategory parent as the reviewed test correction, maps only its own generated seller accounts, and assigns explicitly simulated stock (30 product units,2 variant units). It checks that the original snapshot is unchanged, the imported hierarchy and supplier binding are correct, and unfinished review drafts are still rejected. No private export rows are used. All pages in the temporary app carry a DEMO notice covering synthetic catalog, simulated inventory/payments/SMS; the production layout is not modified.
+
+Run the approved fixture flow without any export, external credentials or production connection:
+
+```sh
+PROSTORE_TEST_PG_MAJOR=17 PROSTORE_BROWSER_SUPPLIER_TRANSFER=1 PROSTORE_BROWSER_SCENARIOS=transfer-approval,flow,cart,payment,delivery,multi-seller,market-chat npm run test:workflows:browser
+```
+
+This starts a loopback-only app and disposable PostgreSQL database, captures synthetic screenshots, then stops both. It is not a publicly accessible deployment. The older protected hosted staging deployment is separately tracked and must not be described as updated by a local test run. The sections below retain the stricter exact-transfer procedure for when that is actually needed; they are not prerequisites to this synthetic demo.
+
 ## Current decision
 
 The owner confirmed all past transactions were trials, not actual customer data. Individual historical-order financial reconciliation is therefore **not a launch gate**. This supersedes the earlier conservative reconciliation requirement for these trial records. Preserve the old database recoverably; do not delete it, replay trial settlements, transfer trial balances, or use callbacks as proof of new orders. Unmatched callback retention remains necessary for stray trial notifications.
@@ -61,3 +75,5 @@ The draft proposes using each selected subcategory's existing parent category wh
 Every category proposal starts `reviewed:false`. `targetUserId` and `openingStock` start null, ownership/stock/completeness approvals false. The actual preparation command refuses this unfinished draft. Do not copy source stock, reuse synthetic test accounts or match owners by similar business names. Establish verified target ownership and actual opening stock through the approved workflow. The draft file is mode0600, never overwrites an existing file, and console output includes counts/digest only.
 
 Review-draft follow-up:539 unit/action tests, typecheck and lint passed; independent review found no blocker. This pure offline helper does not change importer/database/UI behavior. Prior188 PostgreSQL integration tests remain prior evidence, not a newly rerun database suite.
+
+Synthetic fallback validation:539 unit/action tests,188 PostgreSQL17.11 integration tests,55-file migration replay,18-table backup/restore comparison, typecheck and lint passed. Full optimized fixture build and all seven selected browser workflows above passed, including buyer/seller/admin operations and chat-to-order. Mobile screenshot inspected with the explicit DEMO notice and no horizontal overflow. Independent review found no blocker. These are local JS/pg adapter/font/provider-fixture results; no claim of latest native hosted or provider acceptance. No original export rows, external messages or live data writes.

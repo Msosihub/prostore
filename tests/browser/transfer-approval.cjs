@@ -13,7 +13,9 @@ const {prisma}=require(state.stage+'/tests/integration/database.cjs');
   await page.locator('textarea[name="reason"]').fill('Synthetic transferred seller identity reviewed');await page.getByRole('button',{name:'Record review',exact:true}).click();
   for(let i=0;i<60;i++){const row=await prisma.sellerRegistration.findUnique({where:{supplierId:state.fixture.supplier}});if(row.state==='APPROVED')break;if(i===59)throw Error('Approval not persisted');await new Promise(r=>setTimeout(r,250));}
   assert.equal((await prisma.sellerNotice.findFirst()).state,'SUPPRESSED');
-  await page.goto(state.baseUrl+'/company/'+state.fixture.supplier+'/home');await page.getByRole('heading',{name:'Test Supplier',exact:true}).waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:state.stage+'/transferred-shop-mobile.png',fullPage:true});
+  await page.goto(state.baseUrl+'/company/'+state.fixture.supplier+'/home');await page.getByRole('heading',{name:'Test Supplier',exact:true}).waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.getByRole('complementary',{name:'Synthetic demo notice'}).waitFor();await page.screenshot({path:state.stage+'/transferred-shop-mobile.png',fullPage:true});
+  await page.goto(state.baseUrl+'/');await page.getByRole('complementary',{name:'Synthetic demo notice'}).waitFor();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:state.stage+'/synthetic-home-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:state.stage+'/synthetic-home-desktop.png',fullPage:true});
   console.log('PASS transferred shop hidden before review; admin UI approval; original shop URL visible; notifications suppressed');
  }finally{await context.close();await browser.close();await prisma.$disconnect();}
 })().catch(e=>{console.error(e.message);process.exitCode=1});

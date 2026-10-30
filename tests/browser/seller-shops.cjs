@@ -81,7 +81,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await page
       .getByRole("button", { name: "Submit seller application" })
       .click();
-    await page.getByText("PENDING", { exact: true }).waitFor();
+    await page.getByRole("region", { name: "Seller application", exact: true }).filter({ visible: true }).getByText("PENDING", { exact: true }).waitFor();
     const owner = await prisma.user.findUnique({ where: { phone } });
     const shop = await prisma.supplier.findUnique({
       where: { userId: owner.id },
@@ -92,7 +92,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       1,
     );
     await page.reload();
-    await page.getByText("PENDING", { exact: true }).waitFor();
+    await page.getByRole("region", { name: "Seller application", exact: true }).filter({ visible: true }).getByText("PENDING", { exact: true }).waitFor();
     assert.equal(
       await prisma.sellerNotice.count({
         where: { registration: { supplierId: shop.id } },
@@ -151,7 +151,7 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       true,
     );
     await page.goto(state.baseUrl + "/sell");
-    await page.getByText("APPROVED", { exact: true }).waitFor();
+    await page.getByRole("region", { name: "Seller application", exact: true }).filter({ visible: true }).getByText("APPROVED", { exact: true }).waitFor();
     await page.getByRole("link", { name: "View public shop" }).click();
     await page.waitForURL("**/shops/demo-household-studio");
     await page
@@ -222,18 +222,22 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       state.baseUrl + "/admin/seller-applications?state=APPROVED",
     );
     await admin.p
-      .locator("#admin-content")
+      .locator("#admin-content").filter({ visible: true })
       .screenshot({
         path: state.stage + "/seller-application-admin-mobile.png",
       });
-    await admin.p
-      .getByLabel("Decision", { exact: true })
-      .selectOption("REJECTED");
-    await admin.p
-      .getByLabel("Reason shared with applicant")
-      .fill("Synthetic revocation test.");
-    await admin.p.getByRole("button", { name: "Record review" }).click();
-    await admin.p.getByText("No applications in this view.").waitFor();
+    const reviewedCard = admin.p.getByRole("article").filter({
+      has: admin.p.getByRole("heading", { name: "Demo Household Studio", exact: true }),
+    }).filter({ visible: true });
+    await reviewedCard.getByLabel("Decision", { exact: true }).selectOption("REJECTED");
+    await reviewedCard.getByLabel("Reason shared with applicant").fill("Synthetic revocation test.");
+    await reviewedCard.getByRole("button", { name: "Record review" }).click();
+    await reviewedCard.waitFor({ state: "hidden" });
+    assert.equal((await prisma.sellerRegistration.findUnique({where:{supplierId:shop.id}})).state,"REJECTED");
+    if (state.fixture.transferred) {
+      assert.equal((await prisma.sellerRegistration.findUnique({where:{supplierId:state.fixture.supplier}})).state,"APPROVED");
+      assert.equal((await prisma.supplier.findUnique({where:{id:state.fixture.supplier}})).isVerified,true);
+    }
     {
       const response = await visitor.request.get(
         state.baseUrl + "/shops/demo-household-studio",

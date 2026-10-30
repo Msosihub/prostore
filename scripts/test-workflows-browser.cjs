@@ -205,6 +205,14 @@ const freePort = () =>
     if (process.env.PROSTORE_BROWSER_SUPPLIER_TRANSFER === "1")
       await run(path.join(root, "tests/browser/transfer-seed.cjs"), driverEnv);
     // This delayed route exists only inside the disposable QA copy, never in the app source.
+    // Visible on every route in this disposable copy. Never shipped to production.
+    const layoutFile = path.join(stage, "app/layout.tsx");
+    const layoutSource = fs.readFileSync(layoutFile, "utf8");
+    if (!layoutSource.includes("<OperationalBookNotice />")) throw Error("Demo notice anchor missing");
+    fs.writeFileSync(layoutFile, layoutSource.replace("<OperationalBookNotice />", `<OperationalBookNotice />
+      <aside aria-label="Synthetic demo notice" className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <strong>DEMO / MAJARIBIO.</strong> Synthetic sellers and products. Stock is simulated, not verified inventory. Payments and SMS are simulated. No real purchase or message is sent.
+      </aside>`));
     const loadingRoute = path.join(stage, "app/qa-loading");
     fs.mkdirSync(loadingRoute, { recursive: true });
     fs.writeFileSync(path.join(loadingRoute, "page.tsx"), `import { Suspense } from "react";
