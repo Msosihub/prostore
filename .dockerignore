@@ -1,0 +1,9 @@
+# Never upload historical key artifacts, local secrets or rehearsal fixtures.
+abc
+abc.pub
+.env*
+.git
+node_modules
+.next
+tests
+scripts/hosted-*

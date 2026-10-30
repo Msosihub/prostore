@@ -14,12 +14,10 @@ beforeEach(() => {
   process.env.PESAPAL_BASE_URL = "https://example.test/api";
   process.env.PESAPAL_CONSUMER_KEY = "test-only";
   process.env.PESAPAL_CONSUMER_SECRET = "test-only";
-  global.fetch = jest
-    .fn()
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ token: "test-token" }),
-    });
+  global.fetch = jest.fn().mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ token: "test-token" }),
+  });
 });
 afterEach(() => {
   delete process.env.PESAPAL_BASE_URL;
@@ -31,11 +29,13 @@ test("uses documented tracking query and verified status envelope", async () => 
   expect((await getPesapalStatus(id)).payment_status_description).toBe(
     "COMPLETED",
   );
+  expect(fetch.mock.calls[0][1].redirect).toBe("error");
   expect(fetch.mock.calls[1][0]).toBe(
     `https://example.test/api/Transactions/GetTransactionStatus?orderTrackingId=${id}`,
   );
   expect(fetch.mock.calls[1][1]).toMatchObject({
     cache: "no-store",
+    redirect: "error",
     headers: { Authorization: "Bearer test-token" },
   });
 });
