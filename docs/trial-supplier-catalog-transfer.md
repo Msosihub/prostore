@@ -17,7 +17,7 @@ Carry forward suppliers, products and their catalog dependencies only. No buyer 
 
 ### Compatibility and scope limits
 
-Legacy shop usernames outside the current lowercase slug format are refused for explicit review, not silently renamed. Supplier UUID URLs are preserved. Public copy containing contact details or unsupported media URLs also requires a reviewed correction. This prevents accidental private-contact publication; it does not sanitize the historical source. Media existence/rights and account ownership require actual evidence, not a checkbox. No live accounts, persistent credentials or new cloud resources were created. No production importer is enabled.
+Safe legacy usernames containing ASCII letters, numbers, underscores or hyphens (up to100 characters) are preserved exactly. Those outside the current lowercase new-shop slug format keep the existing supplier-UUID URL fallback; they are not silently renamed. Unsupported usernames still require explicit review. Public copy containing contact details or unsupported media URLs also requires a reviewed correction. This prevents accidental private-contact publication; it does not sanitize the historical source. Media existence/rights and account ownership require actual evidence, not a checkbox. No live accounts, persistent credentials or new cloud resources were created. No production importer is enabled.
 
 ## Access inspected in this tranche
 
@@ -41,3 +41,11 @@ PROSTORE_TEST_PG_MAJOR=17 PROSTORE_BROWSER_SUPPLIER_TRANSFER=1 PROSTORE_BROWSER_
 ```
 
 The first browser attempt exposed missing ProductVariant/Quote fixture tables, now included in that fixture only. A subsequent attempt correctly hit OTP resend protection when admin approval reused the buyer phone; the test now uses a separate synthetic admin, preserving the application rate limit. Final run passed and disposable services/database were removed.
+
+## SQL Editor export format and category review
+
+The preparation command accepts either the direct snapshot object or exactly one SQL Editor result row: `[{"supplier_catalog_snapshot":"<JSON snapshot text>"}]` (an object-valued cell is also accepted). Extra result columns, multiple rows, malformed JSON and incomplete snapshots are refused. All representations produce the same reviewed snapshot digest. A successful Library read is useful for private inspection but does not establish a byte-verified local materialization; do not claim an actual import from an unreadable local file.
+
+If a product category disagrees with its subcategory's parent, preparation refuses it. Resolve through optional `categoryCorrections` in the review: an array of `{productId, categoryId, subcategoryId, reviewed:true}`. Each product may appear once, must exist in the exact digest-bound snapshot, and the resulting category/subcategory must satisfy the canonical hierarchy. Other fields, product IDs and slugs remain unchanged. This creates a reviewed target proposal only; it never mutates the source or invents a category. No corrections are inferred automatically or marked reviewed by the tool.
+
+Envelope/compatibility follow-up validation:530 unit/action tests and188 PostgreSQL17 integration tests passed, including the wrapped export path and unchanged legacy shop-ID routing. Migrated SQL chain and synthetic backup/restore passed; typecheck/lint passed with existing warnings. No application UI or provider logic changed, so the prior full transferred-catalog browser evidence remains prior evidence rather than a newly rerun browser result. Malformed wrapper test parameterization found during independent review was fixed before final pass. No actual owner snapshot was copied into this repository or imported.

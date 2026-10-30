@@ -4014,13 +4014,14 @@ async function supplierTransferFixture(){
  expect(await prisma.order.findUnique({where:{id:f.order.id}})).toEqual(before);
  const encoded=JSON.stringify(snapshot);expect(encoded).not.toContain('buyer@example.test');expect(encoded).not.toContain('supplier@example.test');expect(encoded).not.toContain('+255700000000');expect(encoded).not.toContain(f.order.id);
  const review={version:1,snapshotDigest:supplierSnapshotDigest(snapshot),priorTransactionsAreTrials:true,preserveSourceDatabase:true,completenessReviewed:true,accounts:[{sourceUserId:f.user.id,targetUserId:f.user.id,ownershipReviewed:true}],stock:[{kind:'product',id:f.product.id,openingStock:7,stockReviewed:true}]};
- const result=prepareSupplierCatalogTransfer(snapshot,review);
+ const result=prepareSupplierCatalogTransfer([{supplier_catalog_snapshot:JSON.stringify(snapshot)}],review);
  // Reset only this disposable fixture to model an empty target. Real source is never touched by importer.
  await emptySyntheticCatalog(f);await prisma.supplier.delete({where:{id:f.supplier.id}});
  return {f,input:result.input};
 }
 test('supplier/catalog export and atomic transfer preserve URLs; approval then new settlement works',async()=>{
  const {f,input}=await supplierTransferFixture();
+ input.suppliers[0].username='Legacy_Shop';
  const beforeUser=await prisma.user.findUnique({where:{id:f.user.id}});
  const r=await rehearseSupplierCatalogTransfer(input);expect(r.pendingSuppliers).toBe(1);
  const supplier=await prisma.supplier.findUnique({where:{id:f.supplier.id},include:{registration:true}});
@@ -4031,7 +4032,7 @@ test('supplier/catalog export and atomic transfer preserve URLs; approval then n
  const admin=await prisma.user.create({data:{name:'Synthetic transfer admin',role:'ADMIN'}});
  auth.mockResolvedValue({user:{id:admin.id}});
  await reviewSellerApplication({id:supplier.registration.id,version:1,decision:'APPROVED',reason:'Synthetic transfer identity reviewed'});
- expect(await getPublicShop(f.supplier.id,true)).not.toBeNull();expect((await shopCatalog(f.supplier.id,{})).count).toBe(1);
+ expect((await getPublicShop(f.supplier.id,true)).path).toBe(`/company/${f.supplier.id}/home`);expect((await shopCatalog(f.supplier.id,{})).count).toBe(1);
  expect((await prisma.sellerNotice.findFirst()).state).toBe('SUPPRESSED');expect(sendSms).not.toHaveBeenCalled();
  const product=await prisma.product.findUnique({where:{id:f.product.id}});expect(product.slug).toBe(f.product.slug);expect(product.stock).toBe(7);
  const buyerUser=await prisma.user.create({data:{name:'Synthetic new buyer',role:'BUYER'}});
