@@ -45,8 +45,8 @@ const supplierNavigationRoutes = [
     icon: MessageSquare,
   },
   {
-    title: "Maombi ya Bei (Inquiries)",
-    href: "/supplier/inquires",
+    title: "Mapendekezo na ujumbe",
+    href: "/supplier/marketplace-chat",
     icon: HelpCircle,
   },
   {

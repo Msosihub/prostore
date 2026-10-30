@@ -158,13 +158,28 @@ export async function startThread(productId: string) {
     return result;
   });
 }
-export async function listThreads(side: "buyer" | "seller", before?: string) {
+export async function listThreads(
+  side: "buyer" | "seller",
+  before?: string,
+  filters: { query?: string; unread?: boolean } = {},
+) {
   const user = await actor();
   z.enum(["buyer", "seller"]).parse(side);
   if (side === "seller" && user.role !== "SUPPLIER")
     return fail("Huna ruhusa ya muuzaji.");
   const where: Prisma.MarketThreadWhereInput =
     side === "buyer" ? { buyerId: user.id } : { supplier: { userId: user.id } };
+  const filter = z
+    .object({
+      query: z.string().trim().max(80).optional(),
+      unread: z.boolean().optional(),
+    })
+    .strict()
+    .parse(filters);
+  if (filter.query)
+    where.product = { name: { contains: filter.query, mode: "insensitive" } };
+  if (filter.unread)
+    where.messages = { some: { seen: false, senderId: { not: user.id } } };
   if (before) {
     const cursor = await prisma.marketThread.findFirst({
       where: { id: uuid.parse(before), ...where },

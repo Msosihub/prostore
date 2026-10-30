@@ -239,6 +239,17 @@ async function until(check) {
     const nav = bp.getByRole("navigation", { name: "Mazungumzo" });
     await nav.getByRole("button", { name: /Market Second Product/ }).waitFor();
     await nav.getByRole("button", { name: /Test Item/ }).waitFor();
+    await bp.getByLabel("Tafuta mazungumzo kwa bidhaa").fill("Market Second");
+    await nav.getByRole("button", { name: "Tafuta", exact: true }).click();
+    await bp.waitForTimeout(6000);
+    assert.equal(
+      await nav.getByRole("button", { name: /Test Item/ }).count(),
+      0,
+    );
+    await nav.getByRole("button", { name: /Market Second Product/ }).waitFor();
+    await bp.getByLabel("Tafuta mazungumzo kwa bidhaa").fill("");
+    await nav.getByRole("button", { name: "Tafuta", exact: true }).click();
+    await nav.getByRole("button", { name: /Test Item/ }).waitFor();
     const second = await prisma.marketThread.findFirst({
       where: { buyerId: state.fixture.buyer, productId: productB.id },
     });
@@ -405,7 +416,7 @@ async function until(check) {
     assert.equal(
       await sp
         .getByRole("navigation", { name: "Mazungumzo" })
-        .getByRole("button")
+        .getByRole("button", {name: /Test Item/})
         .count(),
       32,
     );

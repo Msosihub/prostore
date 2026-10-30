@@ -1,31 +1,31 @@
 import { POST } from "@/app/api/chat/webhook-receiver/route";
-const request = (token) =>
-  new Request("http://localhost", {
-    method: "POST",
-    headers: token === undefined ? {} : { "x-nimboya-internal-key": token },
-    body: JSON.stringify({
-      receiverId: "synthetic-user",
-      message: { content: "fixture" },
-    }),
-  });
+import { GET } from "@/app/api/chat/stream/route";
 afterEach(() => {
-  delete process.env.INTERNAL_SHARED_SECRET;
   delete global.chatEventEmitter;
+  delete process.env.INTERNAL_SHARED_SECRET;
 });
-test.each([undefined, ""])(
-  "missing or empty internal secret %p fails closed even with empty header",
-  async (secret) => {
-    if (secret === undefined) delete process.env.INTERNAL_SHARED_SECRET;
-    else process.env.INTERNAL_SHARED_SECRET = secret;
-    global.chatEventEmitter = { emit: jest.fn() };
-    expect((await POST(request(""))).status).toBe(403);
+test.each([undefined, "", "wrong", "synthetic-only"])(
+  "retired webhook never accepts or relays key %p",
+  async (key) => {
+    process.env.INTERNAL_SHARED_SECRET = "synthetic-only";
+    global.chatEventEmitter = { emit: jest.fn(), on: jest.fn() };
+    const r = await POST(
+      new Request("http://localhost", {
+        method: "POST",
+        headers: key ? { "x-nimboya-internal-key": key } : {},
+        body: "not JSON",
+      }),
+    );
+    expect(r.status).toBe(410);
+    expect(await r.json()).toEqual({
+      error: "Legacy chat relay retired",
+      code: "LEGACY_CHAT_RETIRED",
+    });
     expect(global.chatEventEmitter.emit).not.toHaveBeenCalled();
   },
 );
-test("valid configured internal key preserves existing event relay", async () => {
-  process.env.INTERNAL_SHARED_SECRET = "synthetic-only";
-  global.chatEventEmitter = { emit: jest.fn() };
-  expect((await POST(request("wrong"))).status).toBe(403);
-  expect((await POST(request("synthetic-only"))).status).toBe(200);
-  expect(global.chatEventEmitter.emit).toHaveBeenCalledTimes(1);
+test("retired stream does not establish a listener", async () => {
+  global.chatEventEmitter = { on: jest.fn() };
+  expect((await GET()).status).toBe(410);
+  expect(global.chatEventEmitter.on).not.toHaveBeenCalled();
 });

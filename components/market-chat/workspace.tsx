@@ -38,6 +38,10 @@ export default function MarketWorkspace({
   initialId?: string;
 }) {
   const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState<{ query?: string; unread?: boolean }>(
+    {},
+  );
   const [rows, setRows] = useState<Row[]>([]),
     [more, setMore] = useState(false),
     [id, setId] = useState(initialId || ""),
@@ -61,80 +65,91 @@ export default function MarketWorkspace({
   const pagedList = useRef(false);
   const listCursor = useRef<string | undefined>(undefined);
   const listRows = useRef<Row[]>([]);
+  const activeFilters = useRef(filters);
+  activeFilters.current = filters;
   const active = useRef(id);
   active.current = id;
+  const refreshInFlight = useRef(false);
   const refresh = useCallback(async () => {
-    const list = await listMarketThreads(side);
-    if (list.ok) {
-      const previous = listRows.current;
-      const gap =
-        previous.length > 0 &&
-        list.data.hasMore &&
-        !list.data.items.some((r) => previous.some((p) => p.id === r.id));
-      if (gap) pagedList.current = false;
-      listRows.current = gap
-        ? list.data.items
-        : [
-            ...list.data.items,
-            ...previous.filter(
-              (r) => !list.data.items.some((n) => n.id === r.id),
-            ),
-          ];
-      setRows(listRows.current);
-      if (!pagedList.current) {
-        listCursor.current = list.data.items.at(-1)?.id;
-        setMore(list.data.hasMore);
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    try {
+      const list = await listMarketThreads(side, undefined, filters);
+      if (activeFilters.current !== filters) return;
+      if (list.ok) {
+        const previous = filters.unread ? [] : listRows.current;
+        if (filters.unread) pagedList.current = false;
+        const gap =
+          previous.length > 0 &&
+          list.data.hasMore &&
+          !list.data.items.some((r) => previous.some((p) => p.id === r.id));
+        if (gap) pagedList.current = false;
+        listRows.current = gap
+          ? list.data.items
+          : [
+              ...list.data.items,
+              ...previous.filter(
+                (r) => !list.data.items.some((n) => n.id === r.id),
+              ),
+            ];
+        setRows(listRows.current);
+        if (!pagedList.current) {
+          listCursor.current = list.data.items.at(-1)?.id;
+          setMore(!filters.unread && list.data.hasMore);
+        }
+      } else setError(list.error);
+      if (!id) return;
+      const result = await loadMarketThread(id);
+      if (active.current !== id || activeFilters.current !== filters) return;
+      if (!result.ok) {
+        setError(result.error);
+        setDetail(null);
+        return;
       }
-    } else setError(list.error);
-    if (!id) return;
-    const result = await loadMarketThread(id);
-    if (active.current !== id) return;
-    if (!result.ok) {
-      setError(result.error);
-      setDetail(null);
-      return;
-    }
-    setDetail((old) => {
-      // A reconnect can skip more than one page. Reset to the latest page so
-      // the older cursor can recover the entire gap rather than merge holes.
-      if (
-        old?.thread.id === id &&
-        old.messages.length &&
-        result.data.hasOlder &&
-        !result.data.messages.some((m) =>
-          old.messages.some((n) => n.id === m.id),
+      setDetail((old) => {
+        // A reconnect can skip more than one page. Reset to the latest page so
+        // the older cursor can recover the entire gap rather than merge holes.
+        if (
+          old?.thread.id === id &&
+          old.messages.length &&
+          result.data.hasOlder &&
+          !result.data.messages.some((m) =>
+            old.messages.some((n) => n.id === m.id),
+          )
         )
-      )
-        return result.data;
-      const messages = new Map(
-        (old?.thread.id === id ? old.messages : []).map((m) => [m.id, m]),
-      );
-      result.data.messages.forEach((m) => messages.set(m.id, m));
-      const keepOldest =
-        old?.thread.id === id &&
-        old.messages.length > 0 &&
-        result.data.messages.length > 0 &&
-        (new Date(old.messages[0].createdAt).getTime() <
-          new Date(result.data.messages[0].createdAt).getTime() ||
-          old.messages[0].id === result.data.messages[0].id);
-      return {
-        ...result.data,
-        hasOlder: keepOldest ? old!.hasOlder : result.data.hasOlder,
-        messages: [...messages.values()].sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() ||
-            a.id.localeCompare(b.id),
-        ),
-      };
-    });
-    if (document.visibilityState === "visible")
-      await markMarketSeen({
-        threadId: id,
-        ids: result.data.messages
-          .filter((m) => m.senderId !== result.data.viewerId)
-          .map((m) => m.id),
+          return result.data;
+        const messages = new Map(
+          (old?.thread.id === id ? old.messages : []).map((m) => [m.id, m]),
+        );
+        result.data.messages.forEach((m) => messages.set(m.id, m));
+        const keepOldest =
+          old?.thread.id === id &&
+          old.messages.length > 0 &&
+          result.data.messages.length > 0 &&
+          (new Date(old.messages[0].createdAt).getTime() <
+            new Date(result.data.messages[0].createdAt).getTime() ||
+            old.messages[0].id === result.data.messages[0].id);
+        return {
+          ...result.data,
+          hasOlder: keepOldest ? old!.hasOlder : result.data.hasOlder,
+          messages: [...messages.values()].sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime() || a.id.localeCompare(b.id),
+          ),
+        };
       });
-  }, [side, id]);
+      if (document.visibilityState === "visible")
+        await markMarketSeen({
+          threadId: id,
+          ids: result.data.messages
+            .filter((m) => m.senderId !== result.data.viewerId)
+            .map((m) => m.id),
+        });
+    } finally {
+      refreshInFlight.current = false;
+    }
+  }, [side, id, filters]);
   useEffect(() => {
     let live = true;
     const run = () => {
@@ -300,10 +315,7 @@ export default function MarketWorkspace({
             : "Ongea na muuzaji, hakiki pendekezo, kisha agiza"}
           . Ujumbe hukaguliwa kila sekunde 5 ukiwa kwenye ukurasa.
         </p>
-        <Link
-          className="text-sm underline"
-          href="/chat-history"
-        >
+        <Link className="text-sm underline" href="/chat-history">
           Historia ya mazungumzo (kusoma tu)
         </Link>
         <p className="text-xs text-slate-500">
@@ -331,9 +343,54 @@ export default function MarketWorkspace({
           aria-label="Mazungumzo"
           className="rounded-xl border bg-white p-3 space-y-2"
         >
+          <form
+            className="space-y-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              pagedList.current = false;
+              listCursor.current = undefined;
+              listRows.current = [];
+              setRows([]);
+              setMore(false);
+              setFilters({ ...filters, query: query.trim() });
+            }}
+          >
+            <label className="block text-sm">
+              Tafuta mazungumzo kwa bidhaa
+              <input
+                className="mt-1 w-full rounded border p-2"
+                maxLength={80}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!!filters.unread}
+                onChange={(e) => {
+                  pagedList.current = false;
+                  listCursor.current = undefined;
+                  listRows.current = [];
+                  setRows([]);
+                  setMore(false);
+                  setFilters({ ...filters, unread: e.target.checked });
+                }}
+              />
+              Yasiyosomwa (30 ya karibuni)
+            </label>
+            <button className={button} type="submit">
+              Tafuta
+            </button>
+          </form>
+          <p className="text-xs text-slate-600">
+            Taarifa za ujumbe mpya zinaonekana hapa ukiwa mtandaoni. Hakuna SMS
+            au arifa ya simu inayotumwa.
+          </p>
           {rows.length === 0 && (
             <p className="text-sm text-slate-600">
-              Hakuna mazungumzo bado. Anza kwenye ukurasa wa bidhaa.
+              Hakuna mazungumzo yanayolingana. Ondoa kichujio au anza kwenye
+              ukurasa wa bidhaa.
             </p>
           )}
           {rows.map((row) => (
@@ -366,7 +423,9 @@ export default function MarketWorkspace({
                   const result = await listMarketThreads(
                     side,
                     listCursor.current,
+                    filters,
                   );
+                  if (activeFilters.current !== filters) return;
                   if (!result.ok) {
                     setError(result.error);
                     return;
