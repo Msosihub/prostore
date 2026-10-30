@@ -115,6 +115,7 @@ const freePort = () =>
       AUTH_TRUST_HOST: "true",
       AUTH_URL: baseUrl,
       NEXT_PUBLIC_SERVER_URL: baseUrl,
+      NEXT_PUBLIC_CATALOG_RELAUNCH: process.env.PROSTORE_BROWSER_NEW_BOOK_NOTICE === "1" ? "true" : "false",
       ZENOPAY_API_KEY: "fixture-only",
       AT_API_KEY: "fixture-only",
     };
@@ -259,6 +260,7 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       "catalog-otp",
       "seller-shops",
       "legacy-review",
+      "launch-notice",
     ];
     const selected = process.env.PROSTORE_BROWSER_SCENARIOS?.split(",") ?? scenarios;
     if (selected.some(name => !scenarios.includes(name))) throw Error("Unknown browser scenario");

@@ -1,3 +1,4 @@
+import OperationalBookNotice from "@/components/operational-book-notice";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
@@ -54,6 +55,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SessionProvider>
+            <OperationalBookNotice />
             {/* Unified full-bleed wrapper system layer handling layouts natively */}
             <div className="flex-1 flex flex-col w-full">{children}</div>
             <MarketplaceFooter />
