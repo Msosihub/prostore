@@ -335,7 +335,8 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
       .getByRole("heading", { name: "Payment recovery", exact: true })
       .waitFor();
     await admin.p.getByText("Page 1 of 1", { exact: false }).waitFor();
-    await admin.p.locator('a[href^="/admin/payments/"]').first().click();
+    const selectedAttempt = await prisma.paymentAttempt.findUniqueOrThrow({ where: { orderId: order.id } });
+    await admin.p.locator(`a[href="/admin/payments/${selectedAttempt.id}"]`).click();
     await admin.p
       .getByRole("heading", { name: "Payment attempt", exact: true })
       .waitFor();

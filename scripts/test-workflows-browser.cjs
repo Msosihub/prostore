@@ -57,7 +57,7 @@ const freePort = () =>
       "POSTGRES_PASSWORD=local-test-only",
       "-e",
       "POSTGRES_DB=prostore_payment_test",
-      "postgres:16-alpine",
+      require("./postgres-test-image.cjs")(),
     ]);
     started = true;
     const binding = docker(["port", name, "5432/tcp"]);
@@ -258,6 +258,7 @@ export default function Page() { return <Suspense fallback={<ShoppingLoading/>}>
       "market-chat",
       "catalog-otp",
       "seller-shops",
+      "legacy-review",
     ])
       await run(path.join(root, "tests/browser", test + ".cjs"), driverEnv);
     console.log("PASS all disposable browser workflow assertions");
