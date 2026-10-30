@@ -364,10 +364,17 @@ const { prisma } = require(state.stage + "/tests/integration/database.cjs");
     await admin.p.getByRole("link", { name: "Orders", exact: true }).click();
     await admin.p.getByLabel("Product name or full order ID").filter({ visible: true }).fill(order.id);
     await admin.p.getByLabel("Payment / fulfillment").filter({ visible: true }).selectOption("paid");
-    await admin.p.getByRole("button", { name: "Apply filters" }).click();
+    await Promise.all([
+      admin.p.waitForURL(u => u.pathname === "/admin/orders" && u.searchParams.get("q") === order.id && u.searchParams.get("status") === "paid", {waitUntil:"domcontentloaded"}),
+      admin.p.getByRole("button", { name: "Apply filters" }).click(),
+    ]);
     await admin.p.getByRole("link", { name: "Order #" + order.id.slice(0, 8), exact: true }).filter({ visible: true }).waitFor();
     await admin.p.getByLabel("Product name or full order ID").filter({ visible: true }).fill("missing-admin-synthetic");
-    await admin.p.getByRole("button", { name: "Apply filters" }).click();
+    assert.equal(await admin.p.getByLabel("Product name or full order ID").filter({visible:true}).inputValue(),"missing-admin-synthetic");
+    await Promise.all([
+      admin.p.waitForURL(u => u.pathname === "/admin/orders" && u.searchParams.get("q") === "missing-admin-synthetic", {waitUntil:"domcontentloaded"}),
+      admin.p.getByRole("button", { name: "Apply filters" }).click(),
+    ]);
     await admin.p.getByRole("status").getByText("No orders match these filters.").filter({ visible: true }).waitFor();
     await admin.p.getByRole("link", { name: "Disputes", exact: true }).click();
     await admin.p.getByRole("heading", { name: "Disputes and returns" }).filter({ visible: true }).waitFor();
