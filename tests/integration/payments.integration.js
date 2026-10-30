@@ -3957,9 +3957,55 @@ test('pending seller registration cannot receive imported products',async()=>{
  await expect(rehearseCatalogLaunch(manifest)).resolves.toMatchObject({products:1});
 });
 
+import { retainUnmatchedNotice, unmatchedPaymentNotices } from "@/lib/unmatched-payment-notice";
+
+test("unmatched authenticated callbacks persist once per status concurrently without financial mutations", async () => {
+ const {POST}=require("@/app/api/zenopay/webhook/route");
+ const previous=process.env.ZENOPAY_API_KEY;process.env.ZENOPAY_API_KEY="synthetic-key";
+ try {
+  const responses=await Promise.all(Array.from({length:8},()=>POST(new Request("https://example.test",{method:"POST",headers:{"x-api-key":"synthetic-key"},body:JSON.stringify({order_id:"legacy_reference",payment_status:"COMPLETED",phone:"private"})}))));
+  expect(responses.every(r=>r.status===503)).toBe(true);
+  const rows=await prisma.$queryRaw`SELECT * FROM "UnmatchedPaymentNotice"`;
+  expect(rows).toHaveLength(1);expect(rows[0].occurrences).toBe(8);
+  expect(JSON.stringify(rows)).not.toContain("private");
+  expect(await prisma.order.count()).toBe(0);expect(await prisma.supplierLedger.count()).toBe(0);
+  expect(getZenopayStatus).not.toHaveBeenCalled();
+  await retainUnmatchedNotice("legacy_reference","PENDING");
+  expect((await prisma.$queryRaw`SELECT * FROM "UnmatchedPaymentNotice"`)).toHaveLength(2);
+ } finally {if(previous===undefined)delete process.env.ZENOPAY_API_KEY;else process.env.ZENOPAY_API_KEY=previous;}
+});
+test("unmatched retry cannot move observation timestamp backwards",async()=>{
+ await retainUnmatchedNotice("legacy_time","PENDING");
+ await prisma.$executeRaw`UPDATE "UnmatchedPaymentNotice" SET "lastSeenAt" = '2099-01-01'::timestamp WHERE "attemptReference" = 'legacy_time'`;
+ await retainUnmatchedNotice("legacy_time","PENDING");
+ const rows=await prisma.$queryRaw`SELECT "lastSeenAt", "occurrences" FROM "UnmatchedPaymentNotice"`;
+ expect(rows[0].lastSeenAt.toISOString()).toBe("2099-01-01T00:00:00.000Z");expect(rows[0].occurrences).toBe(2);
+});
+test("unmatched queue checks current database role and preserves evidence after revocation",async()=>{
+ const f=await fixture();await retainUnmatchedNotice("legacy_reference","COMPLETED");
+ auth.mockResolvedValue(null);await expect(unmatchedPaymentNotices("1")).rejects.toThrow("Unauthorized");
+ auth.mockResolvedValue({user:{id:f.user.id,role:"ADMIN"}});
+ await expect(unmatchedPaymentNotices("1")).rejects.toThrow("Unauthorized");
+ await prisma.user.update({where:{id:f.user.id},data:{role:"ADMIN"}});
+ expect((await unmatchedPaymentNotices("1")).items).toHaveLength(1);
+ await prisma.user.update({where:{id:f.user.id},data:{role:"SUPPLIER"}});
+ await expect(unmatchedPaymentNotices("1")).rejects.toThrow("Unauthorized");
+ expect((await prisma.$queryRaw`SELECT * FROM "UnmatchedPaymentNotice"`)).toHaveLength(1);
+});
+test("unmatched storage failure never acknowledges processed",async()=>{
+ const {POST}=require("@/app/api/zenopay/webhook/route");
+ const previous=process.env.ZENOPAY_API_KEY;process.env.ZENOPAY_API_KEY="synthetic-key";
+ await prisma.$executeRawUnsafe('ALTER TABLE "UnmatchedPaymentNotice" ADD CONSTRAINT synthetic_notice_failure CHECK ("occurrences" < 0)');
+ try {
+  const response=await POST(new Request("https://example.test",{method:"POST",headers:{"x-api-key":"synthetic-key"},body:JSON.stringify({order_id:"legacy_reference"})}));
+  expect(response.status).toBe(503);expect((await prisma.$queryRaw`SELECT * FROM "UnmatchedPaymentNotice"`)).toHaveLength(0);
+ }finally{await prisma.$executeRawUnsafe('ALTER TABLE "UnmatchedPaymentNotice" DROP CONSTRAINT synthetic_notice_failure');if(previous===undefined)delete process.env.ZENOPAY_API_KEY;else process.env.ZENOPAY_API_KEY=previous;}
+});
+
 if (process.env.PROSTORE_BACKUP_FIXTURE === "1")
   test("prepare synthetic recovery fixture for independent pg_dump/restore", async () => {
     const data = await fixture();
+    await retainUnmatchedNotice("synthetic_legacy_restore", "COMPLETED");
     getZenopayStatus.mockResolvedValue(confirmed(data.order));
     await reconcileZenopay(data.order.id, attempt(data.order));
     await confirmDelivery(data.order.id, data.product.id, buyer(data), {

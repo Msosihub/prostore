@@ -253,6 +253,10 @@ async function prepare() {
   );
   for (const statement of quantityMigration.split(";"))
     if (statement.trim()) await prisma.$executeRawUnsafe(statement);
+  const noticeMigration = fs.readFileSync(path.join(__dirname,
+    "../../prisma/migrations/20261030090000_unmatched_payment_notice/migration.sql"), "utf8");
+  for (const statement of noticeMigration.split(";"))
+    if (statement.trim()) await prisma.$executeRawUnsafe(statement);
   const otpMigration = fs.readFileSync(
     path.join(
       __dirname,
@@ -265,7 +269,7 @@ async function prepare() {
 }
 async function reset() {
   await prisma.$executeRawUnsafe(
-    `TRUNCATE "MoneyReviewEvent", "MoneyReviewCase", "OrderNotificationEvent", "OrderNotification", "PaymentAttemptEvent", "PaymentAttempt", "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
+    `TRUNCATE "UnmatchedPaymentNotice", "MoneyReviewEvent", "MoneyReviewCase", "OrderNotificationEvent", "OrderNotification", "PaymentAttemptEvent", "PaymentAttempt", "OtpThrottle", ${models.map(quote).join(",")} CASCADE`,
   );
 }
 async function fixture({ stock = 5, qty = 2, paymentResult } = {}) {

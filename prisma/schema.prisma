@@ -2010,3 +2010,16 @@ model SellerNoticeEvent {
  notification SellerNotice @relation(fields: [notificationId], references: [id], onDelete: Cascade)
  @@index([notificationId, createdAt])
 }
+
+// Authenticated hint only, never proof of payment or authoritative book ownership.
+model UnmatchedPaymentNotice {
+  id               String   @id
+  provider         String
+  attemptReference String   @db.VarChar(150)
+  claimedStatus    String
+  firstSeenAt      DateTime @default(now())
+  lastSeenAt       DateTime @default(now())
+  occurrences      Int      @default(1)
+
+  @@index([lastSeenAt, id])
+}
